@@ -20,6 +20,30 @@ The regional scope includes Skyrim, Cyrodiil and Solstheim. Raven Rock and the G
 - Audience clapping has been observed during the Olaf festival and the corresponding applause assets were located. Repeatable start, timing and stop control still need a prototype; stomping remains unverified.
 - The [bard roster and biography audit](bard-roster-and-biography-audit.md) supplies the installed-profile baseline and candidate musicians. Static record eligibility is distinct from current save state.
 
+## Proposed architecture: Hold Music owns performances
+
+**Status: proposed direction, not implemented or enabled.** A complete performance controller is a plausible successor to the current request adapter. Hold Music would own repertoire selection, scheduling, its song library, conditional lyric composition, music generation and performance lifecycle. SkyrimNet would remain the source of character context and, where the supported integration permits, on-demand text generation. Its ordinary dialogue, biographies and memories remain useful independently of its bard manager.
+
+- Choose the performer, repertoire and actual arrangement, then check for an eligible cached recording before requesting new content. An instrumental or wordless-vocal piece needs no lyric-writing call. A repeat performance can reuse its recording; a new arrangement can reuse a suitable existing lyric. Generate new words for a requested/upcoming lyrical performance that needs a new composition or topic.
+- Build the lyric brief from knowledge available to that bard. The shipped lyric template uses identity, location, voice, memories, witnessed events, recent dialogue and previous song titles. A generic call to the template does not populate these values automatically.
+- Keep compositions and recordings distinct: title/lyrics/context provenance belong to a composition; performer, repertoire, instrument, vocal mode, arrangement and recipe/model version belong to its recording. Hold Music should own its metadata rather than extending SkyrimNet's live song table ad hoc.
+- Generate asynchronously ahead of playback where possible. A waiting or failed provider request must not leave an actor trapped in a performance pose. Prefer an eligible existing recording when one is available.
+- Coordinate audio, animation objects, start/stop, dialogue/combat interruptions, cell changes and cleanup. Preserve authored vanilla/mod quest scenes through explicit ownership rules. Existing animation assets may be reusable without starting complete scenes that also control their own audio.
+
+Static feasibility evidence: the installed beta26 DLL exports general memory/event/dialogue query and custom-prompt functions. The Papyrus custom-prompt callback documents a 750-character response cap; the native route is a candidate for full lyrics, with response-length and worker-thread handoff behavior still to verify. Exact equivalence to the built-in bard manager's witnessed-event and conversation selection is also unresolved.
+
+The bard enable switch is not an established lyrics-only mode: installed disabled-feature messages cover song-topic requests and compose/play-song commands. Prove the independent context/lyric route and one cached replacement performance with correct cleanup, then validate turning off SkyrimNet's bard feature. Its effects on existing playback, vanilla suppression and reload requirements remain unverified. No runtime configuration has been changed for this proposal.
+
+## Repertoire logic: first offline implementation
+
+The first decision engine is implemented in `hold_music/repertoire.py`, with synthetic quest-success and scandal examples. It plans from an explicit snapshot of a bard's knowledge, known compositions and compatible recordings. The live SkyrimNet knowledge bridge, persistent library, generation executor and playback controller are still pending. See [repertoire logic and runnable examples](repertoire-logic.md) for the contract and tuning defaults.
+
+- A successful quest, a scandalous affair circulating as gossip, and ordinary local news are all valid subjects. No heroic framing is required. Select from what the bard knows; hearing gossip does not mean learning a pre-existing song about it.
+- Keep direct knowledge and hearsay distinct. Wit, teasing and exaggerated imagery are appropriate artistic choices; repetition does not turn an allegation into a confirmed event. Preserve occurrence and knowledge-acquisition times instead of treating retrieval time as freshness.
+- Choose between a familiar recording, another recording of a known composition, or new lyrics for a suitable fresh subject. Instrumental and wordless choices skip lyric generation. Topic/song cooldowns, pending-job deduplication and generation-start limits keep every performance from creating more content.
+- The default planner policy is `cache_first`. The example snapshots use `topical_when_salient`, which can prepare a new song about recent news while retaining a familiar playable fallback. These are offline decisions, not paid generation requests or changes to SkyrimNet's settings.
+- Save/continuity scope, explicitly learned repertoire and exact recording identity prevent another bard's private knowledge or incompatible recording from becoming an automatic performance. The future live bridge must preserve those boundaries.
+
 ## Goals
 
 - Two bards of different cultures in the same inn sound different.
@@ -29,7 +53,7 @@ The regional scope includes Skyrim, Cyrodiil and Solstheim. Raven Rock and the G
 ## Non-goals
 
 - Changing which instrument a bard plays, until Phase 2.
-- Lyrics and regional lyric themes.
+- Full lyric generation, live knowledge ingestion and performance ownership in this offline planning milestone.
 
 ## Design principles
 

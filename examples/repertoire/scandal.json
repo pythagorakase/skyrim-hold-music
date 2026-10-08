@@ -1,0 +1,75 @@
+{
+  "save_id": "demo-save",
+  "world_id": "synthetic-world",
+  "performer_id": "demo:bard:001",
+  "now_hours": 120,
+  "request": {
+    "tradition": "nord",
+    "arrangement": "solo_lute_and_voice",
+    "mode": "lyrical",
+    "voice": "demo-bard-voice-v1",
+    "recipe_id": "nord-whiterun-lute-v1",
+    "model_id": "demo-music-model-v1"
+  },
+  "policy": {
+    "selection": "topical_when_salient"
+  },
+  "observations": [
+    {
+      "save_id": "demo-save",
+      "world_id": "synthetic-world",
+      "id": "demo:observation:market-rumor",
+      "performer_id": "demo:bard:001",
+      "event_id": "demo:event:secret-meetings",
+      "topic_id": "demo:topic:secret-meetings",
+      "kind": "scandal",
+      "summary": "A mill worker says two married merchants are meeting secretly after the market closes. The bard heard the rumor at the inn; an affair has not been confirmed.",
+      "happened_at": 112,
+      "learned_at": 117,
+      "source_id": "demo:source:mill-worker-rumor",
+      "evidence": "rumor",
+      "interest": 0.95,
+      "local_relevance": 0.9
+    }
+  ],
+  "compositions": [
+    {
+      "save_id": "demo-save",
+      "world_id": "synthetic-world",
+      "id": "demo:composition:market-day",
+      "title": "Market Day",
+      "tradition": "nord",
+      "mode": "lyrical",
+      "lyrics": "Count your coppers, mind the rain;\nTomorrow we will trade again.",
+      "topic_id": null,
+      "source_observation_ids": [],
+      "known_by": [
+        "demo:bard:001"
+      ],
+      "composer_id": "demo:bard:001",
+      "created_at": 20
+    }
+  ],
+  "recordings": [
+    {
+      "save_id": "demo-save",
+      "world_id": "synthetic-world",
+      "id": "demo:recording:market-day",
+      "composition_id": "demo:composition:market-day",
+      "performer_id": "demo:bard:001",
+      "request": {
+        "tradition": "nord",
+        "arrangement": "solo_lute_and_voice",
+        "mode": "lyrical",
+        "voice": "demo-bard-voice-v1",
+        "recipe_id": "nord-whiterun-lute-v1",
+        "model_id": "demo-music-model-v1"
+      },
+      "playable": true,
+      "created_at": 22
+    }
+  ],
+  "recent_performances": [],
+  "pending_jobs": [],
+  "generation_history": []
+}

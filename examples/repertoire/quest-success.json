@@ -1,0 +1,75 @@
+{
+  "save_id": "demo-save",
+  "world_id": "synthetic-world",
+  "performer_id": "demo:bard:001",
+  "now_hours": 120,
+  "request": {
+    "tradition": "nord",
+    "arrangement": "solo_lute_and_voice",
+    "mode": "lyrical",
+    "voice": "demo-bard-voice-v1",
+    "recipe_id": "nord-whiterun-lute-v1",
+    "model_id": "demo-music-model-v1"
+  },
+  "policy": {
+    "selection": "topical_when_salient"
+  },
+  "observations": [
+    {
+      "save_id": "demo-save",
+      "world_id": "synthetic-world",
+      "id": "demo:observation:returned-wages",
+      "performer_id": "demo:bard:001",
+      "event_id": "demo:event:returned-wages",
+      "topic_id": "demo:topic:returned-wages",
+      "kind": "quest_success",
+      "summary": "The traveler returned a mill worker's stolen pay. The bard saw the worker thank the traveler and buy a round at the inn. No dragon, battle, or grand destiny was involved.",
+      "happened_at": 116,
+      "learned_at": 116,
+      "source_id": "demo:source:bard-witness",
+      "evidence": "direct",
+      "interest": 0.85,
+      "local_relevance": 0.95
+    }
+  ],
+  "compositions": [
+    {
+      "save_id": "demo-save",
+      "world_id": "synthetic-world",
+      "id": "demo:composition:market-day",
+      "title": "Market Day",
+      "tradition": "nord",
+      "mode": "lyrical",
+      "lyrics": "Count your coppers, mind the rain;\nTomorrow we will trade again.",
+      "topic_id": null,
+      "source_observation_ids": [],
+      "known_by": [
+        "demo:bard:001"
+      ],
+      "composer_id": "demo:bard:001",
+      "created_at": 20
+    }
+  ],
+  "recordings": [
+    {
+      "save_id": "demo-save",
+      "world_id": "synthetic-world",
+      "id": "demo:recording:market-day",
+      "composition_id": "demo:composition:market-day",
+      "performer_id": "demo:bard:001",
+      "request": {
+        "tradition": "nord",
+        "arrangement": "solo_lute_and_voice",
+        "mode": "lyrical",
+        "voice": "demo-bard-voice-v1",
+        "recipe_id": "nord-whiterun-lute-v1",
+        "model_id": "demo-music-model-v1"
+      },
+      "playable": true,
+      "created_at": 22
+    }
+  ],
+  "recent_performances": [],
+  "pending_jobs": [],
+  "generation_history": []
+}
