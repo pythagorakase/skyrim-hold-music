@@ -72,6 +72,8 @@ def documents(source):
     for key in ("cultures", "holds", "traditions"):
         if not isinstance(result.get(key), dict):
             raise BuildError(f"Missing YAML mapping: {key}")
+    if "audition_context" in result and not isinstance(result["audition_context"], str):
+        raise BuildError("audition_context must be text.")
     return result
 
 
@@ -228,7 +230,8 @@ def build_dataset(spec_path=DEFAULT_SPEC, bank_path=DEFAULT_BANK, updated_at=DEF
         if len(row) != 3:
             raise BuildError(f"Expected three columns in boundary row: {row}")
         boundaries.append(dict(zip(("pair", "boundary", "reserve"), row)))
-    result = {"version": 1, "updatedAt": updated_at, "finalists": finalists,
+    result = {"version": 1, "updatedAt": updated_at,
+              "auditionContext": doc.get("audition_context", "").strip(), "finalists": finalists,
               "existing": existing, "ideas": ideas, "boundaries": boundaries}
     seen = set()
     for key in ("finalists", "existing", "ideas"):
@@ -238,6 +241,8 @@ def build_dataset(spec_path=DEFAULT_SPEC, bank_path=DEFAULT_BANK, updated_at=DEF
             if item["id"] in seen:
                 raise BuildError(f"Duplicate dashboard ID: {item['id']}")
             seen.add(item["id"])
+            if "audition_casting" in item and not isinstance(item["audition_casting"], str):
+                raise BuildError(f"Profile {item['id']} audition_casting must be text.")
     finalist_ids = {item["id"] for item in finalists}
     for item in ideas:
         if "finalistId" in item and item["finalistId"] not in finalist_ids:

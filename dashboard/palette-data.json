@@ -1,6 +1,7 @@
 {
   "version": 1,
   "updatedAt": "2026-10-08",
+  "auditionContext": "An in-world acoustic performance in Skyrim, in the Elder Scrolls setting. The music is made by the listed performers in the room, with natural close room acoustics rather than a cinematic backing score.",
   "finalists": [
     {
       "id": "orc_resonant_names",
@@ -9,8 +10,9 @@
       "mood": "Grave, concentrated, enduring",
       "role": "Favorite vocal identity; individual technique required; instrumental reduction is weaker",
       "reference": null,
+      "audition_casting": "mature Orc (Orsimer) vocal character: a dark, full-bodied tone with weighty chest resonance, a settled low-to-middle register and audible grain; firm, unforced delivery that retains weight even in quiet phrases",
       "core": "slow breath-length phrases, stable tonal center, sparse resonance and decisive pauses; grave and concentrated",
-      "voice": "one steady vocal fundamental with a clearly moving upper overtone melody, long shaped vowels",
+      "voice": "one singer sustains a strong low fundamental while shaping a small, clear, whistle-like melody from its upper harmonics; the high tones stay attached to that same weighty sustained voice, not a separate high lead or backing singer; long rounded vowels alternate with brief plain sung phrases",
       "lute": "isolated low plucks and spare ringing upper notes, audible decay between phrases",
       "flute": "one slow narrow melodic line, separated ordinary and upper-register tones",
       "drum": "widely spaced contrasting low and dry strokes",
@@ -26,6 +28,7 @@
       "mood": "Resolute, exacting, communal",
       "role": "Most portable candidate across the existing lute/voice and instrumental grammar",
       "reference": null,
+      "audition_casting": "mature Orc (Orsimer) vocal character: a dark, full-bodied tone with weighty chest resonance, a settled low-to-middle register and audible grain; firm, unforced delivery that retains weight even in quiet phrases",
       "core": "seven pulses grouped 2+2+3, compact four-note phrases and rising fourths, dry attacks and decisive rests; resolute",
       "voice": "clipped syllabic statements, deliberate consonants and firm phrase endings",
       "lute": "damped low strums and short single-note answers marking each uneven group",
@@ -42,6 +45,7 @@
       "role": "Ensemble finalist; current solo version explicitly gives chord work to the lute",
       "core_monophonic": "one plain narrow melody in slow measured phrases, decisive releases and clean pauses; solemn warmth",
       "reference": null,
+      "audition_casting": "mature Orc (Orsimer) vocal character: a dark, full-bodied tone with weighty chest resonance, a settled low-to-middle register and audible grain; firm, unforced delivery that retains weight even in quiet phrases",
       "core": "slow measured phrases, a few compact chord shapes changing together, open fifths and collective cutoffs; solemn warmth",
       "voice": "one plain text-bearing lead line, short statements ending in clean silence",
       "lute": "low chord blocks under a simple upper line, with simultaneous releases",

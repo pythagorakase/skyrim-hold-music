@@ -119,6 +119,7 @@ These are proposed context fields; they are not yet connected to the Solo Lute a
 | `known_traditions` | Authored or biographically established repertoire | No | Takes priority over ancestry; College training expands choices |
 | `tradition` | Explicitly selected core or audition candidate | During auditions | Orsimer/Bosmer finalists are not an equal random mix |
 | `vocal_techniques` | Technique, evidence status and proficiency | For specialist forms | Solo overtones require an affirmative individual capability; unknown is not mastery |
+| `voice_character` | The actual singer's age, vocal register, weight, texture and delivery; gender when specified | For sung performances | Describes the performer separately from the learned repertoire; an Orc tradition does not turn a non-Orc performer into an Orc |
 | `region` | Skyrim hold, Cyrodiil, Raven Rock, Skaal community, other/unknown | No | Interiors inherit their parent region; community identity can be more specific |
 | `hold` | Skyrim hold or unknown | No | Legacy location field; retained as a regional lookup input |
 | `instrument` | lute, flute, drum, voice-only | Yes | Animation family; voice-only remains gated on animation validation |
@@ -144,16 +145,29 @@ These are proposed context fields; they are not yet connected to the Solo Lute a
 
 Order:
 
-1. Performer block built from the actual arrangement
-2. Selected tradition: optional compatible `In the style of {reference}:` prefix, then `core` or `dialect`, then an eligible tint
-3. Voice line, if singing
-4. Instrument line
-5. Acoustic production constraint: intimate pre-modern acoustic performance, with geography and musical idiom supplied above rather than a universal European Baroque style
+1. Setting: an in-world performance in Skyrim, with sound made by the listed performers in the room
+2. Performer block built from the actual arrangement, followed by the singer's explicit vocal character when singing
+3. Selected tradition: optional compatible `In the style of {reference}:` prefix, then `core` or `dialect`, then an eligible tint
+4. Voice technique line, if singing; timbre and physical vocal weight are distinct from learned technique
+5. Instrument line
+6. Acoustic production constraint: intimate pre-modern acoustic performance, with geography and musical idiom supplied above rather than a universal European Baroque style
+
+The workshop includes this setting in every fresh recipe:
+
+```yaml
+audition_context: "An in-world acoustic performance in Skyrim, in the Elder Scrolls setting. The music is made by the listed performers in the room, with natural close room acoustics rather than a cinematic backing score."
+```
+
+The Orc finalists' `audition_casting` fields specify a provisional adult Orc vocal character for these listening tests. They are casting choices, not definitions of the tradition or rules for every Orc. They do not select a gender or confer overtone proficiency. In eventual NPC integration, the actual performer's `voice_character` replaces these audition defaults. Instrumental prompts omit casting and vocal technique; a three-singer arrangement retains its exact roles.
+
+Setting and casting remain visible in the editable audition prompt. Existing custom prompt edits are preserved; **Reset to recipe** explicitly adopts revised defaults. Saved takes retain the exact prompt originally sent to Google.
+
+Google's [Lyria prompt guide](https://ai.google.dev/gemini-api/docs/lyria-prompt-guide#vocal-delivery-and-singer-profiles) recommends explicit vocal range and timbre. Setting names provide context; the casting and technique clauses describe the sound to audition. Their effectiveness still requires listening.
 
 Example, Nord with lute and voice in Windhelm, tradition names on:
 
 ```
-[performer block] In the style of Icelandic rímur: austere chanted
+[setting] [performer block] [voice character] In the style of Icelandic rímur: austere chanted
 heroic verse, narrow melodic range, close to unaccompanied. Voice: declaimed more
 than crooned, syllabic, storyteller's chest voice. Lute: bare fifths and single
 notes shadowing the voice. [acoustic production constraint]
@@ -318,8 +332,9 @@ These fragments use the same core/voice/instrument contract as the existing prof
 traditions:
   orc_resonant_names:
     reference: null
+    audition_casting: "mature Orc (Orsimer) vocal character: a dark, full-bodied tone with weighty chest resonance, a settled low-to-middle register and audible grain; firm, unforced delivery that retains weight even in quiet phrases"
     core: "slow breath-length phrases, stable tonal center, sparse resonance and decisive pauses; grave and concentrated"
-    voice: "one steady vocal fundamental with a clearly moving upper overtone melody, long shaped vowels"
+    voice: "one singer sustains a strong low fundamental while shaping a small, clear, whistle-like melody from its upper harmonics; the high tones stay attached to that same weighty sustained voice, not a separate high lead or backing singer; long rounded vowels alternate with brief plain sung phrases"
     lute: "isolated low plucks and spare ringing upper notes, audible decay between phrases"
     flute: "one slow narrow melodic line, separated ordinary and upper-register tones"
     drum: "widely spaced contrasting low and dry strokes"
@@ -328,6 +343,7 @@ traditions:
 
   orc_seven_step:
     reference: null
+    audition_casting: "mature Orc (Orsimer) vocal character: a dark, full-bodied tone with weighty chest resonance, a settled low-to-middle register and audible grain; firm, unforced delivery that retains weight even in quiet phrases"
     core: "seven pulses grouped 2+2+3, compact four-note phrases and rising fourths, dry attacks and decisive rests; resolute"
     voice: "clipped syllabic statements, deliberate consonants and firm phrase endings"
     lute: "damped low strums and short single-note answers marking each uneven group"
@@ -337,6 +353,7 @@ traditions:
   orc_close_circle:
     core_monophonic: "one plain narrow melody in slow measured phrases, decisive releases and clean pauses; solemn warmth"
     reference: null
+    audition_casting: "mature Orc (Orsimer) vocal character: a dark, full-bodied tone with weighty chest resonance, a settled low-to-middle register and audible grain; firm, unforced delivery that retains weight even in quiet phrases"
     core: "slow measured phrases, a few compact chord shapes changing together, open fifths and collective cutoffs; solemn warmth"
     voice: "one plain text-bearing lead line, short statements ending in clean silence"
     lute: "low chord blocks under a simple upper line, with simultaneous releases"
@@ -373,6 +390,8 @@ traditions:
 For `orc_close_circle`, append `ensemble_clause` only when the three specified singers are visibly participating. The solo lute supplies the chordal reduction; a lone flute or drum uses only its declared reduced line and omits the chordal `core`. For `orc_resonant_names`, require `solo_overtones` only for the sung technique, and label the instrumental version as a reduction. For `bosmer_spinners_tales`, an instrumental render uses the tag/phrase structure without pretending that characters are speaking. The same physical roster constraints apply to every profile.
 
 ### What to audition first
+
+The first live Resonant Name-Songs take (2026-10-08) received listener feedback that its voice was too light and delicate to fit the intended Orc performer. Its submitted prompt omitted Skyrim, Orc identity and explicit vocal weight, and the technique clause omitted the earlier draft's low fundamental. The revised recipe adds setting, separate audition casting and a stronger low-fundamental instruction. This is a prompt correction awaiting another listening comparison, not a claim that the model will now obey it. Retain the original take as the comparison baseline.
 
 1. Compare Resonant Name-Songs and Seven-Step with the same one-singer/one-lute arrangement and recording perspective. Then compare each one's honest lute-only version. Their portability matters under the existing roughly 50/50 instrumental composition policy.
 2. Compare Leaping tales, Hunting-call airs and Spinner's tales on the same performer. Leaping tales is the first default candidate; the other two must earn space by audible distinction.
