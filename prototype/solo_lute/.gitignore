@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+dist/
+local/
+mo2_plugin/solo_lute/local.json

@@ -57,4 +57,3 @@ The snapshot excludes local settings, credentials, recorded request payloads, ga
 ## Current status
 
 Dashboard comparison, filtering, saved notes, arrangement-specific prompt reductions, and JSON/text backup restoration were checked in a browser through a local HTTP preview. The six finalists remain design candidates: generated audio, specialist vocal technique, advanced animation support and ensemble synchronization are not validated by this dashboard.
-

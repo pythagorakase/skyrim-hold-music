@@ -1,0 +1,2 @@
+# Reproducible Markdown YAML parsing for the local dashboard build.
+PyYAML==6.0.3

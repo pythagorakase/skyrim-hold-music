@@ -1,0 +1,15 @@
+plugin:
+  name: "SoloLute"
+  version: "0.1.0"
+  description: "Solo lute music. Requires the accompanying MO2 adapter. Changes apply to new compositions; cached audio is unchanged."
+  icon: "🎵"
+schema:
+  fields:
+    - name: "Instrumental chance (%)"
+      path: "instrumentalPercent"
+      type: "int"
+      description: "Chance for each new composition to be entirely instrumental. 0 means all singing, 100 means all instrumental. Retries keep the same choice. Does not enforce playback alternation."
+      defaultValue: 50
+      min: 0
+      max: 100
+      category: "Performances"

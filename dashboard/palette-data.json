@@ -1,0 +1,733 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-08",
+  "finalists": [
+    {
+      "id": "orc_resonant_names",
+      "culture": "Orsimer",
+      "name": "Resonant Name-Songs",
+      "mood": "Grave, concentrated, enduring",
+      "role": "Favorite vocal identity; individual technique required; instrumental reduction is weaker",
+      "reference": null,
+      "core": "slow breath-length phrases, stable tonal center, sparse resonance and decisive pauses; grave and concentrated",
+      "voice": "one steady vocal fundamental with a clearly moving upper overtone melody, long shaped vowels",
+      "lute": "isolated low plucks and spare ringing upper notes, audible decay between phrases",
+      "flute": "one slow narrow melodic line, separated ordinary and upper-register tones",
+      "drum": "widely spaced contrasting low and dry strokes",
+      "required_vocal_technique": "solo_overtones",
+      "instrumental_status": "reduced_arrangement",
+      "neighbor": "Eastmarch declamation; Khajiit drone; sparse northern song",
+      "boundary": "A visibly moving upper overtone melody over one steady vocal fundamental is the defining feature. Ordinary low chanting is not enough. Keep the tempo and tonal center settled; its instrumental arrangement is an explicitly weaker reduction."
+    },
+    {
+      "id": "orc_seven_step",
+      "culture": "Orsimer",
+      "name": "Seven-Step Oath-Songs",
+      "mood": "Resolute, exacting, communal",
+      "role": "Most portable candidate across the existing lute/voice and instrumental grammar",
+      "reference": null,
+      "core": "seven pulses grouped 2+2+3, compact four-note phrases and rising fourths, dry attacks and decisive rests; resolute",
+      "voice": "clipped syllabic statements, deliberate consonants and firm phrase endings",
+      "lute": "damped low strums and short single-note answers marking each uneven group",
+      "flute": "short clearly tongued phrases with emphatic rests",
+      "drum": "deliberate two-two-three groups, deep first attack and a clean gap after each full line",
+      "neighbor": "Argonian work cycles; Nord communal song; Bosmer Leaping tales",
+      "boundary": "Maintain deliberate 2+2+3 grouping, firm shared attacks and decisive rests. Argonian cells overlap continuously; Bosmer leaps through quicker 3+2 groups with light interrupted answers."
+    },
+    {
+      "id": "orc_close_circle",
+      "culture": "Orsimer",
+      "name": "Close-Circle Songs",
+      "mood": "Solemn solidarity, intimate warmth",
+      "role": "Ensemble finalist; current solo version explicitly gives chord work to the lute",
+      "core_monophonic": "one plain narrow melody in slow measured phrases, decisive releases and clean pauses; solemn warmth",
+      "reference": null,
+      "core": "slow measured phrases, a few compact chord shapes changing together, open fifths and collective cutoffs; solemn warmth",
+      "voice": "one plain text-bearing lead line, short statements ending in clean silence",
+      "lute": "low chord blocks under a simple upper line, with simultaneous releases",
+      "flute": "one plain lead melody; a reduction without simultaneous chordal parts",
+      "drum": "a sparse low stroke at phrase boundaries; reduced rhythmic outline",
+      "ensemble_roles": [
+        "lead_voice",
+        "bass_response",
+        "middle_response"
+      ],
+      "ensemble_clause": "three visible singers: one lead, two compact chord responses, all releases synchronized",
+      "neighbor": "Altmer counterpoint; Nord open-fifth song",
+      "boundary": "Compact chord blocks change and stop together, unlike Altmer independently moving lines. The full vocal form needs the three listed singers. Solo flute or drum omits the chordal core; one lute may supply the explicit reduction."
+    },
+    {
+      "id": "bosmer_leaping_tales",
+      "culture": "Bosmer",
+      "name": "Leaping tales",
+      "mood": "Mischievous, alert, slightly uncanny",
+      "role": "Preferred broadly usable Bosmer candidate",
+      "reference": null,
+      "core": "quick five-pulse groups of 3+2, short angular motives with wide leaps, dry attacks and sudden rests; alert and mischievous",
+      "voice": "agile clear syllables, light register jumps, pauses with a punchline's timing",
+      "lute": "dry clipped single notes and occasional open intervals, brief answers at phrase endings",
+      "flute": "focused tongued tone, agile leaps and short turns cut off by silence",
+      "drum": "light three-two groups, a clipped final answer and deliberate missing strokes",
+      "neighbor": "Orsimer Seven-Step; Falkreath five-beat lament; Reach dance",
+      "boundary": "Current audition meter is five pulses grouped 3+2. Quick wide leaps, dry attacks and sudden gaps distinguish it from Orsimer 2+2+3, Falkreath slow descending cells and Reach connected ornamental flow."
+    },
+    {
+      "id": "bosmer_hunting_calls",
+      "culture": "Bosmer",
+      "name": "Hunting-call airs",
+      "mood": "Watchful, restrained, faintly predatory",
+      "role": "Strong flute and quiet-instrumental candidate",
+      "reference": null,
+      "core": "brief two- or three-note calls at separated registers, complete gaps and clean endings; watchful and spare",
+      "voice": "one singer alternates a clear compact high call with a quieter lower answer",
+      "lute": "isolated picked calls in high and middle registers, each phrase ending before the next",
+      "flute": "clear focused calls, fourth and fifth leaps, sharply defined entrances",
+      "drum": "pairs of contrasting strokes with complete pauses; a rhythmic reduction of the calls",
+      "neighbor": "Winterhold circular vocables; Pale exposed calls; Argonian cells",
+      "boundary": "Use brief precise calls in separated registers, each followed by a complete gap and clean ending. Avoid a continuous northern melodic circle, long rocking Pale phrases or Argonian overlapping texture."
+    },
+    {
+      "id": "bosmer_spinners_tales",
+      "culture": "Bosmer",
+      "name": "Spinner's tales",
+      "mood": "Intimate, absorbing, uncanny",
+      "role": "Narrative finalist; weaker as a drum-only or purely instrumental identity",
+      "reference": null,
+      "core": "a recurring three-note tag amid changing speech-paced phrase lengths, sudden register turns and clear endings; intimate and uncanny",
+      "voice": "one conversational singer changes character through register, pacing and articulation",
+      "lute": "a recognizable short tag and sparse punctuation, fuller playing only in interludes",
+      "flute": "one recurring figure alternates plain low and ornamented high versions in sequence",
+      "drum": "short muted strokes in changing phrase lengths, a recurring three-stroke tag and deliberate pauses",
+      "neighbor": "Eastmarch narrative declamation; Altmer formal development",
+      "boundary": "One conversational voice changes character through register and pacing around a recurring three-note tag. Keep the line agile and discontinuous; instrumental reductions retain the tag and phrase structure without implying speech or extra characters."
+    }
+  ],
+  "existing": [
+    {
+      "id": "nord",
+      "kind": "culture",
+      "culture": "Nord",
+      "name": "Nord ballads",
+      "core_monophonic": "strophic modal melody with a short refrain, plain Dorian or Mixolydian phrases and few ornaments",
+      "reference": "Scandinavian medieval ballads",
+      "core": "strophic ballad with a short refrain, Dorian or Mixolydian mode, steady drone on the tonic and fifth, plain melody with few ornaments",
+      "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
+      "lute": "simple plucked melody over open-string drones",
+      "flute": "plain modal melody, few ornaments",
+      "drum": "steady walking pulse"
+    },
+    {
+      "id": "imperial",
+      "kind": "culture",
+      "culture": "Imperial",
+      "name": "Imperial expressive solo song",
+      "reference": "Italian frottola and early Baroque monody",
+      "core": "clear major or minor tonality, flexible expressive tempo, strong cadences",
+      "voice": "lyrical solo line with ornamental runs and cadential trills",
+      "lute": "arpeggiated chordal accompaniment under the melody, continuo style",
+      "flute": "singing, vocal-style melody with cadential trills",
+      "drum": "light, even dance pulse"
+    },
+    {
+      "id": "imperial_vernacular",
+      "kind": "culture",
+      "culture": "Imperial",
+      "name": "Cyrodiil vernacular",
+      "reference": null,
+      "core": "firm regular pulse, short memorable refrain, clear major or minor harmony, decisive cadence returns",
+      "voice": "direct syllabic delivery with brief ornamental pickups",
+      "lute": "crisp chordal rhythm with a short melodic answer",
+      "flute": "clear tuneful phrases returning to strong cadence notes",
+      "drum": "even dance pulse with clear phrase-ending accents"
+    },
+    {
+      "id": "breton_court",
+      "kind": "culture",
+      "culture": "Breton",
+      "name": "Breton court song",
+      "reference": "French air de cour",
+      "core": "minor or Dorian mode, gentle unhurried pace, speech-like phrasing, delicate grace notes",
+      "voice": "light, intimate, restrained",
+      "lute": "soft broken-chord accompaniment",
+      "flute": "soft, sweet tone with small graces",
+      "drum": "quiet, restrained pulse"
+    },
+    {
+      "id": "breton_folk",
+      "kind": "culture",
+      "culture": "Breton",
+      "name": "Breton folk lament",
+      "reference": "Breton gwerz",
+      "core": "slow text-led lament, long stanzas on a repeating restrained melody, flexible syllabic rhythm, little melodic ornament",
+      "voice": "clear plain syllables, unhurried narrative delivery, almost unaccompanied",
+      "lute": "sparse single notes following each melodic phrase",
+      "flute": "soft, sweet tone with small graces",
+      "drum": "quiet, restrained pulse"
+    },
+    {
+      "id": "redguard",
+      "kind": "culture",
+      "culture": "Redguard",
+      "name": "Redguard articulated cycles",
+      "reference": "Arab-Andalusian and Spanish Renaissance song",
+      "core": "Phrygian color, articulated ornamental phrases in a clear recurring rhythmic cycle, runs returning to firm cadence notes",
+      "voice": "ornamented but clearly articulated phrases, brief melismas ending decisively",
+      "lute": "oud-like melodic plucking, distinct attacks and brief runs returning to the cycle, few chords",
+      "flute": "articulated ornamented phrases with clear cadence returns",
+      "drum": "cyclic hand-drum pattern mixing deep and sharp strokes"
+    },
+    {
+      "id": "dunmer",
+      "kind": "culture",
+      "culture": "Dunmer",
+      "name": "Dunmer modal lament",
+      "core_monophonic": "slow free-rhythm lament, long sorrowful single-line phrases and augmented-second color",
+      "reference": "Armenian and Persian modal lament",
+      "core": "slow lament, minor mode with augmented-second color, free rhythm, long sorrowful phrases over a sustained low drone",
+      "voice": "mournful, restrained, long-breathed, slow melisma",
+      "lute": "sparse plucked notes over a low drone string",
+      "flute": "low, breathy tone with slow pitch bends",
+      "drum": "slow, sparse pulse"
+    },
+    {
+      "id": "altmer",
+      "kind": "culture",
+      "culture": "Altmer",
+      "name": "Altmer counterpoint",
+      "core_monophonic": "precise sequential imitation within one melodic line, measured phrasing and formal ornaments",
+      "reference": "ricercars and fantasias",
+      "core": "learned counterpoint, strict measured tempo, imitative lines, precise formal ornaments, balanced phrases",
+      "voice": "pure straight tone, exact intonation, little vibrato",
+      "lute": "two or three independent lines implied on the one lute",
+      "flute": "one clean line imitates its own earlier phrase in sequence, with precise trills",
+      "drum": "exact and understated"
+    },
+    {
+      "id": "khajiit",
+      "kind": "culture",
+      "culture": "Khajiit",
+      "name": "Khajiit unfolding drone",
+      "core_monophonic": "one sliding melodic line around a stable tone, unmetered opening slowly finding pulse and gathering speed",
+      "reference": "Rajasthani desert music and raga form",
+      "core": "sustained drone, unmetered opening that slowly finds a pulse and accelerates, notes joined by slides instead of clean steps",
+      "voice": "supple, sliding between notes, long ornamented phrases",
+      "lute": "single-line melody with slides and bends over a drone string",
+      "flute": "breathy, sliding between notes, long phrases",
+      "drum": "hand-drum cycle that starts sparse and gathers speed",
+      "ignores_hold_tint": true,
+      "phase_modes": {
+        "new": "darkest mode with a flattened second, low register, the pulse arrives late and stays slow",
+        "waxing": "brighter mode with a raised fourth, rising phrases, gathering tempo",
+        "full": "bright major or Mixolydian mode, fast, fully metered and dance-like",
+        "waning": "minor mode, descending phrases, slowing tempo"
+      }
+    },
+    {
+      "id": "argonian",
+      "kind": "culture",
+      "culture": "Argonian",
+      "name": "Argonian interlocking cells",
+      "reference": null,
+      "core": "five-note cells in a continuous crisp rhythmic cycle, alternating registers, level intensity and little cadential drive, clean abrupt ending",
+      "voice": "low rhythmic chant on vocables",
+      "lute": "quick alternation between two registers to imply interlocking parts",
+      "flute": "short clear attacks alternate between two registers in a continuous recurring cell",
+      "drum": "interlocking two-handed pattern, steady and unchanging"
+    },
+    {
+      "id": "haafingar",
+      "kind": "region",
+      "culture": "Nord",
+      "name": "Haafingar / Solitude",
+      "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
+      "lute": "simple plucked melody over open-string drones",
+      "flute": "plain modal melody, few ornaments",
+      "drum": "steady walking pulse",
+      "core_monophonic": "polished triple dance motion, refined single-line phrases and clear cadence returns",
+      "reference": "the Danish court of Christian IV and Dowland's lute airs",
+      "dialect": "polished courtly style, recognizable triple dance pulse, refined airs and spacious instrumental answers",
+      "tint": "polished, courtly phrasing",
+      "core": "polished courtly style, recognizable triple dance pulse, refined airs and spacious instrumental answers"
+    },
+    {
+      "id": "eastmarch",
+      "kind": "region",
+      "culture": "Nord",
+      "name": "Eastmarch / Windhelm",
+      "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
+      "lute": "bare fifths between phrases and single notes following the lead melody",
+      "flute": "plain modal melody, few ornaments",
+      "drum": "steady walking pulse",
+      "reference": "Icelandic rímur",
+      "dialect": "austere speech-shaped heroic phrases, narrow melodic range and exposed single melody",
+      "tint": "sparser and more austere",
+      "core": "austere speech-shaped heroic phrases, narrow melodic range and exposed single melody"
+    },
+    {
+      "id": "whiterun",
+      "kind": "region",
+      "culture": "Nord",
+      "name": "Whiterun",
+      "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
+      "lute": "simple plucked melody over open-string drones",
+      "flute": "plain modal melody, few ornaments",
+      "drum": "steady walking pulse",
+      "core_monophonic": "strophic Dorian or Mixolydian melody, short refrain, plain ornaments and broad triple sway",
+      "reference": "Swedish and Danish ballads and polska dance tunes",
+      "dialect": "strophic ballad with a short refrain, Dorian or Mixolydian mode, steady drone on the tonic and fifth, triple-meter dance lilt in livelier pieces",
+      "tint": null,
+      "core": "strophic ballad with a short refrain, Dorian or Mixolydian mode, steady drone on the tonic and fifth, triple-meter dance lilt in livelier pieces"
+    },
+    {
+      "id": "reach",
+      "kind": "region",
+      "culture": "Nord",
+      "name": "The Reach / Markarth",
+      "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
+      "lute": "simple plucked melody over open-string drones",
+      "flute": "a plain theme followed by increasingly ornamented variations",
+      "drum": "steady walking pulse",
+      "reference": "Gaelic song",
+      "dialect": "free-rhythm air with connected grace-note ornament and a slowly unfolding melody",
+      "dance_dialect": "quick flowing mouth-music dance, connected ornamental runs and a recurring lively pulse",
+      "tint": "extra grace-note ornament",
+      "core": "free-rhythm air with connected grace-note ornament and a slowly unfolding melody"
+    },
+    {
+      "id": "falkreath",
+      "kind": "region",
+      "culture": "Nord",
+      "name": "Falkreath",
+      "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
+      "lute": "simple plucked melody over open-string drones",
+      "flute": "plain modal melody, few ornaments",
+      "drum": "steady walking pulse",
+      "reference": "Karelian laments and runo-song",
+      "dialect": "slow lament, narrow range within a fifth, perceptible five-beat repetition and short descending cells",
+      "tint": "slower and more mournful",
+      "core": "slow lament, narrow range within a fifth, perceptible five-beat repetition and short descending cells"
+    },
+    {
+      "id": "rift",
+      "kind": "region",
+      "culture": "Nord",
+      "name": "The Rift / Riften",
+      "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
+      "lute": "simple plucked melody over open-string drones",
+      "flute": "plain modal melody, few ornaments",
+      "drum": "steady walking pulse",
+      "reference": "English country dance tunes and broadside ballads",
+      "dialect": "fast and bawdy, bouncing jig rhythm, major or Mixolydian mode, catchy strophic tune",
+      "tint": "faster and rowdier",
+      "core": "fast and bawdy, bouncing jig rhythm, major or Mixolydian mode, catchy strophic tune"
+    },
+    {
+      "id": "winterhold",
+      "kind": "region",
+      "culture": "Nord",
+      "name": "Winterhold",
+      "voice": "plain wordless vocables, recurring intimate phrases",
+      "lute": "simple plucked melody over open-string drones",
+      "flute": "plain modal melody, few ornaments",
+      "drum": "steady walking pulse",
+      "reference": "Sámi joik",
+      "dialect": "sparse circular melody with recurring short figures and little sense of a beginning or final cadence",
+      "tint": "sparser, with more silence between phrases",
+      "core": "sparse circular melody with recurring short figures and little sense of a beginning or final cadence"
+    },
+    {
+      "id": "pale",
+      "kind": "region",
+      "culture": "Nord",
+      "name": "The Pale / Dawnstar",
+      "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
+      "lute": "widely separated low notes mark a slow rocking pulse",
+      "flute": "long clear calls with distinct endings and open gaps",
+      "drum": "steady walking pulse",
+      "reference": null,
+      "dialect": "long exposed melodic calls, slow rocking compound pulse, broad register and silence between complete phrases",
+      "tint": "more space between complete phrases",
+      "core": "long exposed melodic calls, slow rocking compound pulse, broad register and silence between complete phrases"
+    },
+    {
+      "id": "hjaalmarch",
+      "kind": "region",
+      "culture": "Nord",
+      "name": "Hjaalmarch / Morthal",
+      "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
+      "lute": "melody shadowed a whole step away so the two lines grate",
+      "flute": "circles the same few notes, leaning on clashing neighbor tones",
+      "drum": "steady walking pulse",
+      "core_monophonic": "one hushed slowly reiterated melody with neighboring-note turns and lingering unstable endings",
+      "reference": null,
+      "dialect": "hushed slowly reiterated phrases, sustained neighboring-tone friction and lingering unstable endings",
+      "tint": "hushed, unresolved, with clashing seconds",
+      "core": "hushed slowly reiterated phrases, sustained neighboring-tone friction and lingering unstable endings"
+    }
+  ],
+  "ideas": [
+    {
+      "id": "orsimer_idea_01",
+      "culture": "Orsimer",
+      "name": "Resonant Name-Songs",
+      "description": "Sustained fundamental; upper harmonics move in small deliberate patterns; long vowels; sparse plucks.",
+      "mood": "Concentrated, grave, enduring",
+      "verdict": "Finalist 1. Strongest timbral signature.",
+      "finalistId": "orc_resonant_names"
+    },
+    {
+      "id": "orsimer_idea_02",
+      "culture": "Orsimer",
+      "name": "Seven-Step Oath-Songs",
+      "description": "Seven equal pulses grouped 2+2+3; syllabic calls; hard rests; low dry lute strokes.",
+      "mood": "Resolute and communal",
+      "verdict": "Finalist 2. Best across all instrument families.",
+      "finalistId": "orc_seven_step"
+    },
+    {
+      "id": "orsimer_idea_03",
+      "culture": "Orsimer",
+      "name": "Close-Circle Songs",
+      "description": "A lead syllabic line against two or three compact chordal response parts; rough bass timbre; synchronized releases.",
+      "mood": "Intimate, solemn solidarity",
+      "verdict": "Finalist 3. Strong ensemble reward, honest solo limitation.",
+      "finalistId": "orc_close_circle"
+    },
+    {
+      "id": "orsimer_idea_04",
+      "culture": "Orsimer",
+      "name": "Road-Debt Epics",
+      "description": "Long prose-like verse on a two-note reciting formula; freely timed pauses; returning plucked refrain.",
+      "mood": "Stubborn, weathered narrative",
+      "verdict": "Reserve. Too close to Eastmarch declamation without a new timbral feature."
+    },
+    {
+      "id": "orsimer_idea_05",
+      "culture": "Orsimer",
+      "name": "Contest of Names",
+      "description": "Two alternating soloists progressively compress verses and shorten rests; repeating lute figure.",
+      "mood": "Competitive and dryly witty",
+      "verdict": "Reserve social form. Requires two visible singers and overlaps improvised bard contests elsewhere."
+    },
+    {
+      "id": "orsimer_idea_06",
+      "culture": "Orsimer",
+      "name": "Forge Counts",
+      "description": "A recurring pattern of three attacks and one silent slot; changing accents over a stable beat; clipped words.",
+      "mood": "Focused, laboring",
+      "verdict": "Reserve occasion. Do not generate actual anvils or hammer sounds without visible sources. Too close to generic work music as a culture core."
+    },
+    {
+      "id": "orsimer_idea_07",
+      "culture": "Orsimer",
+      "name": "Descending Stone Laments",
+      "description": "Falling fourths; a held final low note; long unmetered phrases with minimal accompaniment.",
+      "mood": "Stoic grief",
+      "verdict": "Reject as core: Breton folk, Dunmer and Falkreath already occupy this space."
+    },
+    {
+      "id": "orsimer_idea_08",
+      "culture": "Orsimer",
+      "name": "Ridge Calls",
+      "description": "Wide vocal leaps with audible chest/head-register changes; answering flute figures and spacious pauses.",
+      "mood": "Vigilant, far-carrying",
+      "verdict": "Strong alternate, particularly if Bosmer avoids register-break calls. Could become a northern vocal signature instead."
+    },
+    {
+      "id": "orsimer_idea_09",
+      "culture": "Orsimer",
+      "name": "Knot Dances",
+      "description": "Uneven five-pulse phrases, short repeated motifs, sharply articulated lute melody, abrupt cadences.",
+      "mood": "Tense, physically alert",
+      "verdict": "Reserve. Seven-Step offers a clearer single rhythmic fingerprint; do not proliferate adjacent odd meters immediately."
+    },
+    {
+      "id": "orsimer_idea_10",
+      "culture": "Orsimer",
+      "name": "Embersong",
+      "description": "Whispered or murmured narrow melody over very quiet lute pulses; long suspensions.",
+      "mood": "Protective, private",
+      "verdict": "Reserve intimate mode. Too near Hjaalmarch hush and winterhold sparsity as a core."
+    },
+    {
+      "id": "orsimer_idea_11",
+      "culture": "Orsimer",
+      "name": "Returning Ancestors",
+      "description": "A refrain accumulates one new note each verse, then collapses to its original cell; alternating high/low lute registers.",
+      "mood": "Ritual remembrance",
+      "verdict": "Interesting formal variant, but cumulative form is unlikely to be recognized quickly in generated clips."
+    },
+    {
+      "id": "orsimer_idea_12",
+      "culture": "Orsimer",
+      "name": "Burden-and-Release",
+      "description": "Two increasingly dense phrases followed by a bar of silence; heavy/quiet dynamic contrast; three-note melody.",
+      "mood": "Defiant, unyielding",
+      "verdict": "Reserve. Useful arrangement device inside Seven-Step rather than a separate tradition."
+    },
+    {
+      "id": "orsimer_idea_13",
+      "culture": "Orsimer",
+      "name": "Resting Herd Songs",
+      "description": "Long, unhurried pentatonic melody; sustained vowels; soft rocking accompaniment.",
+      "mood": "Spacious contentment",
+      "verdict": "Reject as core: overlaps Khajiit drone and northern open-ended vocal styles."
+    },
+    {
+      "id": "orsimer_idea_14",
+      "culture": "Orsimer",
+      "name": "Soot-Black Virtuosity",
+      "description": "Fast repeated-note plucking, tight cross-string figures, abrupt switches of register, dry close sound.",
+      "mood": "Fierce technical concentration",
+      "verdict": "Strong instrumental alternate. Risks merging with Redguard plucked virtuosity unless ornament and meter stay rigorously different."
+    },
+    {
+      "id": "orsimer_idea_15",
+      "culture": "Orsimer",
+      "name": "Witness Recitation",
+      "description": "Spoken rhythmic testimony gradually turns to one sustained sung pitch; single-string answers.",
+      "mood": "Authoritative, austere",
+      "verdict": "Reserve special occasion. Distinct form, but music generation and SkyrimNet spoken delivery may not align."
+    },
+    {
+      "id": "orsimer_idea_16",
+      "culture": "Orsimer",
+      "name": "Long-Breath Flute",
+      "description": "Low breathy tone alternates with clear higher harmonics; slow pitch changes over one repeated finger pattern.",
+      "mood": "Contemplative and resonant",
+      "verdict": "Companion to Resonant Name-Songs, not independent core; avoid asking a normal single flute to supply an extra bass part."
+    },
+    {
+      "id": "orsimer_idea_17",
+      "culture": "Orsimer",
+      "name": "Shieldless Boasts",
+      "description": "Brisk syllabic verses, broad upward fourths, a snapped final syllable, plain diatonic melody.",
+      "mood": "Proud, convivial confidence",
+      "verdict": "Reserve lighter mode. Too near Nord tavern song to define the palette."
+    },
+    {
+      "id": "orsimer_idea_18",
+      "culture": "Orsimer",
+      "name": "Broken-Line Canon",
+      "description": "Three staggered entries repeat short lines at different phrase lengths; clashes resolve together every several cycles.",
+      "mood": "Insistent, interdependent",
+      "verdict": "Reject as core: collides with Argonian interlocking and Hjaalmarch canon; ensemble requirement also high."
+    },
+    {
+      "id": "bosmer_idea_01",
+      "culture": "Bosmer",
+      "name": "Leaping tales",
+      "description": "Historical initial proposal: Springing seven-unit pulse grouped 2+2+3; short melody leaps a fourth or sixth, then stops; dry plucks; quick syllabic delivery. Current audition correction: five pulses grouped 3+2 replace the original seven pulses; use the current finalist fragments.",
+      "mood": "Mischievous, poised, alert. A compelling ordinary Bosmer song grammar.",
+      "verdict": "Finalist; first candidate to audition. Original 'default' wording is historical; the production core remains unset. Current meter: 3+2.",
+      "finalistId": "bosmer_leaping_tales"
+    },
+    {
+      "id": "bosmer_idea_02",
+      "culture": "Bosmer",
+      "name": "Hunting-call airs",
+      "description": "Two- or three-note calls separated by complete silence; high and middle registers answer in sequence; clear tone and a clipped ending.",
+      "mood": "Attentive, spare, faintly predatory.",
+      "verdict": "Finalist.",
+      "finalistId": "bosmer_hunting_calls"
+    },
+    {
+      "id": "bosmer_idea_03",
+      "culture": "Bosmer",
+      "name": "Spinner's tales",
+      "description": "Speech follows a recurring three-note figure; each return adds or removes a beat; abrupt changes of register distinguish narrative turns.",
+      "mood": "Absorbing, intimate, uncanny.",
+      "verdict": "Finalist.",
+      "finalistId": "bosmer_spinners_tales"
+    },
+    {
+      "id": "bosmer_idea_04",
+      "culture": "Bosmer",
+      "name": "Feast steps",
+      "description": "Lively 3+3+2 pulse, open plucked intervals, a small refrain, sharply punctuated endings.",
+      "mood": "Physical, sociable, celebratory.",
+      "verdict": "Reserve: reliable but less singular than #1; can collapse into familiar tavern dance."
+    },
+    {
+      "id": "bosmer_idea_05",
+      "culture": "Bosmer",
+      "name": "Canopy exchanges",
+      "description": "Two voices pass individual notes or syllables back and forth, assembling one agile line.",
+      "mood": "Playful mutual attention.",
+      "verdict": "Ensemble reserve: distinguish with gaps and exchanged phrases, but too close to Argonian interlocking if made a core."
+    },
+    {
+      "id": "bosmer_idea_06",
+      "culture": "Bosmer",
+      "name": "Register games",
+      "description": "One singer switches chest and head register on wide leaps; sparse plucks mark only the low notes.",
+      "mood": "Daring, competitive, gleeful.",
+      "verdict": "Technique reserve: strong sound, but a reference label such as yodel may dominate the worldbuilding or produce Alpine pastiche."
+    },
+    {
+      "id": "bosmer_idea_07",
+      "culture": "Bosmer",
+      "name": "Quiet bow songs",
+      "description": "Repeated low pluck answered by a high harmonic; spare three-note melody with long decays.",
+      "mood": "Patient, inward.",
+      "verdict": "Reserve: good solo string piece, weaker group identity; risks merging with northern austerity."
+    },
+    {
+      "id": "bosmer_idea_08",
+      "culture": "Bosmer",
+      "name": "Thorn dances",
+      "description": "Fast five-unit pulse; tight ornaments, abruptly cut notes, sudden whole-beat rests.",
+      "mood": "Prickly excitement.",
+      "verdict": "Reserve alternate to #1; do not launch both before testing their audible separation."
+    },
+    {
+      "id": "bosmer_idea_09",
+      "culture": "Bosmer",
+      "name": "Root cradle songs",
+      "description": "Soft rocking duple motion; descending thirds, limited range, warm unadorned voice.",
+      "mood": "Tender, secure.",
+      "verdict": "Later nuance: broadly plausible but does not solve the distinctness problem first."
+    },
+    {
+      "id": "bosmer_idea_10",
+      "culture": "Bosmer",
+      "name": "Rain patterns",
+      "description": "Repeated five-note cells, overlapping high and low figures, continuous regular pulse.",
+      "mood": "Immersive, cyclical.",
+      "verdict": "Reject as Bosmer default: already belongs to the Argonian design territory."
+    },
+    {
+      "id": "bosmer_idea_11",
+      "culture": "Bosmer",
+      "name": "The long listening",
+      "description": "Unmetered breathy flute, narrow register, long silence and almost no cadence.",
+      "mood": "Meditative, remote.",
+      "verdict": "Reject as default: too close to the Pale/Winterhold and Dunmer flute treatments. #2 uses precise calls and register contrast instead."
+    },
+    {
+      "id": "bosmer_idea_12",
+      "culture": "Bosmer",
+      "name": "Boasting contests",
+      "description": "A singer delivers a rhythmically crowded line followed by an intentionally tiny instrumental answer; each verse lengthens.",
+      "mood": "Comic, competitive.",
+      "verdict": "Strong later occasion; #1 can contain it without a separate core."
+    },
+    {
+      "id": "bosmer_idea_13",
+      "culture": "Bosmer",
+      "name": "Knot refrains",
+      "description": "A short melody gains a note or rhythm on each return, finally unravelling back to the original.",
+      "mood": "Curious, anticipatory.",
+      "verdict": "Reserve composition form: distinctive on paper; a generative model may not obey the cumulative rule audibly."
+    },
+    {
+      "id": "bosmer_idea_14",
+      "culture": "Bosmer",
+      "name": "Hunting procession",
+      "description": "Slow dotted five-beat tread; narrow, firmly projected chant; flute or string answers land on the same pitch.",
+      "mood": "Ceremonial resolve.",
+      "verdict": "Reject as default: overlaps Orc collective pulse and Nord declamation."
+    },
+    {
+      "id": "bosmer_idea_15",
+      "culture": "Bosmer",
+      "name": "Shadow mourning",
+      "description": "Widely spaced plucks interrupt a melody at uncomfortable places; words end before expected resolutions.",
+      "mood": "Bereft, unsettled.",
+      "verdict": "Later minority register: viable and distinctive by phrasing, but the existing palette already has many laments."
+    },
+    {
+      "id": "bosmer_idea_16",
+      "culture": "Bosmer",
+      "name": "Court mimicry",
+      "description": "An elegant symmetrical air repeatedly sprouts an extra beat, a register jump or an unexpected stop.",
+      "mood": "Witty, irreverent.",
+      "verdict": "Traveling/individual repertoire: relies on knowing the court style being subverted."
+    },
+    {
+      "id": "bosmer_idea_17",
+      "culture": "Bosmer",
+      "name": "Shared breath",
+      "description": "Two flutes dovetail long tones, each enters as the other stops, producing one uninterrupted line.",
+      "mood": "Intimate, suspended.",
+      "verdict": "Ensemble reserve: animation and breath staging difficult; the result erases our useful crisp/gapped fingerprint."
+    },
+    {
+      "id": "bosmer_idea_18",
+      "culture": "Bosmer",
+      "name": "Skin and syllables",
+      "description": "One performer alternates consonant-rich short sung phrases and muted finger taps in irregular groups.",
+      "mood": "Earthy, conversational.",
+      "verdict": "Drum/voice branch of #3, not a fourth core."
+    },
+    {
+      "id": "bosmer_idea_19",
+      "culture": "Bosmer",
+      "name": "Night harmonics",
+      "description": "Sparse high flute overtones or plucked harmonics arranged in disjunct little constellations.",
+      "mood": "Luminous, watchful.",
+      "verdict": "Instrumental reserve: can support #2; risk of generic magical ambience if heavily reverberant."
+    },
+    {
+      "id": "bosmer_idea_20",
+      "culture": "Bosmer",
+      "name": "Returning story",
+      "description": "Melody and rhythm reverse order halfway through, making a narrative circle with an exact final return.",
+      "mood": "Intricate, satisfying.",
+      "verdict": "Reject initial implementation: fragile prompt compliance; formal complexity may sound like Altmer cleverness."
+    },
+    {
+      "id": "bosmer_idea_21",
+      "culture": "Bosmer",
+      "name": "Bough rustle",
+      "description": "Rapid tremolo fades into soft repeated notes and returns in waves.",
+      "mood": "Hushed motion.",
+      "verdict": "Reject as identity: generic texture and possible Khajiit/Redguard string overlap; also tempts the model to add environmental sound."
+    },
+    {
+      "id": "bosmer_idea_22",
+      "culture": "Bosmer",
+      "name": "Animal portraits",
+      "description": "A human voice uses distinct contours, articulation and registers to characterize animals in a tale.",
+      "mood": "Theatrical, amused, sometimes menacing.",
+      "verdict": "Later narrator skill: musical characterization, not literal animal recordings or a claim about magical shapechanging."
+    }
+  ],
+  "boundaries": [
+    {
+      "pair": "Redguard / Khajiit",
+      "boundary": "Articulated repeated cycles and firm returns / sustained slides and gradually unfolding development",
+      "reserve": "A separately researched Redguard narrative-ostinato branch, including possible griot influences"
+    },
+    {
+      "pair": "Dunmer / Breton folk / Falkreath",
+      "boundary": "Long melisma and modal tension / syllabic text-led stanzas / short descending five-beat cells",
+      "reserve": "Rare convivial Dunmer condition later"
+    },
+    {
+      "pair": "Imperial / Breton court / Haafingar",
+      "boundary": "Rhetorical solo melody and harmonic arrivals / restrained intimacy / clear triple dance motion",
+      "reserve": "Distinct local vernaculars, not a universal College override"
+    },
+    {
+      "pair": "Argonian / Hjaalmarch",
+      "boundary": "Crisp continuous recurring cells / slow sustained adjacent-tone friction",
+      "reserve": "More varied communal Argonian responses after the core is audible"
+    },
+    {
+      "pair": "Winterhold / Pale",
+      "boundary": "Sparse circular vocables / long complete calls over slow rocking time",
+      "reserve": "A separately developed Skaal mode later"
+    },
+    {
+      "pair": "Orsimer / Bosmer",
+      "boundary": "Held resonance or synchronized firm attacks / quick changing phrases, leaps and gaps",
+      "reserve": "Further social occasions only after the main audition distinguishes them"
+    },
+    {
+      "pair": "Altmer / Orsimer ensemble",
+      "boundary": "Independent moving/imitating lines / compact chord blocks that move and stop together",
+      "reserve": "Additional ensemble forms require their own visible roster"
+    }
+  ]
+}

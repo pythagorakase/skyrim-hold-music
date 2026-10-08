@@ -1,0 +1,12 @@
+{
+  "id": "local.solo-lute",
+  "type": "bundle",
+  "title": "Solo Lute (Prototype)",
+  "tagline": "One bard, one lute, sometimes a voice",
+  "description": "Renaissance and Baroque inspired solo lute music, with a 50% chance of an instrumental composition. Requires the accompanying MO2 music adapter; this settings package alone cannot alter music requests. Working title.",
+  "author": "local",
+  "version": "0.1.0",
+  "min_skyrimnet_version": "0.26.0",
+  "tags": ["music", "immersion"],
+  "mods": [{"name": "SkyrimNet", "file": "SkyrimNet.esp", "required": true}]
+}
