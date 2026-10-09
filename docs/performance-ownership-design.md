@@ -130,6 +130,7 @@ toggle. Lyric generation moves to Hold Music's own prompt at that point; the
 
 T0 format and API: [Performer registry and recording library](library-format.md).
 T1 package implementation and offline boundaries: [game package README](../game_package/README.md).
+T1c install/rollback: `game_package/tools/install_game_package.py` supports write-free JSON dry runs and `--uninstall`; JsonUtil's physical write target remains open pending the probe.
 
 T0 and T1 are independent of each other and can be built in parallel; T2
 depends on T0; T3 depends on T1 and T2 passing their headset gates.

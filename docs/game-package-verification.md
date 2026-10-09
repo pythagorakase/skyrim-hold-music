@@ -335,3 +335,350 @@ the tree remains dirty, including the regenerated tracked registry for review.
 A filesystem hash inventory confirmed all source changes are on the allowlist.
 
 Authored by Codex, running GPT-6.
+
+## T1c — Installer and rollback verification — 2026-10-09
+
+Implemented `game_package/tools/install_game_package.py` with `--uninstall`
+and optional `--purge`; no separate uninstaller is needed. Nothing was installed
+on Halcyon and no MO2/game/window was launched. All remote staging writes stayed
+under `C:\MGO\hm-scratch\t1c\`. No git commands, dependency installations,
+internet requests or provider calls were made; the worktree remains dirty.
+
+### Implementation and proof
+
+- Validates the profile, complete built-package inventory and SHA256 hashes, and
+  the T0 library before writing. Normal install/uninstall uses the adapter's
+  CSV `tasklist` guard. Dry runs bypass only that process guard and write nothing,
+  including Python bytecode.
+- Read `C:\MGO\ModernMarriage\tools\install_local.py` over SSH. Matched its
+  newest-ESS selection and mandatory matching SKSE co-save. Backups also preserve
+  both profile lists and the complete previous target mod, including empty
+  directories, before replacement.
+- Installs the package, WAVs, JsonUtil data, metadata and documentation. Copies
+  existing library receipts verbatim or initializes them only when absent.
+  Records every installed file's hash plus manifest hash, versions, paths and
+  backups in both receipt destinations.
+- Preserves BOM, encoding and existing newlines; enables the mod immediately
+  after the leading comment and enables the ESP once. Uninstall disables the
+  mod, removes its enabled ESP entry, optionally purges the mod, and restores
+  nothing else.
+- Eleven new tests use temporary MO2 trees, actual copied build artifacts,
+  two fake save pairs, and WAV-generated libraries made through
+  `Library.add_recording`. They cover write-free plans, every installed hash,
+  newest-pair backup, existing-mod backup, receipts, repeat installs, BOM/CRLF
+  and other supported encodings/newlines, invalid inputs, process refusal,
+  restoration after a simulated install write failure, and rollback/purge.
+  Missing build artifacts skip with the build and staging instructions.
+
+Run from the worktree root with
+`PYTHONDONTWRITEBYTECODE=1` to avoid creating files outside the allowlist:
+
+```text
+.venv/bin/python -m unittest discover -s game_package/tests -v
+Ran 35 tests in 0.251s
+OK
+
+.venv/bin/python -m unittest discover -s tests -v
+Ran 207 tests in 18.482s
+OK (skipped=1)
+```
+
+The repository suite's skip is the existing Windows embedded-interpreter
+regression. No existing tests or fixtures were changed.
+
+### Files changed
+
+- `game_package/tools/install_game_package.py` — New guarded installer, JSON dry-run plan, backup/receipt handling and `--uninstall`/`--purge`.
+- `game_package/tests/test_install_game_package.py` — New offline installer and rollback tests.
+- `game_package/README.md` — Install/rollback instructions, save warning and unresolved JsonUtil write location.
+- `docs/game-package-verification.md` — This dated T1c proof and complete Halcyon JSON plan.
+- `docs/performance-ownership-design.md` — One T1c installer/rollback status line under T1.
+
+### Halcyon dry run
+
+Staged the worktree's `game_package/` (including `build/`) and `hold_music/`
+under T1c, plus the required verification document in T1c's `docs/`.
+The existing `C:\MGO\hm-scratch\t0\library` validated with no problems;
+no fallback library was needed. Ran the installer with `--dry-run` against
+the real root and requested experimental profile. Exit code: 0.
+
+A read-only wrapper compared SHA256/file inventories before and after the CLI:
+the two profile lists, target mod, T1c scratch and T0 library were unchanged;
+the backup-directory inventory was unchanged. The dry run created neither the
+proposed backup directory nor either install receipt. Its 18 planned files
+include the existing T0 slot 01 WAV. The plan selects the Save263 ESS/SKSE pair,
+inserts the mod at line 2, and appends the enabled ESP at line 2000.
+
+The complete, unredacted JSON stdout follows. This is a captured plan, not an
+installation receipt. Its timestamp and backup path are proposed only.
+The verification-document hash refers to the staged document before appending
+this report (embedding the plan necessarily changes this document's own hash).
+
+```json
+{
+  "operation": "install",
+  "dry_run": true,
+  "version": "0.1.0",
+  "root": "C:\\MGO\\Skyrim MGO 4.0 RC4.1",
+  "profile": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\profiles\\MGO EXP - SkyrimNet b26 + SeverActions 4.2",
+  "mod": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances",
+  "data_mod": "MGO Experimental - Profile Data",
+  "profile_edits": [
+    {
+      "path": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\profiles\\MGO EXP - SkyrimNet b26 + SeverActions 4.2\\modlist.txt",
+      "encoding": "utf-8",
+      "bom_hex": "",
+      "before_sha256": "6cd32c18c40aa7b49a39b54e8f758fd62eecb7d90b417fcd4f572f86e6a14429",
+      "after_sha256": "ae70f36b0704ad614be17ecd327f85171e63e8c79391873c6e321c84f55a39c8",
+      "edits": [
+        {
+          "action": "insert",
+          "line": 2,
+          "text": "+MGO Experimental - Hold Music Performances",
+          "newline": "\r\n"
+        }
+      ]
+    },
+    {
+      "path": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\profiles\\MGO EXP - SkyrimNet b26 + SeverActions 4.2\\plugins.txt",
+      "encoding": "utf-8",
+      "bom_hex": "",
+      "before_sha256": "7a28dd1bbfb4be2e95a427ee520906b15d1f256131a836e2cb44f67a7b9ba1c9",
+      "after_sha256": "3a8fcb17a945fe18ddf0b5c4e8fc37e5378cef3c9f82759676874cccd990bc7c",
+      "edits": [
+        {
+          "action": "append",
+          "line": 2000,
+          "text": "*HoldMusic.esp",
+          "newline": "\r\n"
+        }
+      ]
+    }
+  ],
+  "purge": false,
+  "files": [
+    {
+      "source": "C:\\MGO\\hm-scratch\\t1c\\game_package\\build\\package\\HoldMusic.esp",
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\HoldMusic.esp",
+      "sha256": "dc6b243f11ad4c20b648c2b87564dba9c47d85d59d6fa99bfa785d78f4af2d13"
+    },
+    {
+      "source": "C:\\MGO\\hm-scratch\\t1c\\game_package\\build\\package\\SEQ\\HoldMusic.seq",
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\SEQ\\HoldMusic.seq",
+      "sha256": "004be5580012efcdec118fce2444cf2dab6a4709d71924066ed03b59a19969de"
+    },
+    {
+      "source": "C:\\MGO\\hm-scratch\\t1c\\game_package\\build\\package\\SKSE\\Plugins\\HoldMusic\\registry.json",
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\SKSE\\Plugins\\HoldMusic\\registry.json",
+      "sha256": "367e57de35f9ef815ea28c146cc94ce4a65e7786fd1103a219df1f36297899f0"
+    },
+    {
+      "source": "C:\\MGO\\hm-scratch\\t1c\\game_package\\build\\package\\Scripts\\HM_Config.pex",
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\Scripts\\HM_Config.pex",
+      "sha256": "03c3c4236819740bf2e520a65637408b9427d1f871d506280a9ab06194bd687e"
+    },
+    {
+      "source": "C:\\MGO\\hm-scratch\\t1c\\game_package\\build\\package\\Scripts\\HM_Controller.pex",
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\Scripts\\HM_Controller.pex",
+      "sha256": "42751884bd1fea6b34df55e97d75a20560ef6dfca89c8eb7945880f3fe903b54"
+    },
+    {
+      "source": "C:\\MGO\\hm-scratch\\t1c\\game_package\\build\\package\\Scripts\\HM_Library.pex",
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\Scripts\\HM_Library.pex",
+      "sha256": "04211cbeacd49b1353c90b9ee632b3c39af8ef9c3f363af1452d24bc5cfc12e7"
+    },
+    {
+      "source": "C:\\MGO\\hm-scratch\\t1c\\game_package\\build\\package\\Scripts\\Source\\HM_Config.psc",
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\Scripts\\Source\\HM_Config.psc",
+      "sha256": "cda751f1c648b44216bfcde41db84d0b89e3754a87ae4544f3f951fb2c1b0596"
+    },
+    {
+      "source": "C:\\MGO\\hm-scratch\\t1c\\game_package\\build\\package\\Scripts\\Source\\HM_Controller.psc",
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\Scripts\\Source\\HM_Controller.psc",
+      "sha256": "11f02733ee562475924089c9e8263020a6df0508f264319bbbb864ae377d7bae"
+    },
+    {
+      "source": "C:\\MGO\\hm-scratch\\t1c\\game_package\\build\\package\\Scripts\\Source\\HM_Library.psc",
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\Scripts\\Source\\HM_Library.psc",
+      "sha256": "a019b0f1dc75a451c383cbe65fc22936dc52b524d9d0da8baa68d44ad349ab28"
+    },
+    {
+      "source": "C:\\MGO\\hm-scratch\\t1c\\game_package\\build\\package\\Sound\\fx\\holdmusic\\README.txt",
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\Sound\\fx\\holdmusic\\README.txt",
+      "sha256": "d4d4cd81e8d94c3998028de7ae9b3a85cc52befaa409994e125bad5f53afe656"
+    },
+    {
+      "source": "C:\\MGO\\hm-scratch\\t1c\\game_package\\build\\package\\mcm\\config\\HoldMusic\\config.json",
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\mcm\\config\\HoldMusic\\config.json",
+      "sha256": "b32f028277e56d69df20a0ab25073d7f6fb8118c2fada4b31e7e2ed23b7cc831"
+    },
+    {
+      "source": "C:\\MGO\\hm-scratch\\t1c\\game_package\\build\\package\\mcm\\config\\HoldMusic\\settings.ini",
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\mcm\\config\\HoldMusic\\settings.ini",
+      "sha256": "b89747fa8565a3b79b5191a65bba76bf5c94507e0043acad4db9f12b47ed325b"
+    },
+    {
+      "source": "C:\\MGO\\hm-scratch\\t0\\library\\library.json",
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\SKSE\\Plugins\\StorageUtilData\\HoldMusic\\library.json",
+      "sha256": "17254c5a90f345dbd625ed7418972aba3ba2fdba476d3670ca9df9d427b3c4fb"
+    },
+    {
+      "source": null,
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\SKSE\\Plugins\\StorageUtilData\\HoldMusic\\receipts.json",
+      "sha256": "fc7882d107516b7d60864b2c9370ad64462d1b07ba7820c245249bb6edbdc864",
+      "content": "{\"version\": 1, \"performances\": []}\n"
+    },
+    {
+      "source": "C:\\MGO\\hm-scratch\\t0\\library\\hm_slot_01.wav",
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\Sound\\fx\\holdmusic\\hm_slot_01.wav",
+      "sha256": "6b56a19ccce4405b0546c18e9291ba046306a7ffa6c7589eef380b73799af6c7"
+    },
+    {
+      "source": null,
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\meta.ini",
+      "sha256": "a1149ad7da32d8e0d1acb1f3926195ba084433d4d03726729af6cfc0bec7f486",
+      "content": "[General]\nmodid=0\nversion=0.1.0\ncategory=0\nnotes=Hold Music owned performances; runtime and VFS verification pending.\n"
+    },
+    {
+      "source": "C:\\MGO\\hm-scratch\\t1c\\game_package\\README.md",
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\README.md",
+      "sha256": "964044332c933ec3f1237c5f44611919160b838be1b716a4f47104c09bcf28ef"
+    },
+    {
+      "source": "C:\\MGO\\hm-scratch\\t1c\\docs\\game-package-verification.md",
+      "destination": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances\\docs\\game-package-verification.md",
+      "sha256": "49222c534a192c9870d790142367401cfae8c3038116dc8d4821d201cf93837d"
+    }
+  ],
+  "backups": [
+    {
+      "source": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\profiles\\MGO EXP - SkyrimNet b26 + SeverActions 4.2\\modlist.txt",
+      "destination": "C:\\MGO\\codex-backups\\20261009-064142-091938-hold-music-performances\\modlist.txt",
+      "sha256": "6cd32c18c40aa7b49a39b54e8f758fd62eecb7d90b417fcd4f572f86e6a14429"
+    },
+    {
+      "source": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\profiles\\MGO EXP - SkyrimNet b26 + SeverActions 4.2\\plugins.txt",
+      "destination": "C:\\MGO\\codex-backups\\20261009-064142-091938-hold-music-performances\\plugins.txt",
+      "sha256": "7a28dd1bbfb4be2e95a427ee520906b15d1f256131a836e2cb44f67a7b9ba1c9"
+    },
+    {
+      "source": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\profiles\\MGO EXP - SkyrimNet b26 + SeverActions 4.2\\saves\\Save263_970036FA_0_5A6F687261_BYOHHouse3Pale_011609_20261009060628_24_1.ess",
+      "destination": "C:\\MGO\\codex-backups\\20261009-064142-091938-hold-music-performances\\pre-install-save\\Save263_970036FA_0_5A6F687261_BYOHHouse3Pale_011609_20261009060628_24_1.ess",
+      "sha256": "2831d7c263bcb7106d323bcd94630cd4ab8f336fda02ee8d42b4c47579c79074"
+    },
+    {
+      "source": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\profiles\\MGO EXP - SkyrimNet b26 + SeverActions 4.2\\saves\\Save263_970036FA_0_5A6F687261_BYOHHouse3Pale_011609_20261009060628_24_1.skse",
+      "destination": "C:\\MGO\\codex-backups\\20261009-064142-091938-hold-music-performances\\pre-install-save\\Save263_970036FA_0_5A6F687261_BYOHHouse3Pale_011609_20261009060628_24_1.skse",
+      "sha256": "256de08440a3862e088fb57e0eb295daced2e801293386ca1a51032094a4dc09"
+    }
+  ],
+  "library": "C:\\MGO\\hm-scratch\\t0\\library",
+  "backup": "C:\\MGO\\codex-backups\\20261009-064142-091938-hold-music-performances",
+  "existing_mod_backup": null,
+  "replace_existing_mod": false,
+  "receipt_destinations": [
+    "C:\\MGO\\hm-scratch\\t1c\\local\\game-package-install.json",
+    "C:\\MGO\\codex-backups\\20261009-064142-091938-hold-music-performances\\game-package-install.json"
+  ],
+  "receipt": {
+    "receipt_version": 1,
+    "version": "0.1.0",
+    "library_version": 1,
+    "installed_at": "2026-10-09T06:41:42.108941-05:00",
+    "root": "C:\\MGO\\Skyrim MGO 4.0 RC4.1",
+    "profile": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\profiles\\MGO EXP - SkyrimNet b26 + SeverActions 4.2",
+    "mod": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\mods\\MGO Experimental - Hold Music Performances",
+    "data_mod": "MGO Experimental - Profile Data",
+    "library": "C:\\MGO\\hm-scratch\\t0\\library",
+    "package": "C:\\MGO\\hm-scratch\\t1c\\game_package\\build\\package",
+    "backup": "C:\\MGO\\codex-backups\\20261009-064142-091938-hold-music-performances",
+    "library_manifest_sha256": "17254c5a90f345dbd625ed7418972aba3ba2fdba476d3670ca9df9d427b3c4fb",
+    "package_hashes_sha256": "dc2ba878c37b6b9896571ca12fcc27a90c00c3948aee919447b98f2395a9e751",
+    "files": {
+      "HoldMusic.esp": "dc6b243f11ad4c20b648c2b87564dba9c47d85d59d6fa99bfa785d78f4af2d13",
+      "SEQ/HoldMusic.seq": "004be5580012efcdec118fce2444cf2dab6a4709d71924066ed03b59a19969de",
+      "SKSE/Plugins/HoldMusic/registry.json": "367e57de35f9ef815ea28c146cc94ce4a65e7786fd1103a219df1f36297899f0",
+      "Scripts/HM_Config.pex": "03c3c4236819740bf2e520a65637408b9427d1f871d506280a9ab06194bd687e",
+      "Scripts/HM_Controller.pex": "42751884bd1fea6b34df55e97d75a20560ef6dfca89c8eb7945880f3fe903b54",
+      "Scripts/HM_Library.pex": "04211cbeacd49b1353c90b9ee632b3c39af8ef9c3f363af1452d24bc5cfc12e7",
+      "Scripts/Source/HM_Config.psc": "cda751f1c648b44216bfcde41db84d0b89e3754a87ae4544f3f951fb2c1b0596",
+      "Scripts/Source/HM_Controller.psc": "11f02733ee562475924089c9e8263020a6df0508f264319bbbb864ae377d7bae",
+      "Scripts/Source/HM_Library.psc": "a019b0f1dc75a451c383cbe65fc22936dc52b524d9d0da8baa68d44ad349ab28",
+      "Sound/fx/holdmusic/README.txt": "d4d4cd81e8d94c3998028de7ae9b3a85cc52befaa409994e125bad5f53afe656",
+      "mcm/config/HoldMusic/config.json": "b32f028277e56d69df20a0ab25073d7f6fb8118c2fada4b31e7e2ed23b7cc831",
+      "mcm/config/HoldMusic/settings.ini": "b89747fa8565a3b79b5191a65bba76bf5c94507e0043acad4db9f12b47ed325b",
+      "SKSE/Plugins/StorageUtilData/HoldMusic/library.json": "17254c5a90f345dbd625ed7418972aba3ba2fdba476d3670ca9df9d427b3c4fb",
+      "SKSE/Plugins/StorageUtilData/HoldMusic/receipts.json": "fc7882d107516b7d60864b2c9370ad64462d1b07ba7820c245249bb6edbdc864",
+      "Sound/fx/holdmusic/hm_slot_01.wav": "6b56a19ccce4405b0546c18e9291ba046306a7ffa6c7589eef380b73799af6c7",
+      "meta.ini": "a1149ad7da32d8e0d1acb1f3926195ba084433d4d03726729af6cfc0bec7f486",
+      "README.md": "964044332c933ec3f1237c5f44611919160b838be1b716a4f47104c09bcf28ef",
+      "docs/game-package-verification.md": "49222c534a192c9870d790142367401cfae8c3038116dc8d4821d201cf93837d"
+    },
+    "profile_edits": [
+      {
+        "path": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\profiles\\MGO EXP - SkyrimNet b26 + SeverActions 4.2\\modlist.txt",
+        "encoding": "utf-8",
+        "bom_hex": "",
+        "before_sha256": "6cd32c18c40aa7b49a39b54e8f758fd62eecb7d90b417fcd4f572f86e6a14429",
+        "after_sha256": "ae70f36b0704ad614be17ecd327f85171e63e8c79391873c6e321c84f55a39c8",
+        "edits": [
+          {
+            "action": "insert",
+            "line": 2,
+            "text": "+MGO Experimental - Hold Music Performances",
+            "newline": "\r\n"
+          }
+        ]
+      },
+      {
+        "path": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\profiles\\MGO EXP - SkyrimNet b26 + SeverActions 4.2\\plugins.txt",
+        "encoding": "utf-8",
+        "bom_hex": "",
+        "before_sha256": "7a28dd1bbfb4be2e95a427ee520906b15d1f256131a836e2cb44f67a7b9ba1c9",
+        "after_sha256": "3a8fcb17a945fe18ddf0b5c4e8fc37e5378cef3c9f82759676874cccd990bc7c",
+        "edits": [
+          {
+            "action": "append",
+            "line": 2000,
+            "text": "*HoldMusic.esp",
+            "newline": "\r\n"
+          }
+        ]
+      }
+    ],
+    "backups": [
+      {
+        "source": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\profiles\\MGO EXP - SkyrimNet b26 + SeverActions 4.2\\modlist.txt",
+        "destination": "C:\\MGO\\codex-backups\\20261009-064142-091938-hold-music-performances\\modlist.txt",
+        "sha256": "6cd32c18c40aa7b49a39b54e8f758fd62eecb7d90b417fcd4f572f86e6a14429"
+      },
+      {
+        "source": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\profiles\\MGO EXP - SkyrimNet b26 + SeverActions 4.2\\plugins.txt",
+        "destination": "C:\\MGO\\codex-backups\\20261009-064142-091938-hold-music-performances\\plugins.txt",
+        "sha256": "7a28dd1bbfb4be2e95a427ee520906b15d1f256131a836e2cb44f67a7b9ba1c9"
+      },
+      {
+        "source": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\profiles\\MGO EXP - SkyrimNet b26 + SeverActions 4.2\\saves\\Save263_970036FA_0_5A6F687261_BYOHHouse3Pale_011609_20261009060628_24_1.ess",
+        "destination": "C:\\MGO\\codex-backups\\20261009-064142-091938-hold-music-performances\\pre-install-save\\Save263_970036FA_0_5A6F687261_BYOHHouse3Pale_011609_20261009060628_24_1.ess",
+        "sha256": "2831d7c263bcb7106d323bcd94630cd4ab8f336fda02ee8d42b4c47579c79074"
+      },
+      {
+        "source": "C:\\MGO\\Skyrim MGO 4.0 RC4.1\\profiles\\MGO EXP - SkyrimNet b26 + SeverActions 4.2\\saves\\Save263_970036FA_0_5A6F687261_BYOHHouse3Pale_011609_20261009060628_24_1.skse",
+        "destination": "C:\\MGO\\codex-backups\\20261009-064142-091938-hold-music-performances\\pre-install-save\\Save263_970036FA_0_5A6F687261_BYOHHouse3Pale_011609_20261009060628_24_1.skse",
+        "sha256": "256de08440a3862e088fb57e0eb295daced2e801293386ca1a51032094a4dc09"
+      }
+    ]
+  }
+}
+```
+
+### Stop-report items and remaining gates
+
+No stop-report items. The real installation was deliberately not attempted;
+it remains gated on the adapter's in-game test and closed MO2/Skyrim.
+JsonUtil's physical read/write target, including possible receipt writes under
+`overwrite\SKSE\Plugins\StorageUtilData\HoldMusic\`, remains unknown.
+The VFS/game-side probes must settle where the helper reads receipts. No
+headset, audio, native JsonUtil or VFS acceptance is claimed.
+
+Authored by Codex, running GPT-6.

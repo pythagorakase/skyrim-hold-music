@@ -44,6 +44,65 @@ alias bindings and SEQ, validates a Mutagen serialize/read round trip, then the
 build script disassembles all three PEX files and hashes every package file.
 This is an offline build tool, not an installer or rollback tool.
 
+## Install and rollback
+
+Use the separate installer only after the adapter's in-game test and with both
+MO2 and Skyrim closed. It requires the retrieved `build/package` and
+`build/package-hashes.json`, this checkout's `hold_music` package and
+`docs/game-package-verification.md`, and a valid T0 library with `library.json`.
+No build, dependency installation, provider request or game launch is performed.
+
+```bat
+py -3 game_package\tools\install_game_package.py "C:\MGO\Skyrim MGO 4.0 RC4.1" "MGO EXP - SkyrimNet b26 + SeverActions 4.2" --library "C:\MGO\hm-scratch\t0\library" --dry-run
+```
+
+`--dry-run` validates and prints the complete JSON plan without writing anything,
+including bytecode, backups or receipts; it is permitted while MO2 is open.
+Remove that flag only when authorized to install after the gate above. The
+default `--mod-name` is `MGO Experimental - Hold Music Performances`.
+`--data-mod` defaults to `MGO Experimental - Profile Data` and is recorded as
+profile context only; all package and library files go into the performance
+mod. It does not edit the data mod or SkyrimNet settings.
+
+Before changing the profile, the installer verifies every build-package hash,
+requires `Library(root).validate()` to return no problems, and backs up
+`modlist.txt`, `plugins.txt`, the entire existing target mod, and the newest
+ESS with its matching SKSE co-save under
+`C:\MGO\codex-backups\<timestamp>-hold-music-performances\`.
+Like Modern Marriage, it refuses if no save exists or the newest ESS lacks its
+SKSE pair; it does not silently choose an older complete pair. Saves are never
+modified. Existing mod content is replaced after backup, removing stale files.
+
+The mod receives the plugin, SEQ, compiled scripts and sources, MCM files,
+registry, every manifest WAV, and copies of `library.json` and `receipts.json`.
+Only a missing library-root receipts file is initialized with
+`{"version": 1, "performances": []}`. It also includes version 0.1.0 metadata,
+this README, and `docs/game-package-verification.md`. The installer inserts the
+enabled mod directly after the first comment line (otherwise first), removes
+prior entries for that mod, and appends/enables `*HoldMusic.esp` once. It preserves
+the profile files' BOM, encoding and existing line endings. The installed file
+hashes, manifest hash, versions, paths and backup location are recorded in
+`local/game-package-install.json` at the checkout root and in the backup folder.
+
+Rollback uses the same tool's `--uninstall` mode; no library or build is needed:
+
+```bat
+py -3 game_package\tools\install_game_package.py "C:\MGO\Skyrim MGO 4.0 RC4.1" "MGO EXP - SkyrimNet b26 + SeverActions 4.2" --uninstall
+```
+
+It disables the mod with `-<mod-name>`, removes its enabled plugin entry, and
+keeps the mod folder. Add `--purge` to delete that folder, or `--dry-run` to
+inspect either rollback plan. Pass the original `--mod-name` if customized.
+Rollback restores nothing else: no saves, other mods, settings or backup
+contents. Saves made with the plugin enabled will log a missing-plugin warning
+on load, as with any removed mod.
+
+**JsonUtil's write target under MO2 is not yet known** (design open question 4).
+The receipts file may end up in
+`overwrite\SKSE\Plugins\StorageUtilData\HoldMusic\` rather than the mod folder.
+The VFS probe and game-side write probe must decide where the helper reads it;
+the installer does not establish that location or claim runtime verification.
+
 ## Records and sound
 
 `data/slots.json` is the shared 1..24 slot definition. Each `HM_SlotNN` SNDR has
