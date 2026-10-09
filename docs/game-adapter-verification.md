@@ -176,3 +176,23 @@ Commands run unpiped from the worktree root:
 /Users/pythagor/hold_music/.venv/bin/python tools/build_game_adapter.py
 /Users/pythagor/hold_music/.venv/bin/python -m unittest discover -s tests -v
 ```
+
+### 0.2.2 live relay check and deployment — 9 October 2026
+
+The Windows suite passed with Python 3.12 (167 tests). The 0.2.2 package was
+hot-swapped over the installed MO2 plugin and content mod at 06:18 Central with
+MO2 open and no helper running; installed files hash-match main. Backup:
+`C:\MGO\codex-backups\20261009-061804-hold-music-0.2.2-hotswap`.
+
+One paid synthetic request (Mikael fixture, instrumental) then went through a
+fresh independent 0.2.2 helper on HALCYON: HTTP 200, 22 relayed events, the
+assistant init event first (6.8 s after the request, once OpenRouter answered),
+15 heartbeat events while buffering, one metadata event with
+`**Duration:** 175s` before the first audio event, the upstream audio and
+finish events verbatim, `[DONE]` last. The decoded MP3 (4,209,748 bytes) walks
+to 175.15 s, matching the reported value; service log
+`region=whiterun via=suffix-table mode=instrumental` and
+`duration_seconds=175 audio_bytes=4209748 reported=true`; `duration_reported`
+counter 1. Sample kept in the ignored `local/music-service-check-0.2.2/`. Not
+listened to or judged musically. No in-game composition or playback has been
+observed yet for any adapter build.
