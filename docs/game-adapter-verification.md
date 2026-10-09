@@ -111,3 +111,25 @@ combinations; maximum 768/1000 characters
 (bosmer_spinners_tales/drum_voice/orc/haafingar).` The game-specific maximum was
 710 characters (Whiterun wordless, female). The Python run also emitted
 non-failing SQLite connection ResourceWarnings in the existing suite.
+
+### 0.2.1 live transport check and deployment — 9 October 2026
+
+One paid synthetic request was sent through a fresh independent 0.2.1 helper on
+HALCYON, isolated from the running game, using the committed Mikael fixture
+(`The Bannered Mare, Hold: Whiterun`) in vocal mode: HTTP 200, completed SSE,
+2,296,331 bytes of MP3 (about 95 seconds at 192 kbps), OpenRouter cost $0.0792,
+service log `region=whiterun via=suffix-table mode=vocal lyrics_forwarded=True`,
+helper build 0.2.1 reported alongside protocol version 0.2.0. The sample is kept
+in the ignored `local/music-service-check-0.2.1/` folder and was not listened
+to or judged for musical compliance.
+
+The full suite also passed on Windows with Python 3.12 (147 tests) after the
+workshop tests were made encoding- and file-lock-safe.
+
+The 0.2.1 package files were then copied over the installed MO2 plugin and
+content mod with MO2 open and Skyrim closed, and the 0.2.0 helper was stopped
+through its stop file, so the next configured-profile launch starts the 0.2.1
+helper. The MO2-resident plugin code (version string and in-process reconcile
+recovery) takes effect only after MO2 restarts. Backup:
+`C:\MGO\codex-backups\20261009-055334-hold-music-0.2.1-hotswap`. No in-game
+composition or playback has been observed yet for either 0.2.0 or 0.2.1.
