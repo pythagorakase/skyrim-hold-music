@@ -113,7 +113,7 @@ ensemble:               # appended only when accompanists are present
     rift: "the room joins on the refrain, loud and ragged"
 ```
 
-- A multipart reference can return only when its actual role count and arrangement match the visible roster. Two singers suffice for a duet reference; they do not suffice for a four-part reference such as canto a tenore. Instrument-ensemble names remain excluded when they imply absent sound sources.
+- Named multipart and instrumental-ensemble traditions remain explicit musical influences in reduced prompts. Actual sound sources must still match the visible roster: a solo or three-voice adaptation of canto a tenore is a reduction, not the authentic four-part form.
 - A singer's fundamental and audible upper overtones can belong to one voice. This does not authorize adding recorded backing voices. One flute player alternates playing and singing; simultaneous sustained flute and voice require separate performers.
 - Done when the performers described in every prompt match the visible performers one for one.
 
@@ -169,22 +169,53 @@ These are proposed context fields; they are not yet connected to the Solo Lute a
 
 Order:
 
-1. Setting: an in-world performance in Skyrim, with sound made by the listed performers in the room
-2. Performer block built from the actual arrangement, followed by the singer's explicit vocal character when singing
-3. Selected tradition: optional compatible `In the style of {reference}:` prefix, then `core` or `dialect`, then an eligible tint
-4. Voice technique line, if singing; timbre and physical vocal weight are distinct from learned technique
-5. Instrument line
-6. Acoustic production constraint: intimate pre-modern acoustic performance, with geography and musical idiom supplied above rather than a universal European Baroque style
+1. Named `reference` with a brief solo, single-line, three-voice or rhythmic adaptation label
+2. Tamriel/Elder Scrolls setting, explicit target region, adult performer race and actual arrangement
+3. One intimate acoustic-room instruction and compact vocal casting when singing
+4. Arrangement-compatible `core` or `dialect`, voice technique and selected instrument treatment
+5. One instruction tying generated lyrics to the performer and setting; supplied lyrics instead remain a separate, verbatim block
 
-The workshop includes this setting in every fresh recipe:
+The workshop adds performer and region context to every complete request, including saved custom musical directions. Race defaults to the profile's provisional audition cast and can be overridden separately for A and B. Target region defaults to the named hold for regional profiles, Cyrodiil for its vernacular profile, and otherwise Skyrim with no specific settlement assigned. A shared region override lets both auditions use the same place.
+
+Every workshop recipe names a real-world musical reference, including original fictional candidates and requests with saved custom directions. The compact complete prompt leads with that name and labels the selected adaptation. The arrangement-compatible musical clauses supply the concrete features; `reference_focus` remains editorial rationale rather than another repeated prompt paragraph. Instrumental and rhythmic reductions retain the name and their actual sound sources. These are audition influences, not claims that the invented Tamrielic forms are authentic versions of the source traditions.
+
+Default complete music prompts fit within a 1,000-character budget, excluding lyrics. The workshop shows a live character count and separate **Copy music prompt** and **Copy lyrics** controls for interfaces such as Suno. Saved custom directions remain intact; an over-budget edit is flagged, never truncated. **Reset to recipe** adopts the compact defaults. The exact Google request remains available separately and includes supplied lyrics with the verbatim instruction. Inline `Lyrics:` blocks are also separated for music-only copying and counting while the full API request retains the user's original words.
 
 ```yaml
-audition_context: "An in-world acoustic performance in Skyrim, in the Elder Scrolls setting. The music is made by the listed performers in the room, with natural close room acoustics rather than a cinematic backing score."
+audition_context: "An in-world acoustic performance in Tamriel, in the Elder Scrolls setting. The music is made by the listed performers in the room, with natural close room acoustics rather than a cinematic backing score."
+audition_races:
+  nord: "Nord"
+  imperial: "Imperial"
+  breton: "Breton"
+  redguard: "Redguard"
+  dunmer: "Dunmer (Dark Elf)"
+  altmer: "Altmer (High Elf)"
+  bosmer: "Bosmer (Wood Elf)"
+  orc: "Orc (Orsimer)"
+  khajiit: "Khajiit"
+  argonian: "Argonian"
+audition_regions:
+  skyrim: "Skyrim; no specific hold or settlement assigned"
+  haafingar: "Haafingar, around Solitude, Skyrim"
+  eastmarch: "Eastmarch, around Windhelm, Skyrim"
+  whiterun: "Whiterun Hold, Skyrim"
+  reach: "the Reach, around Markarth, Skyrim"
+  falkreath: "Falkreath Hold, Skyrim"
+  rift: "the Rift, around Riften, Skyrim"
+  winterhold: "Winterhold, Skyrim"
+  pale: "the Pale, around Dawnstar, Skyrim"
+  hjaalmarch: "Hjaalmarch, around Morthal, Skyrim"
+  cyrodiil: "Cyrodiil; no specific city assigned"
+  raven_rock: "Raven Rock, Solstheim"
+  skaal: "the Skaal community, Solstheim"
+audition_voices:
+  orc: "dark, full-bodied, grainy low-to-mid voice with weighty chest resonance and firm, unforced delivery"
+  khajiit: "warm, husky, throaty voice with subtle rumbling grain, clear consonants and supple phrasing"
 ```
 
-The Orc finalists' `audition_casting` fields specify a provisional adult Orc vocal character for these listening tests. They are casting choices, not definitions of the tradition or rules for every Orc. They do not select a gender or confer overtone proficiency. In eventual NPC integration, the actual performer's `voice_character` replaces these audition defaults. Instrumental prompts omit casting and vocal technique; a three-singer arrangement retains its exact roles.
+The Orc finalists' `audition_casting` fields and the Khajiit voice direction specify provisional vocal characters for listening tests. They are casting choices, not definitions of a tradition or rules for every member of a race. They do not select a gender or confer technique proficiency. A race override selects the matching vocal character instead of carrying the repertoire's Orc cast into another performer. In eventual NPC integration, the actual performer's `voice_character` replaces these audition defaults. Instrumental prompts still name race and place but omit vocal casting and technique; a three-singer arrangement retains its exact roles.
 
-Setting and casting remain visible in the editable audition prompt. Existing custom prompt edits are preserved; **Reset to recipe** explicitly adopts revised defaults. Saved takes retain the exact prompt originally sent to Google.
+Performer and region controls, a context summary and the exact-request preview expose the complete audition context. Existing custom musical directions are preserved; **Reset to recipe** explicitly adopts revised musical defaults. Context instructs newly generated lyrics to keep the performer identity and venue consistent without announcing the race or inventing a birthplace. With no named settlement selected, lyrics avoid naming the current venue. Supplied SkyrimNet lyrics remain unchanged: their characters and locations are song subjects, not authority to recast or relocate the audition. Saved takes retain the exact prompt originally sent to Google.
 
 Google's [Lyria prompt guide](https://ai.google.dev/gemini-api/docs/lyria-prompt-guide#vocal-delivery-and-singer-profiles) recommends explicit vocal range and timbre. Setting names provide context; the casting and technique clauses describe the sound to audition. Their effectiveness still requires listening.
 
@@ -215,7 +246,7 @@ These are selective compositional references, not complete descriptions of the r
 | -------------- | ------------------------------------------------------ | ------------------------------------------------------------------- |
 | `nord`         | Scandinavian medieval ballad                           | Strophic, modal, drone-heavy storytelling                           |
 | `imperial`     | Italian frottola, early Baroque monody (Caccini)       | Expressive solo melody with strong harmonic arrivals |
-| `imperial_vernacular` | Original vernacular adaptation of that family | Firm pulse, short refrain and clear cadences for Cyrodiil |
+| `imperial_vernacular` | Italian frottola and Renaissance villanella, adapted as an original vernacular | Firm pulse, short refrain and clear cadences for Cyrodiil |
 | `breton_court` | French air de cour                                     | High Rock's feudal courts                                           |
 | `breton_folk`  | Breton gwerz                                           | Narrative lament for the folk register                              |
 | `redguard`     | Arab-Andalusian song, Spanish vihuela (Milán, Narváez) | The lute played like the oud it descends from                       |
@@ -223,12 +254,13 @@ These are selective compositional references, not complete descriptions of the r
 | `altmer`       | Ricercar, fantasia                                     | Learned counterpoint, the most "Baroque" of the set                 |
 | `orc`          | Three original finalists; khöömei provides one vocal-technique reference | Resonance, deliberate grouping and collective precision; see shortlist |
 | `bosmer`       | Three original finalists                               | Agile discontinuous phrases, clear attacks, register contrast and purposeful gaps |
-| `khajiit`      | Rajasthani desert music (Manganiyar, Langa), raga form | Desert musicians; ragas keyed to time of day map onto the moons     |
-| `argonian`     | Interlocking ideas from Javanese/Balinese music; translated to the visible instrument | Crisp cyclical cells; the language analogy is inspiration, not a rule about musical form |
+| `khajiit`      | Hindustani instrumental raga and tabla solo, with Rajasthani desert color | Sitar or bamboo flute for unfolding melody; tabla for intricate rhythmic development |
+| `argonian`     | Sundanese kacapi suling, retaining kotekan-inspired cells | Instrumental plucked-zither or bamboo-flute audition; a fictional solo adaptation |
 
 ```yaml
 cultures:
   nord:
+    lute_instrumental: "plain modal melody with open-string tonic and fifth drones, a short returning refrain"
     core_monophonic: "strophic modal melody with a short refrain, plain Dorian or Mixolydian phrases and few ornaments"
     reference: "Scandinavian medieval ballads"
     core: "strophic ballad with a short refrain, Dorian or Mixolydian mode, steady drone on the tonic and fifth, plain melody with few ornaments"
@@ -238,6 +270,7 @@ cultures:
     drum: "steady walking pulse"
 
   imperial:
+    lute_instrumental: "upper-string melody with ornamental runs over arpeggiated bass, clear cadences"
     reference: "Italian frottola and early Baroque monody"
     core: "clear major or minor tonality, flexible expressive tempo, strong cadences"
     voice: "lyrical solo line with ornamental runs and cadential trills"
@@ -246,7 +279,10 @@ cultures:
     drum: "light, even dance pulse"
 
   imperial_vernacular:
-    reference: null
+    lute_instrumental: "short refrain melody between crisp chord strokes, regular pulse and strong cadence returns"
+    audition_region: cyrodiil
+    reference: "Italian frottola and Renaissance villanella"
+    reference_focus: "short strophic refrains, a firm pulse and clear cadences; a vernacular adaptation rather than courtly monody"
     core: "firm regular pulse, short memorable refrain, clear major or minor harmony, decisive cadence returns"
     voice: "direct syllabic delivery with brief ornamental pickups"
     lute: "crisp chordal rhythm with a short melodic answer"
@@ -254,6 +290,7 @@ cultures:
     drum: "even dance pulse with clear phrase-ending accents"
 
   breton_court:
+    lute_instrumental: "delicate melody above soft broken chords, small graces and breathing pauses"
     reference: "French air de cour"
     core: "minor or Dorian mode, gentle unhurried pace, speech-like phrasing, delicate grace notes"
     voice: "light, intimate, restrained"
@@ -262,6 +299,8 @@ cultures:
     drum: "quiet, restrained pulse"
 
   breton_folk:
+    core_instrumental: "slow strophic instrumental air, long restrained phrases, flexible rhythm and little ornament"
+    lute_instrumental: "one restrained repeating melody, sparse plucks and flexible unhurried phrasing"
     reference: "Breton gwerz"
     core: "slow text-led lament, long stanzas on a repeating restrained melody, flexible syllabic rhythm, little melodic ornament"
     voice: "clear plain syllables, unhurried narrative delivery, almost unaccompanied"
@@ -270,6 +309,7 @@ cultures:
     drum: "quiet, restrained pulse"
 
   redguard:
+    lute_instrumental: "clearly picked Phrygian melody, articulated runs and decisive returns to the cycle"
     reference: "Arab-Andalusian and Spanish Renaissance song"
     core: "Phrygian color, articulated ornamental phrases in a clear recurring rhythmic cycle, runs returning to firm cadence notes"
     voice: "ornamented but clearly articulated phrases, brief melismas ending decisively"
@@ -278,6 +318,7 @@ cultures:
     drum: "cyclic hand-drum pattern mixing deep and sharp strokes"
 
   dunmer:
+    lute_instrumental: "long sorrowful melody with slow ornaments over the same instrument’s low drone strings"
     core_monophonic: "slow free-rhythm lament, long sorrowful single-line phrases and augmented-second color"
     reference: "Armenian and Persian modal lament"
     core: "slow lament, minor mode with augmented-second color, free rhythm, long sorrowful phrases over a sustained low drone"
@@ -287,6 +328,7 @@ cultures:
     drum: "slow, sparse pulse"
 
   altmer:
+    lute_instrumental: "two or three independently moving plucked lines, precise imitation and balanced cadences"
     core_monophonic: "precise sequential imitation within one melodic line, measured phrasing and formal ornaments"
     reference: "ricercars and fantasias"
     core: "learned counterpoint, strict measured tempo, imitative lines, precise formal ornaments, balanced phrases"
@@ -308,13 +350,14 @@ cultures:
     material_policy: "individual observance and visible prop; no blanket lute prohibition"
 
   khajiit:
+    lute_instrumental: "long sliding meend phrases over the same instrument’s open drone strings; free alap grows into a measured pulse"
     core_monophonic: "one sliding melodic line around a stable tone, unmetered opening slowly finding pulse and gathering speed"
-    reference: "Rajasthani desert music and raga form"
+    reference: "Hindustani instrumental raga, with Rajasthani desert-music color"
+    drum_reference: "Hindustani tabla solo"
     core: "sustained drone, unmetered opening that slowly finds a pulse and accelerates, notes joined by slides instead of clean steps"
-    voice: "supple, sliding between notes, long ornamented phrases"
-    lute: "single-line melody with slides and bends over a drone string"
-    flute: "breathy, sliding between notes, long phrases"
-    drum: "hand-drum cycle that starts sparse and gathers speed"
+    lute: "plucked melody with long meend bends, ringing open drone strings on the same instrument"
+    flute: "breathy bamboo tone, continuous pitch slides, long phrases returning to a resting note"
+    drum: "deep sliding bayan bass against crisp dayan finger strokes; 16-beat teental (4+4+4+4), playful syncopation and increasingly rapid variations; finish with a threefold tihai landing on the first beat"
     ignores_hold_tint: true
     phase_modes:          # suggested starting map, tune by ear
       new: "darkest mode with a flattened second, low register, the pulse arrives late and stays slow"
@@ -323,11 +366,12 @@ cultures:
       waning: "minor mode, descending phrases, slowing tempo"
 
   argonian:
-    reference: null       # "gamelan" names an ensemble and would summon one
-    core: "five-note cells in a continuous crisp rhythmic cycle, alternating registers, level intensity and little cadential drive, clean abrupt ending"
-    voice: "low rhythmic chant on vocables"
-    lute: "quick alternation between two registers to imply interlocking parts"
-    flute: "short clear attacks alternate between two registers in a continuous recurring cell"
+    lute_instrumental: "alternating low anchors and rippling upper five-note cells, crisp woody attacks and ringing decay"
+    reference: "Sundanese kacapi suling, with Balinese kotekan-inspired repeating cells"
+    reference_focus: "a fictional solo adaptation: plucked zither or bamboo flute, with cyclic cells borrowed from the earlier kotekan sketch"
+    core: "five-note modal cells, rippling even pulse and alternating registers, poised level intensity, recurring low anchor and a clean abrupt ending"
+    lute: "crisp woody plucks, alternating low anchor and bright upper cells on one zither, brief ringing decay"
+    flute: "soft bamboo tone with small tongued attacks; one line alternates registers and curls around five recurring notes"
     drum: "interlocking two-handed pattern, steady and unchanging"
 ```
 
@@ -337,7 +381,7 @@ The exploration produced **18 Orsimer candidates and 22 Bosmer candidates**, wit
 
 | Culture | Finalist | Audible identity | Predominant mood | Role in the shortlist |
 |---|---|---|---|---|
-| Orsimer | **Resonant Name-Songs** | One sustained vocal fundamental with a moving upper overtone melody, long vowels, sparse plucked punctuation | Grave, concentrated, enduring | Favorite vocal identity; individual technique required; instrumental reduction is weaker |
+| Orsimer | **Resonant Name-Songs · throat singing** | One sustained vocal fundamental with a moving upper overtone melody, long vowels, sparse plucked punctuation | Grave, concentrated, enduring | Favorite vocal identity; individual technique required; instrumental reduction is weaker |
 | Orsimer | **Seven-Step Oath-Songs** | Deliberate 2+2+3 grouping, compact four-note material, clipped words, damped instrumental answers and decisive rests | Resolute, exacting, communal | Most portable candidate across the existing lute/voice and instrumental grammar |
 | Orsimer | **Close-Circle Songs** | Plain lead phrases with compact chord blocks that change and stop together | Solemn solidarity, intimate warmth | Ensemble finalist; current solo version explicitly gives chord work to the lute |
 | Bosmer | **Leaping tales** | Quick five-pulse 3+2 grouping, wide angular leaps, dry attacks, shortened answers and sudden gaps | Mischievous, alert, slightly uncanny | Preferred broadly usable Bosmer candidate |
@@ -350,15 +394,17 @@ The initial Bosmer proposal shared the Orsimer candidate's seven-pulse grouping.
 
 ### Candidate fragments
 
-These fragments use the same core/voice/instrument contract as the existing profiles. `reference` stays null where naming a whole real tradition would invite the wrong arrangement. A named audition resolves through `traditions`; no candidate is implicitly activated for every NPC of that ancestry.
+These fragments use the same core/voice/instrument contract as the existing profiles. Every finalist now has a named audition influence, with a `reference_focus` that preserves its fictional fingerprint and identifies the reduction. A named audition resolves through `traditions`; no candidate is implicitly activated for every NPC of that ancestry.
 
 ```yaml
 traditions:
   orc_resonant_names:
-    reference: null
-    audition_casting: "mature Orc (Orsimer) vocal character: a dark, full-bodied tone with weighty chest resonance, a settled low-to-middle register and audible grain; firm, unforced delivery that retains weight even in quiet phrases"
+    lute_instrumental: "isolated low plucks answered by ringing upper notes; a resonant contour reduction of the vocal form"
+    reference: "Mongolian khöömei overtone singing"
+    reference_focus: "a steady low foundation with moving upper harmonics; instrumental reductions translate contour and resonance without adding a throat singer"
+    audition_casting: "dark, full-bodied, grainy low-to-mid voice with weighty chest resonance and firm, unforced delivery"
     core: "slow breath-length phrases, stable tonal center, sparse resonance and decisive pauses; grave and concentrated"
-    voice: "one singer sustains a strong low fundamental while shaping a small, clear, whistle-like melody from its upper harmonics; the high tones stay attached to that same weighty sustained voice, not a separate high lead or backing singer; long rounded vowels alternate with brief plain sung phrases"
+    voice: "one singer sustains a weighty low fundamental with a moving whistle-like upper-overtone melody; rounded vowels alternate with plain sung phrases"
     lute: "isolated low plucks and spare ringing upper notes, audible decay between phrases"
     flute: "one slow narrow melodic line, separated ordinary and upper-register tones"
     drum: "widely spaced contrasting low and dry strokes"
@@ -366,8 +412,10 @@ traditions:
     instrumental_status: reduced_arrangement
 
   orc_seven_step:
-    reference: null
-    audition_casting: "mature Orc (Orsimer) vocal character: a dark, full-bodied tone with weighty chest resonance, a settled low-to-middle register and audible grain; firm, unforced delivery that retains weight even in quiet phrases"
+    lute_instrumental: "low damped strokes and a rising-fourth melody mark deliberate 2+2+3 groups, decisive rests"
+    reference: "Bulgarian rachenitsa"
+    reference_focus: "borrow the 2+2+3 additive rhythm, with deliberate resolute phrasing rather than a fast wedding-dance tempo"
+    audition_casting: "dark, full-bodied, grainy low-to-mid voice with weighty chest resonance and firm, unforced delivery"
     core: "seven pulses grouped 2+2+3, compact four-note phrases and rising fourths, dry attacks and decisive rests; resolute"
     voice: "clipped syllabic statements, deliberate consonants and firm phrase endings"
     lute: "damped low strums and short single-note answers marking each uneven group"
@@ -375,9 +423,12 @@ traditions:
     drum: "deliberate two-two-three groups, deep first attack and a clean gap after each full line"
 
   orc_close_circle:
+    lute_instrumental: "simple upper melody against compact low chord blocks, every part releasing together"
     core_monophonic: "one plain narrow melody in slow measured phrases, decisive releases and clean pauses; solemn warmth"
-    reference: null
-    audition_casting: "mature Orc (Orsimer) vocal character: a dark, full-bodied tone with weighty chest resonance, a settled low-to-middle register and audible grain; firm, unforced delivery that retains weight even in quiet phrases"
+    reference: "Sardinian canto a tenore"
+    reference_focus: "compact chord responses and coordinated releases; the listed solo or three-voice reduction is not an authentic four-part tenore ensemble"
+    reference_focus_monophonic: "the plain lead melody, short measured phrases and coordinated clean cutoffs, reduced to one line without chord responses"
+    audition_casting: "dark, full-bodied, grainy low-to-mid voice with weighty chest resonance and firm, unforced delivery"
     core: "slow measured phrases, a few compact chord shapes changing together, open fifths and collective cutoffs; solemn warmth"
     voice: "one plain text-bearing lead line, short statements ending in clean silence"
     lute: "low chord blocks under a simple upper line, with simultaneous releases"
@@ -387,7 +438,9 @@ traditions:
     ensemble_clause: "three visible singers: one lead, two compact chord responses, all releases synchronized"
 
   bosmer_leaping_tales:
-    reference: null
+    lute_instrumental: "angular wide-leaping melody in quick 3+2 groups, dry plucks and sudden gaps"
+    reference: "Balkan aksak dance music"
+    reference_focus: "use the selected five-pulse 3+2 grouping, quick wide leaps and sudden rests rather than inheriting another dance meter"
     core: "quick five-pulse groups of 3+2, short angular motives with wide leaps, dry attacks and sudden rests; alert and mischievous"
     voice: "agile clear syllables, light register jumps, pauses with a punchline's timing"
     lute: "dry clipped single notes and occasional open intervals, brief answers at phrase endings"
@@ -395,7 +448,9 @@ traditions:
     drum: "light three-two groups, a clipped final answer and deliberate missing strokes"
 
   bosmer_hunting_calls:
-    reference: null
+    lute_instrumental: "isolated two- or three-note calls in high and middle registers with complete gaps"
+    reference: "Swedish kulning and Scandinavian herding-call music"
+    reference_focus: "brief clear calls, register contrasts and complete gaps, rendered intimately rather than as distant shouting"
     core: "brief two- or three-note calls at separated registers, complete gaps and clean endings; watchful and spare"
     voice: "one singer alternates a clear compact high call with a quieter lower answer"
     lute: "isolated picked calls in high and middle registers, each phrase ending before the next"
@@ -403,7 +458,10 @@ traditions:
     drum: "pairs of contrasting strokes with complete pauses; a rhythmic reduction of the calls"
 
   bosmer_spinners_tales:
-    reference: null
+    core_instrumental: "a recurring three-note tag amid irregular phrase lengths, sudden register turns and clear endings; intimate and uncanny"
+    lute_instrumental: "a recurring three-note tag, irregular phrase lengths and sudden register turns, sparse plucked punctuation"
+    reference: "Japanese biwa narrative song, especially biwa hōshi storytelling"
+    reference_focus: "speech-shaped narration, sparse plucked punctuation and the returning three-note tag; retain the chosen lyric language and listed instrument"
     core: "a recurring three-note tag amid changing speech-paced phrase lengths, sudden register turns and clear endings; intimate and uncanny"
     voice: "one conversational singer changes character through register, pacing and articulation"
     lute: "a recognizable short tag and sparse punctuation, fuller playing only in interludes"
@@ -425,6 +483,8 @@ The first live Resonant Name-Songs take (2026-10-08) received listener feedback 
 
 Real technique references: [UNESCO on solo khoomei](https://ich.unesco.org/en/RL/mongolian-art-of-singing-khoomei-00210?RL=00210), [UNESCO on four-part Sardinian tenore](https://ich.unesco.org/en/RL/canto-a-tenore-sardinian-pastoral-songs-00165), and [Tbilisi State Conservatory's account of polyphonic principles](https://polyphony.ge/en/georgia/georgian-traditional-music/forms/). They support the acoustic distinctions, not the invented Orsimer names or social meanings.
 
+The explicit-name audition revision adds provisional anchors to the original fictional forms: Bulgarian rachenitsa for Seven-Step, Balkan aksak dance music for Leaping tales, Swedish kulning for Hunting-call airs, and Japanese biwa narrative song for Spinner's tales. These choices borrow selected features and preserve the existing recipes; they are not retrospective claims that the forms were modeled completely on those traditions. [University of Arizona's meter guide](https://opentextbooks.library.arizona.edu/folkdance/chapter/chapter-28/) documents the 2+2+3 rachenitsa grouping; Leaping tales retains its separately specified 3+2. [Sweden's Institute for Language and Folklore](https://www.isof.se/folkminnen/amnesomraden/folklig-sang-musik-och-dans/lar-dig-mer-om-folklig-sang-och-musik/fabodarnas-toner) describes kulning and short herding melodies. [Smithsonian's biwa program notes](https://asia-archive.si.edu/podcast/voice-of-the-biwa-junko-tahara-ensemble/) describe narrative song with plucked-lute accompaniment. The Pale's original coastal air uses a provisional Scottish/Hebridean slow-air anchor; the [Scottish Music Centre's Highland-air collection](https://www.scottishmusiccentre.com/shop-all/p/musica-scotica-vol-vii-original-highland-airs-collected-at-raasay-in-1812-by-elizabeth-jane-ross) provides a named song-air and instrumental repertoire for comparison.
+
 ### Bosmer materials and learning
 
 Keep personal instrument material/observance choices separate from musical idiom. The installed bios give Yarbrough and Daenlyn lute skills and Nordic training; the new Bosmer candidates do not automatically replace their learned repertoire. Imported materials and differing interpretations of the Pact also have textual support: [official Y'ffre Q&A, preserved transcript](https://elderscrolls.fandom.com/wiki/Loremaster%27s_Archive%3A_Y%27ffre%27s_Beckoning) and [The Green Pact and the Dominion, game-book transcript](https://teso.mmorpg-life.com/the-green-pact-and-the-dominion-lorebook/). These are not a blanket ruling on every character's instrument. Bone, hide or imported materials are optional individual details when the prop and characterization support them.
@@ -442,67 +502,207 @@ Keep personal instrument material/observance choices separate from musical idiom
 | `falkreath` | Falkreath | Karelian lament and runo-song | A graveyard town's music |
 | `rift` | Riften | Playford dance tunes, broadside ballads | Tavern town |
 | `winterhold` | Winterhold | Sámi joik | Far north, sparse |
-| `pale` | Dawnstar | Original northern coastal air | Long exposed calls over a slow rocking pulse, distinct from Winterhold’s circular vocables |
+| `pale` | Dawnstar | Original northern coastal air, auditioned with Scottish and Hebridean slow-air influences | Long exposed calls over a slow rocking pulse, distinct from Winterhold’s circular vocables |
 | `hjaalmarch` | Morthal | Lithuanian sutartinės | Haunted marsh, hold run by a seer. Mirrors Windhelm: the grating second against the hollow fifth |
 
 ```yaml
 holds:
   haafingar:
+    lute_instrumental: "refined upper melody over spacious chord answers, a clear triple dance pulse"
     core_monophonic: "polished triple dance motion, refined single-line phrases and clear cadence returns"
     reference: "the Danish court of Christian IV and Dowland's lute airs"
     dialect: "polished courtly style, recognizable triple dance pulse, refined airs and spacious instrumental answers"
     tint: "polished, courtly phrasing"
 
   eastmarch:
-    reference: "Icelandic rímur"   # tvísöngur is two-voice, so it stays out of the prompt
+    drum: "isolated low strokes at the ends of declaimed phrases; leave speech-paced gaps"
+    core_instrumental: "austere heroic melody, narrow range, irregular declamatory phrase lengths and complete pauses"
+    lute_instrumental: "austere narrow melody punctuated by bare fifths and clean pauses"
+    reference: "Icelandic rímur and tvísöngur"
+    reference_focus: "austere narrative declamation and open-fifth color; a single melodic line replaces the second singer in a solo reduction"
     dialect: "austere speech-shaped heroic phrases, narrow melodic range and exposed single melody"
     tint: "sparser and more austere"
     lute: "bare fifths between phrases and single notes following the lead melody"
 
   whiterun:
+    drum: "broad three-pulse groups with a weighted first beat and a lighter turning third"
+    lute_instrumental: "plain modal refrain above open tonic and fifth strings, a broad triple dance lilt"
     core_monophonic: "strophic Dorian or Mixolydian melody, short refrain, plain ornaments and broad triple sway"
     reference: "Swedish and Danish ballads and polska dance tunes"
     dialect: "strophic ballad with a short refrain, Dorian or Mixolydian mode, steady drone on the tonic and fifth, triple-meter dance lilt in livelier pieces"
     tint: null
 
   reach:
-    reference: "Gaelic song"
+    lute_instrumental: "one unfolding air with connected picked graces and increasingly ornamented variations"
+    reference: "Gaelic sean-nós song and pibroch"
     dialect: "free-rhythm air with connected grace-note ornament and a slowly unfolding melody"
     dance_dialect: "quick flowing mouth-music dance, connected ornamental runs and a recurring lively pulse"
     tint: "extra grace-note ornament"
     flute: "a plain theme followed by increasingly ornamented variations"
 
   falkreath:
+    drum: "slow five-beat groups, a falling sequence of softer attacks and a gap after each cell"
+    lute_instrumental: "short descending five-beat melody cells, sparse open strings and restrained repeats"
     reference: "Karelian laments and runo-song"
     dialect: "slow lament, narrow range within a fifth, perceptible five-beat repetition and short descending cells"
     tint: "slower and more mournful"
 
   rift:
-    reference: "English country dance tunes and broadside ballads"
+    drum: "bouncing six-pulse jig groups, alternating deep first and crisp fourth strokes"
+    lute_instrumental: "catchy Mixolydian jig melody between bright chord strokes, bouncing compound pulse"
+    reference: "Playford English country dance tunes and broadside ballads"
     dialect: "fast and bawdy, bouncing jig rhythm, major or Mixolydian mode, catchy strophic tune"
     tint: "faster and rowdier"
 
   winterhold:
+    drum: "sparse returning stroke figure with open pauses; avoid a closing flourish"
+    lute_instrumental: "a sparse circular figure with returning small variations, open pauses and no grand cadence"
     reference: "Sámi joik"
     dialect: "sparse circular melody with recurring short figures and little sense of a beginning or final cadence"
     voice: "plain wordless vocables, recurring intimate phrases"
     tint: "sparser, with more silence between phrases"
 
   pale:
-    reference: null
+    drum: "widely spaced low strokes in a slow rocking compound pulse"
+    lute_instrumental: "long complete melody calls above widely separated low plucks, slow rocking compound pulse"
+    reference: "Scottish and Hebridean slow airs"
+    reference_focus: "long complete phrases, a slow rocking compound pulse and open gaps rather than circular joik or an unmetered lament"
     dialect: "long exposed melodic calls, slow rocking compound pulse, broad register and silence between complete phrases"
     tint: "more space between complete phrases"
     lute: "widely separated low notes mark a slow rocking pulse"
     flute: "long clear calls with distinct endings and open gaps"
 
   hjaalmarch:
+    lute_instrumental: "one melody shadowed a whole step away on the same instrument, lingering adjacent-tone friction"
     core_monophonic: "one hushed slowly reiterated melody with neighboring-note turns and lingering unstable endings"
     # A compatible tint may affect Lurbuk; neither this region nor his race grants new mastery.
-    reference: null       # sutartinės is multi-voice, so it stays out of the prompt
+    reference: "Lithuanian sutartinės"
+    reference_focus: "repeated motifs, neighboring-tone friction and interlocking or canonic phrasing; a single-line reduction uses neighbor-note turns rather than hidden parts"
     dialect: "hushed slowly reiterated phrases, sustained neighboring-tone friction and lingering unstable endings"
     tint: "hushed, unresolved, with clashing seconds"
     lute: "melody shadowed a whole step away so the two lines grate"
     flute: "circles the same few notes, leaning on clashing neighbor tones"
+```
+
+## Workshop instrument adaptations
+
+The shared selector chooses an arrangement family; each recipe names its actual instrument. Cittern supplies a bright plucked attack for selected dance/ballad reductions, oud for Redguard, sitar for Khajiit, biwa for Spinner’s tales, and kacapi plucked zither for the new Argonian audition. Other recipes retain lute. All strings are plucked; no bowed-string arrangement is offered. These are provisional timbral choices for fictional repertoire, not claims of historical authenticity or new game props. The [Met’s cittern](https://www.metmuseum.org/art/collection/search/504210) and [sitar](https://www.metmuseum.org/art/collection/search/500759) document those plucked families. [Smithsonian’s Sundanese collection](https://folkways.si.edu/java-sundanese-folk-music/world/music/album/smithsonian) provides the instrumental zither/flute reference for Argonian; the earlier gamelan sketch is retained as repeating-cell inspiration rather than requesting its ensemble.
+
+Khajiit and Argonian recipes are instrumental only. Choosing either race for another recipe also excludes sung arrangements. This is a workshop audition policy motivated by the current model’s voice limitations, not a statement that those peoples cannot sing. Existing vocal takes and edited directions remain stored. Supplied lyrics stay selected but are omitted from instrumental requests.
+
+Solo percussion is offered for Seven-Step, Leaping tales, Redguard cycles, Rift jigs and Khajiit tabla solos, where the rhythm has a specific signature. The Khajiit percussion variant names Hindustani tabla solo rather than requesting a reduction of a raga melody: one player uses the dayan/bayan pair, teental, bass slides, quick finger variations and a concluding tihai. No melodic accompanist or spoken drum syllables are requested. [Darbar’s tabla guide](https://darbar.org/tabla/) describes the paired drums and solo repertoire; its [teental recital](https://player.darbar.org/videos/dch339-tabla-solo-by-satyajit-talwalkar) documents the 16-beat cycle, and its [concert guide](https://player.darbar.org/packages/indian-music-appreciation-course/videos/concert-performance-sukhdeep-dhanjal-and-harmeet-virdee) explains the threefold tihai resolution. Solo voice is retained for vocal-led forms; chordal court/counterpoint and neighboring-tone recipes omit it. Close-Circle keeps plucked-string reductions and its explicit three-voice study. Flute reductions are single lines; voice with flute alternates. Unsupported choices show a reason before a request can be sent.
+
+`lute` and `lute_voice` remain the stored arrangement keys so older notes and takes remain readable; their workshop labels now mean the plucked-string family.
+
+```yaml
+workshop_omissions:
+  lute_voice: "No sung plucked-string arrangement is defined for this instrumental recipe."
+  lute: "No plucked-string reduction preserves this recipe yet."
+  flute: "A flute alone loses the defining simultaneous chord responses."
+  flute_voice: "Alternating flute and voice would lose the defining continuous vocal or plucked-string treatment."
+  drum: "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction."
+  drum_voice: "Percussion would displace the defining free phrasing, chordal support or sustained tonal friction."
+  voice: "A lone voice would lose the defining chordal or instrumental structure."
+  trio: "Only Close-Circle currently defines a three-voice ensemble."
+workshop_arrangements:
+  orc_resonant_names:
+    plucked: "lute"
+    allowed: [lute_voice, lute, flute, drum_voice, voice]
+    note: "Throat-singing finalist: khöömei, with a weighty low fundamental and moving upper overtones. Instrumentals are contour reductions."
+  orc_seven_step:
+    plucked: "lute"
+    allowed: [lute_voice, lute, flute, flute_voice, drum, drum_voice, voice]
+  orc_close_circle:
+    plucked: "lute"
+    allowed: [lute_voice, lute, trio]
+    note: "The plucked instrument supplies the chord responses; the ensemble study uses exactly three voices."
+  bosmer_leaping_tales:
+    plucked: "cittern"
+    allowed: [lute_voice, lute, flute, flute_voice, drum, drum_voice, voice]
+  bosmer_hunting_calls:
+    plucked: "lute"
+    allowed: [lute_voice, lute, flute, flute_voice, voice]
+  bosmer_spinners_tales:
+    plucked: "biwa"
+    allowed: [lute_voice, lute, flute, drum_voice, voice]
+  nord:
+    plucked: "cittern"
+    allowed: [lute_voice, lute, flute, flute_voice, drum_voice, voice]
+  imperial:
+    plucked: "lute"
+    allowed: [lute_voice, lute, flute, flute_voice, voice]
+  imperial_vernacular:
+    plucked: "cittern"
+    allowed: [lute_voice, lute, flute, flute_voice, drum_voice, voice]
+  breton_court:
+    plucked: "lute"
+    allowed: [lute_voice, lute, flute, flute_voice]
+    note: "Voice and flute are single-line reductions of a form usually supported by plucked chords."
+  breton_folk:
+    plucked: "cittern"
+    allowed: [lute_voice, lute, flute, flute_voice, voice]
+  redguard:
+    plucked: "oud"
+    allowed: [lute_voice, lute, flute, flute_voice, drum, drum_voice, voice]
+  dunmer:
+    plucked: "lute"
+    allowed: [lute_voice, lute, flute, flute_voice, voice]
+  altmer:
+    plucked: "lute"
+    allowed: [lute_voice, lute, flute, flute_voice]
+    note: "Flute and alternating voice/flute use sequential imitation; independent counterpoint remains on plucked strings."
+  khajiit:
+    plucked: "sitar"
+    allowed: [lute, flute, drum]
+    flute: "bamboo flute (bansuri)"
+    drum: "tabla (dayan + bayan pair)"
+    omitted:
+      lute_voice: "Khajiit repertoire is instrumental only while convincing beastfolk vocals remain unresolved."
+      flute_voice: "Khajiit repertoire is instrumental only while convincing beastfolk vocals remain unresolved."
+      drum_voice: "Khajiit repertoire is instrumental only while convincing beastfolk vocals remain unresolved."
+      voice: "Khajiit repertoire is instrumental only while convincing beastfolk vocals remain unresolved."
+      trio: "Khajiit repertoire is instrumental only while convincing beastfolk vocals remain unresolved."
+    note: "Choose sitar, unaccompanied bamboo flute, or a virtuoso tabla solo on the dayan/bayan pair. Each uses one performer; singing stays omitted."
+  argonian:
+    plucked: "plucked zither (kacapi)"
+    allowed: [lute, flute]
+    flute: "bamboo flute (suling)"
+    omitted:
+      lute_voice: "Argonian repertoire is instrumental only while convincing beastfolk vocals remain unresolved."
+      flute_voice: "Argonian repertoire is instrumental only while convincing beastfolk vocals remain unresolved."
+      drum_voice: "Argonian repertoire is instrumental only while convincing beastfolk vocals remain unresolved."
+      voice: "Argonian repertoire is instrumental only while convincing beastfolk vocals remain unresolved."
+      trio: "Argonian repertoire is instrumental only while convincing beastfolk vocals remain unresolved."
+    note: "New instrumental study: kacapi-like woody plucks or one bamboo flute. Keep recurring five-note cells; no gamelan ensemble."
+  haafingar:
+    plucked: "lute"
+    allowed: [lute_voice, lute, flute, flute_voice]
+    note: "The flute versions are melodic reductions of the court air; plucked strings retain its harmonic answers."
+  eastmarch:
+    plucked: "lute"
+    allowed: [lute_voice, lute, flute, flute_voice, drum_voice, voice]
+  whiterun:
+    plucked: "cittern"
+    allowed: [lute_voice, lute, flute, flute_voice, drum_voice, voice]
+  reach:
+    plucked: "lute"
+    allowed: [lute_voice, lute, flute, flute_voice, voice]
+  falkreath:
+    plucked: "lute"
+    allowed: [lute_voice, lute, flute, flute_voice, drum_voice, voice]
+  rift:
+    plucked: "cittern"
+    allowed: [lute_voice, lute, flute, flute_voice, drum, drum_voice, voice]
+  winterhold:
+    plucked: "lute"
+    allowed: [lute_voice, lute, flute, flute_voice, drum_voice, voice]
+  pale:
+    plucked: "lute"
+    allowed: [lute_voice, lute, flute, flute_voice, drum_voice, voice]
+  hjaalmarch:
+    plucked: "lute"
+    allowed: [lute_voice, lute, flute, flute_voice]
+    note: "Plucked strings can retain simultaneous neighboring tones; flute uses an explicitly weaker sequential reduction."
 ```
 
 ## Regions beyond the nine holds
@@ -535,7 +735,7 @@ The objective is distinctness of sound, not equal emotional coverage. Dunmer rem
 - Describe features (mode, meter, ornament, delivery), not just a tradition name.
 - Name only sound sources represented by the visible animation family. A lute-family line may request related plucked-string timbres such as oud, vihuela, cittern or sarod; these are alternatives for that player, never additional instruments. Apply the same discipline to flute and drum families. Timbral plausibility must be auditioned.
 - In solo prompts, omit any implication of another performer. Describe voice/instrument exchange by the one musician explicitly. In ensemble prompts, every additional voice, instrument or clap must match a visible role and a source count.
-- In solo prompts, keep references requiring absent ensemble roles out of `reference`. Reintroduce them only for a genuinely matching arrangement. A solo reduction uses its own compositional description.
+- Name the musical source even when adapting an ensemble tradition. Label the reduction and retain the concrete compositional description; the source name never authorizes absent voices or instruments.
 - Keep each fragment to one clause list. Proposed budget: at most 400 characters for the selected reference/core-or-dialect/tint layer, with separately bounded voice and instrument clauses. Enforce the limit after assembly without cutting off a defining feature; exact voice/instrument limits remain an implementation decision.
 
 ## Config

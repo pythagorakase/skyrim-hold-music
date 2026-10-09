@@ -74,6 +74,9 @@ def documents(source):
             raise BuildError(f"Missing YAML mapping: {key}")
     if "audition_context" in result and not isinstance(result["audition_context"], str):
         raise BuildError("audition_context must be text.")
+    for key in ("audition_races", "audition_regions", "audition_voices"):
+        if not isinstance(result.get(key), dict) or not all(isinstance(k, str) and isinstance(v, str) and v.strip() for k, v in result[key].items()):
+            raise BuildError(f"{key} must map IDs to nonempty text.")
     return result
 
 
@@ -111,12 +114,15 @@ NAMES = {
 
 FINALIST_IDS = {
     "Resonant Name-Songs": "orc_resonant_names",
+    "Resonant Name-Songs · throat singing": "orc_resonant_names",
     "Seven-Step Oath-Songs": "orc_seven_step",
     "Close-Circle Songs": "orc_close_circle",
     "Leaping tales": "bosmer_leaping_tales",
     "Hunting-call airs": "bosmer_hunting_calls",
     "Spinner's tales": "bosmer_spinners_tales",
 }
+
+ARRANGEMENTS = {"lute_voice", "lute", "flute", "flute_voice", "drum", "drum_voice", "voice", "trio"}
 
 COMPARISONS = {
     "orc_resonant_names": (
@@ -231,8 +237,43 @@ def build_dataset(spec_path=DEFAULT_SPEC, bank_path=DEFAULT_BANK, updated_at=DEF
             raise BuildError(f"Expected three columns in boundary row: {row}")
         boundaries.append(dict(zip(("pair", "boundary", "reserve"), row)))
     result = {"version": 1, "updatedAt": updated_at,
-              "auditionContext": doc.get("audition_context", "").strip(), "finalists": finalists,
+              "auditionContext": doc.get("audition_context", "").strip(),
+              "auditionRaces": doc["audition_races"], "auditionRegions": doc["audition_regions"],
+              "auditionVoices": doc["audition_voices"], "finalists": finalists,
               "existing": existing, "ideas": ideas, "boundaries": boundaries}
+    policies = doc.get("workshop_arrangements", {})
+    omissions = doc.get("workshop_omissions", {})
+    expected = {item["id"] for item in finalists + existing}
+    if not isinstance(policies, dict) or set(policies) != expected:
+        raise BuildError("workshop_arrangements must cover exactly the active palette profiles.")
+    if not isinstance(omissions, dict) or set(omissions) != ARRANGEMENTS:
+        raise BuildError("workshop_omissions must explain every arrangement family.")
+    for item in finalists + existing:
+        policy = policies[item["id"]]
+        if not isinstance(policy, dict):
+            raise BuildError(f"Profile {item['id']} needs a workshop arrangement mapping.")
+        allowed = policy.get("allowed")
+        if not isinstance(allowed, list) or not allowed or any(not isinstance(key, str) or key not in ARRANGEMENTS for key in allowed) or len(set(allowed)) != len(allowed):
+            raise BuildError(f"Profile {item['id']} needs a unique list of supported arrangements.")
+        if item["id"] in ("khajiit", "argonian") and set(allowed) - {"lute", "flute", "drum"}:
+            raise BuildError(f"Profile {item['id']} is instrumental only in the workshop.")
+        if "trio" in allowed and not (isinstance(item.get("ensemble_roles"), list) and len(item["ensemble_roles"]) == 3 and item.get("ensemble_clause")):
+            raise BuildError(f"Profile {item['id']} has no defined three-voice arrangement.")
+        instruments = {"plucked": policy.get("plucked"), "flute": policy.get("flute", "flute"), "drum": policy.get("drum", "hand drum")}
+        if any(not isinstance(value, str) or not value.strip() for value in instruments.values()):
+            raise BuildError(f"Profile {item['id']} needs instrument names.")
+        if not isinstance(policy.get("omitted", {}), dict) or not isinstance(policy.get("note", ""), str):
+            raise BuildError(f"Profile {item['id']} needs text notes and a mapping of omission reasons.")
+        reasons = {**omissions, **policy.get("omitted", {})}
+        omitted = {key: reasons[key] for key in sorted(ARRANGEMENTS - set(allowed))}
+        if any(not isinstance(reason, str) or not reason.strip() for reason in omitted.values()):
+            raise BuildError(f"Profile {item['id']} needs explanations for omitted arrangements.")
+        item["workshop"] = {**instruments, "allowed": allowed, "omitted": omitted, "note": policy.get("note", "")}
+    for item in finalists + existing:
+        item.setdefault("audition_race", "orc" if item["culture"] == "Orsimer" else item["culture"].lower())
+        item.setdefault("audition_region", item["id"] if item.get("kind") == "region" else "skyrim")
+        if item["audition_race"] not in doc["audition_races"] or item["audition_region"] not in doc["audition_regions"]:
+            raise BuildError(f"Profile {item['id']} needs a known audition race and region.")
     seen = set()
     for key in ("finalists", "existing", "ideas"):
         if not result[key]:
@@ -244,6 +285,12 @@ def build_dataset(spec_path=DEFAULT_SPEC, bank_path=DEFAULT_BANK, updated_at=DEF
             if "audition_casting" in item and not isinstance(item["audition_casting"], str):
                 raise BuildError(f"Profile {item['id']} audition_casting must be text.")
     finalist_ids = {item["id"] for item in finalists}
+    for item in finalists + existing:
+        if not isinstance(item.get("reference"), str) or not item["reference"].strip():
+            raise BuildError(f"Profile {item['id']} needs an explicit musical style reference.")
+        for field in ("reference_focus", "reference_focus_monophonic", "drum_reference"):
+            if field in item and (not isinstance(item[field], str) or not item[field].strip()):
+                raise BuildError(f"Profile {item['id']} {field} must be nonempty text.")
     for item in ideas:
         if "finalistId" in item and item["finalistId"] not in finalist_ids:
             raise BuildError(f"Idea links to an absent finalist: {item['finalistId']}")

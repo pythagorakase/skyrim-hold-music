@@ -1,6 +1,9 @@
 """Offline contract and security checks. These tests never call Google."""
 
 import base64
+import errno
+from copy import deepcopy
+import hashlib
 from http.client import HTTPConnection
 import io
 import json
@@ -20,6 +23,8 @@ from tools import workshop_server as server
 
 AUDIO = b"ID3\x04\x00\x00fixture-audio-data"
 SECRET = "fixture-key-never-returned-to-browser"
+ORIGINAL_LYRICS = "  First line, café\r\nSecond line\r\n\r\n  "
+LYRIC_DIGEST = hashlib.sha256(ORIGINAL_LYRICS.encode("utf-8")).hexdigest()
 
 
 def music_payload(audio=AUDIO, mime="audio/mpeg"):
@@ -27,6 +32,19 @@ def music_payload(audio=AUDIO, mime="audio/mpeg"):
         {"type": "model_output", "content": [{"type": "text", "text": "Verse one"}]},
         {"type": "model_output", "content": [{"type": "audio", "mime_type": mime, "data": base64.b64encode(audio).decode("ascii")}]},
     ]}
+
+
+class StartupTests(unittest.TestCase):
+    def test_occupied_port_reports_existing_address(self):
+        with patch("sys.argv", ["workshop_server.py", "--port", "8765"]), \
+                patch.object(server, "WorkshopServer", side_effect=OSError(errno.EADDRINUSE, "Address in use")), \
+                patch("sys.stderr", new_callable=io.StringIO) as error:
+            with self.assertRaises(SystemExit) as raised:
+                server.main()
+        self.assertEqual(raised.exception.code, 1)
+        self.assertIn("Port 8765 is already in use", error.getvalue())
+        self.assertIn("http://127.0.0.1:8765/", error.getvalue())
+        self.assertIn("instead of starting a second instance", error.getvalue())
 
 
 class KeyTests(unittest.TestCase):
@@ -231,7 +249,11 @@ class WorkshopHTTPTests(unittest.TestCase):
         (self.root / "secret.txt").write_text(SECRET, encoding="utf-8")
         self.generator = Mock(return_value=music_payload())
         self.key_reader = Mock(return_value=SECRET)
-        self.workshop = server.Workshop(self.root, generator=self.generator, key_reader=self.key_reader)
+        self.catalog = {"songs": [{"id": "skyrim-song-1", "title": "Original song", "lyrics": ORIGINAL_LYRICS,
+                                   "bard_name": "Fixture bard", "created_at": "2026-10-08T13:00:00Z", "sha256": LYRIC_DIGEST}],
+                        "source": {"label": "Fixture SkyrimNet songs", "updated_at": "2026-10-08T15:00:00Z"}}
+        self.catalog_reader = Mock(side_effect=lambda: deepcopy(self.catalog))
+        self.workshop = server.Workshop(self.root, generator=self.generator, key_reader=self.key_reader, catalog_reader=self.catalog_reader)
         self.http = server.WorkshopServer(port=0, workshop=self.workshop)
         self.thread = threading.Thread(target=self.http.serve_forever, kwargs={"poll_interval": 0.01}, daemon=True)
         self.thread.start()
@@ -249,6 +271,7 @@ class WorkshopHTTPTests(unittest.TestCase):
         if method == "POST":
             request_headers.update({"Content-Type": "application/json", "X-Workshop-Token": self.workshop.token})
         request_headers.update(headers or {})
+        request_headers = {key: value for key, value in request_headers.items() if value is not None}
         body = raw if raw is not None else json.dumps(payload).encode() if payload is not None else None
         connection.request(method, path, body=body, headers=request_headers)
         response = connection.getresponse()
@@ -260,7 +283,79 @@ class WorkshopHTTPTests(unittest.TestCase):
         return status, response_headers, content
 
     def payload(self, **overrides):
-        return {"profile_id": "solo", "profile_name": "untrusted supplied name", "arrangement": "lute_voice", "prompt": "A quiet song with one lute", **overrides}
+        payload = {"profile_id": "solo", "profile_name": "untrusted supplied name", "arrangement": "lute_voice", "prompt": "A quiet song with one lute", **overrides}
+        if isinstance(payload["arrangement"], str) and payload["arrangement"] in server.SUNG_ARRANGEMENTS:
+            payload.setdefault("lyrics_song_id", "skyrim-song-1")
+            payload.setdefault("lyrics_sha256", LYRIC_DIGEST)
+        return payload
+
+    def expected_prompt(self, payload=None):
+        payload = self.payload() if payload is None else payload
+        if payload["arrangement"] in server.SUNG_ARRANGEMENTS:
+            return payload["prompt"] + server.LYRICS_SEPARATOR + ORIGINAL_LYRICS
+        return payload["prompt"]
+
+    def test_omitted_recipe_arrangements_reject_even_with_another_race_or_custom_prompt(self):
+        profile = self.workshop.profiles["solo"]
+        profile["workshop"] = {"allowed": ["lute", "flute"],
+                               "omitted": {key: "This recipe is instrumental only." for key in server.ARRANGEMENTS - {"lute", "flute"}}}
+        for arrangement in server.ARRANGEMENTS - {"lute", "flute"}:
+            status, _, content = self.request("POST", "/api/generate", self.payload(arrangement=arrangement, performer_race="nord", prompt="A custom direction"))
+            self.assertEqual(status, 400)
+            self.assertIn("instrumental only", content["error"])
+        self.generator.assert_not_called()
+        self.catalog_reader.assert_not_called()
+        self.key_reader.assert_not_called()
+        self.assertEqual(self.workshop.jobs, {})
+
+    def test_beastfolk_casting_disallows_all_sung_arrangements_on_other_repertoire(self):
+        for race in ("khajiit", "argonian"):
+            for arrangement in server.SUNG_ARRANGEMENTS:
+                status, _, content = self.request("POST", "/api/generate", self.payload(arrangement=arrangement, performer_race=race))
+                self.assertEqual(status, 400)
+                self.assertIn("instrumental only", content["error"])
+        for race in ("unknown", "", [], None):
+            status, _, content = self.request("POST", "/api/generate", self.payload(performer_race=race))
+            self.assertEqual(status, 400)
+            self.assertIn("known performer race", content["error"])
+        self.generator.assert_not_called()
+        self.key_reader.assert_not_called()
+
+    def test_instrumental_direction_cannot_include_inline_lyrics(self):
+        status, _, content = self.request("POST", "/api/generate", self.payload(arrangement="lute", performer_race="khajiit", prompt="A sitar tune.\nLyrics:\nSing these words"))
+        self.assertEqual(status, 400)
+        self.assertIn("Lyrics: block", content["error"])
+        self.generator.assert_not_called()
+
+    def test_current_khajiit_recipe_accepts_tabla_solo_without_lyrics(self):
+        palette = json.loads((server.ROOT / "dashboard" / "palette-data.json").read_text())
+        self.workshop.profiles["khajiit"] = next(profile for profile in palette["existing"] if profile["id"] == "khajiit")
+        payload = self.payload(profile_id="khajiit", arrangement="drum", prompt="A Hindustani tabla solo in 16-beat teental.")
+        status, _, response = self.request("POST", "/api/generate", payload)
+        self.assertEqual(status, 202)
+        job = self.completed_job(response["job"]["id"])
+        self.assertEqual(job["status"], "completed")
+        self.assertEqual(job["take"]["instrument_name"], "tabla (dayan + bayan pair)")
+        self.assertEqual(job["take"]["performer_race"], "khajiit")
+        self.assertNotIn("supplied_lyrics", job["take"])
+        self.catalog_reader.assert_not_called()
+        self.generator.assert_called_once_with(payload["prompt"], SECRET)
+
+    def test_instrumental_take_keeps_actual_instrument_and_race_across_reload(self):
+        self.workshop.profiles["solo"]["workshop"] = {"allowed": ["lute"], "plucked": "cittern", "flute": "flute", "drum": "hand drum", "omitted": {}}
+        payload = self.payload(arrangement="lute", performer_race="khajiit")
+        status, _, response = self.request("POST", "/api/generate", payload)
+        self.assertEqual(status, 202)
+        job = self.completed_job(response["job"]["id"])
+        self.assertEqual(job["status"], "completed")
+        take = job["take"]
+        self.assertEqual(take["instrument_name"], "cittern")
+        self.assertEqual(take["performer_race"], "khajiit")
+        self.generator.assert_called_once_with(payload["prompt"], SECRET)
+        self.catalog_reader.assert_not_called()
+        restored = server.Workshop(self.root, generator=self.generator, key_reader=self.key_reader)
+        self.assertEqual(restored.list_takes()[0]["instrument_name"], "cittern")
+        self.assertEqual(restored.list_takes()[0]["performer_race"], "khajiit")
 
     def completed_job(self, identifier):
         deadline = time.monotonic() + 3
@@ -286,6 +381,7 @@ class WorkshopHTTPTests(unittest.TestCase):
         self.generator.assert_not_called()
 
     def test_completed_generation_saved_restored_and_playable(self):
+        self.catalog["songs"][0]["collection"] = "Archived SkyrimNet songs"
         status, _, content = self.request("POST", "/api/generate", self.payload())
         self.assertEqual(status, 202)
         self.assertEqual(content["job"]["status"], "queued")
@@ -293,9 +389,14 @@ class WorkshopHTTPTests(unittest.TestCase):
         self.assertEqual(job["status"], "completed")
         take = job["take"]
         self.assertEqual(take["profile_name"], "Canonical solo")
-        self.assertEqual(take["prompt"], self.payload()["prompt"])
+        self.assertEqual(take["prompt"], self.expected_prompt())
+        self.assertEqual(take["direction_prompt"], self.payload()["prompt"])
+        self.assertEqual(take["supplied_lyrics"], ORIGINAL_LYRICS)
+        self.assertEqual(take["lyric_source"], {"id": "skyrim-song-1", "title": "Original song", "bard_name": "Fixture bard",
+                                               "created_at": "2026-10-08T13:00:00Z", "sha256": LYRIC_DIGEST,
+                                               "source_label": "Archived SkyrimNet songs", "collection": "Archived SkyrimNet songs"})
         self.assertEqual(take["lyrics"], "Verse one")
-        self.generator.assert_called_once_with(self.payload()["prompt"], SECRET)
+        self.generator.assert_called_once_with(self.expected_prompt(), SECRET)
         self.assertEqual(self.request("GET", take["audio_url"])[2], AUDIO)
         download_status, headers, audio = self.request("GET", take["download_url"])
         self.assertEqual(download_status, 200)
@@ -343,6 +444,23 @@ class WorkshopHTTPTests(unittest.TestCase):
                 self.assertEqual(self.request("POST", "/api/generate", self.payload(), headers=headers)[0], 403)
         self.assertEqual(self.request("GET", "/api/status", headers={"Origin": "https://evil.invalid"})[0], 403)
         self.assertEqual(self.request("OPTIONS", "/api/generate")[0], 405)
+        self.generator.assert_not_called()
+
+    def test_external_link_can_open_dashboard_but_not_api_or_embedded_content(self):
+        navigation = {"Origin": None, "Sec-Fetch-Site": "cross-site",
+                      "Sec-Fetch-Mode": "navigate", "Sec-Fetch-Dest": "document"}
+        for site in ("cross-site", "same-site"):
+            for path in ("/", "/index.html"):
+                status, headers, body = self.request("GET", path, headers={**navigation, "Sec-Fetch-Site": site})
+                self.assertEqual(status, 200)
+                self.assertIn(b"Workshop fixture", body)
+                self.assertEqual(headers["X-Frame-Options"], "DENY")
+        for path in ("/api/status", "/api/takes", "/api/lyrics"):
+            self.assertEqual(self.request("GET", path, headers=navigation)[0], 403)
+        for overrides in ({"Sec-Fetch-Mode": "cors"}, {"Sec-Fetch-Dest": "iframe"},
+                          {"Origin": "https://evil.invalid"}, {"Host": "evil.invalid"}):
+            self.assertEqual(self.request("GET", "/", headers={**navigation, **overrides})[0], 403)
+        self.assertEqual(self.request("POST", "/api/generate", self.payload(), headers=navigation)[0], 403)
         self.generator.assert_not_called()
 
     def test_missing_key_invalid_body_and_prompt_validation(self):
@@ -436,7 +554,129 @@ class WorkshopHTTPTests(unittest.TestCase):
         self.key_reader.return_value = "new-fixture-key"
         first = self.request("POST", "/api/generate", self.payload())[2]["job"]
         self.assertEqual(self.completed_job(first["id"])["status"], "completed")
-        self.generator.assert_called_once_with(self.payload()["prompt"], "new-fixture-key")
+        self.generator.assert_called_once_with(self.expected_prompt(), "new-fixture-key")
+
+    def test_lyrics_route_reads_current_catalog_without_provider_call(self):
+        status, _, catalog = self.request("GET", "/api/lyrics")
+        self.assertEqual(status, 200)
+        self.assertEqual(catalog, self.catalog)
+        self.assertEqual(catalog["songs"][0]["lyrics"].encode("utf-8"), ORIGINAL_LYRICS.encode("utf-8"))
+        self.catalog["source"]["updated_at"] = "2026-10-08T16:00:00Z"
+        self.assertEqual(self.request("GET", "/api/lyrics")[2], self.catalog)
+        self.assertEqual(self.request("GET", "/api/lyrics", headers={"Origin": "https://evil.invalid"})[0], 403)
+        self.assertEqual(self.catalog_reader.call_count, 2)
+        self.generator.assert_not_called()
+
+    def test_original_lyrics_are_forwarded_verbatim_in_all_sung_arrangements(self):
+        for arrangement in sorted(server.SUNG_ARRANGEMENTS):
+            payload = self.payload(arrangement=arrangement, profile_id="ensemble" if arrangement == "trio" else "solo",
+                                   prompt="  Detailed musical directions\r\nwith a trailing line.\n")
+            status, _, result = self.request("POST", "/api/generate", payload)
+            self.assertEqual(status, 202)
+            take = self.completed_job(result["job"]["id"])["take"]
+            expected = self.expected_prompt(payload)
+            self.assertEqual(self.generator.call_args.args[0].encode("utf-8"), expected.encode("utf-8"))
+            self.assertEqual(take["supplied_lyrics"].encode("utf-8"), ORIGINAL_LYRICS.encode("utf-8"))
+            self.assertEqual(take["direction_prompt"], payload["prompt"])
+            self.assertEqual(take["prompt"], expected)
+        self.assertEqual(self.generator.call_count, len(server.SUNG_ARRANGEMENTS))
+
+    def test_missing_unknown_and_stale_lyric_selection_prevent_provider_calls(self):
+        for field in ("lyrics_song_id", "lyrics_sha256"):
+            missing = self.payload()
+            missing.pop(field)
+            self.assertEqual(self.request("POST", "/api/generate", missing)[0], 400)
+        for payload, status in ((self.payload(lyrics_song_id="missing-song"), 409),
+                                (self.payload(lyrics_sha256="stale-digest"), 409),
+                                (self.payload(lyrics_song_id=[]), 400),
+                                (self.payload(lyrics_sha256=[]), 400),
+                                (self.payload(supplied_lyrics="replacement"), 400)):
+            self.assertEqual(self.request("POST", "/api/generate", payload)[0], status)
+        self.assertEqual(self.workshop.jobs, {})
+        self.generator.assert_not_called()
+
+    def test_sung_takes_without_saved_lyrics_work_without_reading_catalog(self):
+        self.catalog_reader.side_effect = AssertionError("Optional lyrics must not read the catalog")
+        for arrangement in sorted(server.SUNG_ARRANGEMENTS):
+            directions = "A quiet song\n\nLyrics:\nMy own words\r\n\r\n" if arrangement == "voice" else "A quiet song"
+            payload = self.payload(arrangement=arrangement, profile_id="ensemble" if arrangement == "trio" else "solo", prompt=directions)
+            payload.pop("lyrics_song_id")
+            payload.pop("lyrics_sha256")
+            status, _, result = self.request("POST", "/api/generate", payload)
+            self.assertEqual(status, 202)
+            take = self.completed_job(result["job"]["id"])["take"]
+            self.assertEqual(self.generator.call_args.args[0], directions)
+            self.assertEqual(take["prompt"], directions)
+            self.assertNotIn("supplied_lyrics", take)
+            self.assertNotIn("lyric_source", take)
+        self.catalog_reader.assert_not_called()
+
+    def test_catalog_changes_are_checked_again_at_submit(self):
+        self.assertEqual(self.request("GET", "/api/lyrics")[2]["songs"][0]["sha256"], LYRIC_DIGEST)
+        self.catalog["songs"][0]["lyrics"] = "Changed words"
+        self.catalog["songs"][0]["sha256"] = hashlib.sha256(b"Changed words").hexdigest()
+        status, _, result = self.request("POST", "/api/generate", self.payload())
+        self.assertEqual(status, 409)
+        self.assertIn("changed", result["error"])
+        self.generator.assert_not_called()
+
+    def test_empty_unavailable_and_malformed_catalogs_fail_closed(self):
+        for catalog in ({"songs": [], "source": {}}, {"songs": [], "source": {}, "error": "source unavailable"},
+                        {"songs": "invalid", "source": {}}, {"songs": [{"id": "skyrim-song-1", "sha256": LYRIC_DIGEST}], "source": {}}):
+            self.catalog = catalog
+            self.assertEqual(self.request("POST", "/api/generate", self.payload())[0], 503)
+        self.catalog_reader.side_effect = OSError(SECRET)
+        status, _, catalog = self.request("GET", "/api/lyrics")
+        self.assertEqual(status, 200)
+        self.assertEqual(catalog["songs"], [])
+        self.assertNotIn(SECRET, json.dumps(catalog))
+        self.assertEqual(self.request("POST", "/api/generate", self.payload())[0], 503)
+        self.generator.assert_not_called()
+
+    def test_inline_lyrics_blocks_and_oversize_combined_prompt_refused(self):
+        for prompt in ("Directions\nLyrics:\nconflicting lyrics", "Lyrics: words", "Style\r\n \tlyRICS \t: same words"):
+            status, _, content = self.request("POST", "/api/generate", self.payload(prompt=prompt))
+            self.assertEqual(status, 400)
+            self.assertIn("Remove the Lyrics:", content["error"])
+        directions = "x" * (server.MAX_PROMPT - len(server.LYRICS_SEPARATOR) - len(ORIGINAL_LYRICS) + 1)
+        status, _, content = self.request("POST", "/api/generate", self.payload(prompt=directions))
+        self.assertEqual(status, 400)
+        self.assertIn("together", content["error"])
+        self.generator.assert_not_called()
+
+    def test_instrumentals_omit_lyric_source_and_do_not_need_catalog(self):
+        self.catalog_reader.side_effect = AssertionError("Instrumental must not read lyrics")
+        for arrangement in ("lute", "flute", "drum"):
+            payload = self.payload(arrangement=arrangement)
+            status, _, result = self.request("POST", "/api/generate", payload)
+            self.assertEqual(status, 202)
+            take = self.completed_job(result["job"]["id"])["take"]
+            self.assertEqual(self.generator.call_args.args[0], payload["prompt"])
+            self.assertEqual(take["direction_prompt"], payload["prompt"])
+            self.assertNotIn("lyric_source", take)
+            self.assertNotIn("supplied_lyrics", take)
+        self.catalog_reader.assert_not_called()
+
+    def test_instrumentals_reject_stale_or_supplied_lyric_fields(self):
+        for field, value in (("lyrics_song_id", "skyrim-song-1"), ("lyrics_sha256", LYRIC_DIGEST), ("supplied_lyrics", "words")):
+            self.assertEqual(self.request("POST", "/api/generate", self.payload(arrangement="lute", **{field: value}))[0], 400)
+        self.generator.assert_not_called()
+
+    def test_saved_takes_without_new_lyric_metadata_remain_readable(self):
+        identifier = "a" * 32
+        directory = self.root / "auditions" / identifier
+        directory.mkdir(parents=True)
+        old = {"id": identifier, "profile_id": "solo", "profile_name": "Old take", "arrangement": "lute_voice",
+               "prompt": "An old generated song", "model": "lyria-3.5", "created_at": "2026-10-08T00:00:00Z",
+               "lyrics": "Previously generated lyrics", "mime_type": "audio/mpeg"}
+        (directory / "audio.mp3").write_bytes(AUDIO)
+        (directory / "take.json").write_text(json.dumps(old), encoding="utf-8")
+        restored = server.Workshop(self.root, generator=self.generator, key_reader=self.key_reader, catalog_reader=self.catalog_reader)
+        take = restored.list_takes()[0]
+        self.assertEqual(take["prompt"], old["prompt"])
+        self.assertNotIn("lyric_source", take)
+        self.assertNotIn("supplied_lyrics", take)
+        self.generator.assert_not_called()
 
 
 if __name__ == "__main__":

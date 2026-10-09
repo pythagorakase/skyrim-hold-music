@@ -6,7 +6,7 @@ The current design contains **six Orsimer/Bosmer finalists, nineteen existing cu
 
 ## Run the music workshop
 
-The workshop calls Google's Gemini API directly with **`lyria-3.5`**. Choose two musical traditions, select their shared performer arrangement, edit an audition prompt and click **Generate song**. Each generation is a paid API request using your Google project's billing and quota. Requests run one at a time; the workshop never retries a generation automatically.
+The workshop calls Google's Gemini API directly with **`lyria-3.5`**. Choose two musical traditions, select their shared performer arrangement and optionally a saved SkyrimNet lyric draft, edit the musical directions, then click **Generate song**. Each generation is a paid API request using your Google project's billing and quota. Requests run one at a time; the workshop never retries a generation automatically.
 
 From the repository folder, save your Gemini API key using the hidden local prompt:
 
@@ -24,13 +24,43 @@ python3 tools/workshop_server.py
 
 Open **[http://127.0.0.1:8765](http://127.0.0.1:8765)**. The server uses Python 3.10+ with no additional packages. Keep its terminal running. After adding or replacing the key, use **Refresh connection** in the workshop. A configured key means the server found a credential; Google verifies its access when you generate a song.
 
-Generated takes remain in the git-ignored `auditions/` folder, with their original prompt, profile, arrangement, model and any returned lyrics. The workshop restores this take library after a restart. Play and download takes beside their matching tradition and arrangement. Back up `auditions/` separately from listening notes. If a request fails or times out, check the displayed error before deciding whether to generate again; a timed-out provider request might still have incurred a charge.
+If startup reports that port 8765 is already in use, an existing workshop may already be running: open its URL rather than starting another instance. To restart a server running in your terminal, press **Ctrl+C** there, then run the same command again. `--port 8766` selects another port when you intentionally need one; use the URL printed by that instance.
 
-Fresh audition recipes include the Skyrim setting. Sung Orc finalist recipes also specify provisional vocal casting: a mature, full-bodied voice with chest resonance and audible grain. The full prompt remains editable. Existing custom edits are preserved; use **Reset to recipe** to adopt revised defaults. Saved takes retain their original prompts for comparison.
+Generated takes remain in the git-ignored `auditions/` folder, with their full submitted prompt, musical directions, original supplied lyrics and source, profile, arrangement, model and any returned lyrics. The workshop restores this take library after a restart. Play and download takes beside their matching tradition and arrangement. Back up `auditions/` separately from listening notes. If a request fails or times out, check the displayed error before deciding whether to generate again; a timed-out provider request might still have incurred a charge.
+
+Every complete request specifies the performer’s race and target region, including requests using saved custom musical directions. **Performer race** can be selected separately in A and B; **Target region** can use each recipe’s default or one shared location. Regional recipes default to their named hold, Cyrodiil vernacular defaults to Cyrodiil, and other cultural recipes default to Skyrim without a named settlement. Sung Orc auditions include provisional vocal casting. Newly generated lyrics follow the performer and setting; supplied lyrics retain their words. Musical directions stay editable. **Copy music prompt** copies the complete musical prompt without lyrics; **Copy lyrics** copies supplied lyrics separately. **Exact request preview** and **Copy complete request** retain the full Google API request; saved takes keep their original text.
+
+The arrangement selector adapts each recipe to **plucked strings + voice**, **plucked strings instrumental**, **flute instrumental**, **alternating flute + voice**, **drum + voice**, or **voice alone** where a musical reduction is defined. The actual plucked instrument comes from the recipe: selected ballads/dances use cittern, Redguard uses oud, Spinner’s tales uses biwa, Khajiit uses sitar, and the revised Argonian study uses a kacapi plucked zither. Other recipes retain lute; no bowed strings are offered. **Available arrangements & omissions** explains the choices for each panel. Drum solos are available for Seven-Step, Leaping tales, Redguard cycles, Rift jigs and Khajiit tabla. The Khajiit percussion prompt uses Hindustani tabla solo, with a 16-beat teental cycle, sliding bayan bass, crisp dayan strokes, accelerating variations and a threefold tihai. One performer plays the tabla pair without vocals or melodic accompaniment. Close-Circle also offers its three-voice study.
+
+Khajiit and Argonian recipes and performers are **instrumental only** while convincing beastfolk vocals remain unresolved. The Argonian reference now combines Sundanese kacapi suling with repeating cells from the earlier kotekan sketch. **Resonant Name-Songs · throat singing** makes the existing khöömei finalist explicit without changing its ID. **Show all saved arrangements** exposes earlier takes, including vocal beastfolk auditions. Old edited directions remain stored; **Reset to recipe** adopts the new instrument treatment. Historical `lute`/`lute_voice` storage keys now represent the plucked-string family. Unsupported combinations are rejected before any provider request, and instrumental directions cannot contain a `Lyrics:` block.
+
+Every recipe’s complete music prompt leads with a named real-world musical reference and a short adaptation label. Default music prompts fit within 1,000 characters, excluding lyrics; a live counter flags longer custom edits without truncating them. **Reset to recipe** adopts compact defaults while saved edits remain intact. Inline `Lyrics:` blocks are excluded from music-only copying and counting and can be copied separately. Musical fingerprints, instruments and performer count remain explicit; drum-only versions use rhythmic features only. Newly selected references for fictional forms are provisional audition influences.
 
 Provider failures show Google's HTTP status and a bounded diagnostic with credentials removed. Failed-job diagnostics are saved locally in `auditions/<job-id>/failure.json` and survive restarts; they do not contain the submitted prompt, key, or raw provider response. A billing/credit error is distinguished from quota limits and provider outages.
 
 The server is intended for local use and binds to loopback only. It serves the dashboard and generated audio, not the repository or credential file. See Google's [music-generation guide](https://ai.google.dev/gemini-api/docs/music-generation) and [API key setup](https://ai.google.dev/gemini-api/docs/api-key) for provider configuration. Musical duration and arrangement instructions are prompts, not guarantees about the returned recording.
+
+## Connect saved SkyrimNet lyrics
+
+The shared **Shared lyrics** picker supplies identical original words to both audition panels. It reads the `bard_songs` table from explicitly configured SQLite databases in read-only mode. **Refresh lyrics** rereads those sources without invoking SkyrimNet's lyric generator or Google. Saved lyrics are optional. Choose **Let Lyria write lyrics** to generate without a saved draft, or include your own `Lyrics:` block in the musical directions. Instrumentals omit the selected draft. When using a saved draft, a changed or unavailable source blocks submission until refreshed; remove any `Lyrics:` block from musical directions to avoid competing lyric instructions. **Exact request preview** shows the combined request before generation; the selected words are appended without trimming or rewriting.
+
+Machine-specific paths live in the git-ignored `local/skyrimnet-lyrics-source.json`. For a local installation, omit `ssh_host` and `python`. For a Windows installation reached through an existing SSH alias, use:
+
+```json
+{
+  "ssh_host": "your-existing-ssh-alias",
+  "python": "C:\\Path\\To\\python.exe",
+  "label": "SkyrimNet saved lyrics",
+  "databases": [
+    {"path": "C:\\Path\\To\\SkyrimNet-save.db", "label": "Current profile"},
+    {"path": "C:\\Path\\To\\Archived-save.db", "label": "Archived drafts"}
+  ]
+}
+```
+
+The Windows reader uses PowerShell and Python's standard-library SQLite support over SSH. It never changes the game databases, restores archived songs into the game, or downloads their audio. The source machine must be reachable when refreshing or starting a take that uses a saved draft. Source paths are explicit: update this private configuration when changing saves or profiles.
+
+This workstation is connected to the experimental-profile database and the library archived before Solo Lute. At setup on October 8, 2026, the current database had no indexed songs and the archive contained nine drafts by Lurbuk, Karita, Lisette, Illdi and Viarmo. Archived drafts are labeled in the picker; their author is not an instruction about who sings the audition. No new song was generated to validate this connection.
 
 ## Open the portable listening dashboard
 
@@ -99,5 +129,6 @@ The workshop's generation lifecycle, exact prompt retention, duplicate suppressi
 Run the offline workshop checks with:
 
 ```sh
-python3 -m unittest discover -s tests -v
+.venv/bin/python -m unittest discover -s tests -v
+node tests/test_workshop_prompts.js
 ```

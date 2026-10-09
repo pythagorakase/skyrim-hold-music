@@ -10,6 +10,7 @@ import base64
 import binascii
 from copy import deepcopy
 from datetime import datetime, timezone
+import errno
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
@@ -24,6 +25,11 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, quote_plus
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
+if __package__:
+    from .skyrimnet_lyrics import load_catalog
+else:
+    from skyrimnet_lyrics import load_catalog
+
 
 ROOT = Path(__file__).resolve().parents[1]
 KEY_PATH = Path.home() / ".config" / "hold-music" / "gemini-api-key"
@@ -34,6 +40,9 @@ MAX_RESPONSE = 128 * 1024 * 1024
 MAX_ERROR_BODY = 64 * 1024
 MAX_PROMPT = 20_000
 ARRANGEMENTS = frozenset(("lute_voice", "lute", "flute", "flute_voice", "drum", "drum_voice", "voice", "trio"))
+SUNG_ARRANGEMENTS = frozenset(("lute_voice", "flute_voice", "drum_voice", "voice", "trio"))
+LYRICS_SEPARATOR = "\n\nSing the supplied lyrics as written, preserving their words and order.\n\nLyrics:\n"
+LYRICS_HEADER = re.compile(r"^\s*Lyrics\s*:", re.IGNORECASE | re.MULTILINE)
 AUDIO_FORMATS = {"audio/mpeg": ".mp3", "audio/mp3": ".mp3", "audio/wav": ".wav", "audio/x-wav": ".wav"}
 ID_PATTERN = re.compile(r"^[a-f0-9]{32}$")
 
@@ -217,17 +226,19 @@ def write_private(path: Path, content: bytes) -> None:
 
 
 class Workshop:
-    def __init__(self, root: Path = ROOT, *, generator=call_google, key_reader=read_key):
+    def __init__(self, root: Path = ROOT, *, generator=call_google, key_reader=read_key, catalog_reader=None):
         self.root = Path(root)
         self.data_dir = self.root / "auditions"
         self.generator = generator
         self.key_reader = key_reader
+        self.catalog_reader = catalog_reader if catalog_reader is not None else lambda: load_catalog(self.root)
         self.token = secrets.token_urlsafe(32)
         self.lock = threading.RLock()
         self.jobs = {}
         self.takes = {}
         self.active_id = None
         palette = json.loads((self.root / "dashboard" / "palette-data.json").read_text(encoding="utf-8"))
+        self.races = palette.get("auditionRaces", {race: race for race in ("nord", "imperial", "breton", "redguard", "dunmer", "altmer", "orc", "bosmer", "khajiit", "argonian")})
         self.profiles = {item["id"]: item for group in ("finalists", "existing") for item in palette[group]}
         self._load_takes()
         self._load_failures()
@@ -299,6 +310,18 @@ class Workshop:
     @staticmethod
     def _public_take(take):
         result = {key: take[key] for key in ("id", "profile_id", "profile_name", "arrangement", "prompt", "model", "created_at", "lyrics", "mime_type")}
+        for field in ("direction_prompt", "supplied_lyrics", "performer_race", "instrument_name"):
+            if isinstance(take.get(field), str) and len(take[field]) <= MAX_PROMPT:
+                result[field] = take[field]
+        source = take.get("lyric_source")
+        if isinstance(source, dict):
+            required = ("id", "title", "bard_name", "created_at", "sha256")
+            if all(isinstance(source.get(field), str) and len(source[field]) <= 2000 for field in required):
+                clean = {field: source[field] for field in required}
+                for field in ("source_label", "collection"):
+                    if isinstance(source.get(field), str) and len(source[field]) <= 2000:
+                        clean[field] = source[field]
+                result["lyric_source"] = clean
         result["audio_url"] = f"/api/takes/{take['id']}/audio"
         result["download_url"] = f"/api/takes/{take['id']}/download"
         return result
@@ -323,6 +346,59 @@ class Workshop:
                 raise WorkshopError("Generation job not found.", 404)
             return deepcopy(self.jobs[identifier])
 
+    def lyric_catalog(self):
+        try:
+            catalog = self.catalog_reader()
+            if isinstance(catalog, dict) and isinstance(catalog.get("songs"), list) and isinstance(catalog.get("source"), dict):
+                return deepcopy(catalog)
+        except Exception:
+            # The catalog module normally returns safe errors itself; never echo
+            # an unexpected filesystem exception or source data to the browser.
+            pass
+        return {"songs": [], "source": {"label": "SkyrimNet lyrics", "updated_at": ""},
+                "error": "The lyric catalog could not be loaded. Refresh it before generating a sung take."}
+
+    def compose_prompt(self, payload, arrangement, directions):
+        if "supplied_lyrics" in payload:
+            raise WorkshopError("Choose lyrics from the SkyrimNet catalog; do not submit replacement lyric text.")
+        metadata = {"direction_prompt": directions}
+        if arrangement not in SUNG_ARRANGEMENTS:
+            if "lyrics_song_id" in payload or "lyrics_sha256" in payload:
+                raise WorkshopError("Instrumental arrangements do not accept a lyric selection.")
+            if LYRICS_HEADER.search(directions):
+                raise WorkshopError("Instrumental arrangements do not accept a Lyrics: block.")
+            return directions, metadata
+        if "lyrics_song_id" not in payload and "lyrics_sha256" not in payload:
+            return directions, metadata
+        if LYRICS_HEADER.search(directions):
+            raise WorkshopError("Remove the Lyrics: block from musical directions. The selected original lyrics are added automatically.")
+        song_id, digest = payload.get("lyrics_song_id"), payload.get("lyrics_sha256")
+        if not isinstance(song_id, str) or not song_id or not isinstance(digest, str) or not digest:
+            raise WorkshopError("A saved lyric selection requires both a song ID and its current lyric hash.")
+        catalog = self.lyric_catalog()
+        if catalog.get("error") or not catalog["songs"]:
+            raise WorkshopError("The SkyrimNet lyric catalog is unavailable. Refresh it before generating a sung take.", 503)
+        song = next((item for item in catalog["songs"] if isinstance(item, dict) and item.get("id") == song_id), None)
+        if not song:
+            raise WorkshopError("The selected song is no longer in the catalog. Refresh lyrics and choose it again.", 409)
+        if song.get("sha256") != digest:
+            raise WorkshopError("The selected lyrics changed. Refresh lyrics and review them before generating.", 409)
+        fields = ("id", "title", "bard_name", "created_at", "sha256")
+        if not all(isinstance(song.get(field), str) and len(song[field]) <= 2000 for field in fields) or not isinstance(song.get("lyrics"), str) or not song["lyrics"].strip():
+            raise WorkshopError("The selected song has incomplete source data. Refresh the lyric catalog before generating.", 503)
+        prompt = directions + LYRICS_SEPARATOR + song["lyrics"]
+        if len(prompt) > MAX_PROMPT:
+            raise WorkshopError(f"Musical directions and original lyrics together must fit within {MAX_PROMPT:,} characters. Shorten the directions or select another song.")
+        source = {field: song[field] for field in fields}
+        collection = song.get("collection")
+        if isinstance(collection, str) and collection and len(collection) <= 2000:
+            source["collection"] = collection
+        source_label = source.get("collection", catalog["source"].get("label"))
+        if isinstance(source_label, str) and len(source_label) <= 2000:
+            source["source_label"] = source_label
+        metadata.update(supplied_lyrics=song["lyrics"], lyric_source=source)
+        return prompt, metadata
+
     def submit(self, payload):
         if not isinstance(payload, dict):
             raise WorkshopError("The request must be a JSON object.")
@@ -334,12 +410,21 @@ class Workshop:
         if not isinstance(arrangement, str) or arrangement not in ARRANGEMENTS:
             raise WorkshopError("Choose a supported performer arrangement.")
         profile = self.profiles[profile_id]
+        policy = profile.get("workshop")
+        if policy and arrangement not in policy["allowed"]:
+            raise WorkshopError(policy["omitted"][arrangement])
+        race = payload.get("performer_race", profile.get("audition_race"))
+        if ("performer_race" in payload or race is not None) and (not isinstance(race, str) or race not in self.races):
+            raise WorkshopError("Choose a known performer race.")
+        if race in ("khajiit", "argonian") and arrangement in SUNG_ARRANGEMENTS:
+            raise WorkshopError("Khajiit and Argonian performers are instrumental only in this workshop while convincing beastfolk vocals remain unresolved.")
         if arrangement == "trio" and not (isinstance(profile.get("ensemble_roles"), list) and len(profile["ensemble_roles"]) == 3 and profile.get("ensemble_clause")):
             raise WorkshopError("This profile has no defined three-voice arrangement.")
         if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > MAX_PROMPT:
             raise WorkshopError(f"Enter a prompt of 1 to {MAX_PROMPT:,} characters.")
         if any(ord(char) < 32 and char not in "\n\r\t" for char in prompt):
             raise WorkshopError("The prompt contains unsupported control characters.")
+        prompt, lyric_metadata = self.compose_prompt(payload, arrangement, prompt)
         with self.lock:
             if self.active_id:
                 raise WorkshopError("A song is already generating. Wait for it to finish before starting another.", 409)
@@ -347,13 +432,18 @@ class Workshop:
                 raise WorkshopError("Add your Google key with python3 tools/configure_key.py, then try again.", 503)
             identifier = secrets.token_hex(16)
             job = {"id": identifier, "status": "queued", "profile_id": profile_id, "arrangement": arrangement}
+            if race is not None:
+                job["performer_race"] = race
+            family = "plucked" if arrangement in ("lute", "lute_voice") else "flute" if arrangement in ("flute", "flute_voice") else "drum" if arrangement in ("drum", "drum_voice") else None
+            if policy and family:
+                job["instrument_name"] = policy[family]
             self.jobs[identifier] = job
             self.active_id = identifier
             snapshot = deepcopy(job)
-            threading.Thread(target=self._generate, args=(identifier, profile["name"], prompt), daemon=True).start()
+            threading.Thread(target=self._generate, args=(identifier, profile["name"], prompt, lyric_metadata), daemon=True).start()
             return snapshot
 
-    def _generate(self, identifier, profile_name, prompt):
+    def _generate(self, identifier, profile_name, prompt, lyric_metadata):
         try:
             with self.lock:
                 self.jobs[identifier]["status"] = "generating"
@@ -365,6 +455,10 @@ class Workshop:
             take = {"id": identifier, "profile_id": job["profile_id"], "profile_name": profile_name,
                     "arrangement": job["arrangement"], "prompt": prompt, "model": MODEL,
                     "created_at": datetime.now(timezone.utc).isoformat(), "lyrics": lyrics, "mime_type": mime}
+            for field in ("performer_race", "instrument_name"):
+                if field in job:
+                    take[field] = job[field]
+            take.update(lyric_metadata)
             directory = self.data_dir / identifier
             directory.mkdir(parents=True, mode=0o700)
             write_private(directory / ("audio" + AUDIO_FORMATS[mime]), audio)
@@ -428,7 +522,7 @@ class WorkshopHandler(BaseHTTPRequestHandler):
         if not head:
             self.wfile.write(body)
 
-    def check_origin(self):
+    def check_origin(self, *, allow_navigation=False):
         port = self.server.server_port
         hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
         host_headers = self.headers.get_all("Host", [])
@@ -437,7 +531,12 @@ class WorkshopHandler(BaseHTTPRequestHandler):
         origins = self.headers.get_all("Origin", [])
         if origins and (len(origins) != 1 or origins[0] != "http://" + host_headers[0]):
             raise WorkshopError("Cross-origin requests are not allowed.", 403)
-        if self.headers.get("Sec-Fetch-Site") not in (None, "same-origin", "none"):
+        # Following a link to the dashboard is a document navigation, not an
+        # API request. Keep API reads/writes and embedded resources same-origin.
+        navigation = (allow_navigation and self.command == "GET" and not origins
+                      and self.headers.get("Sec-Fetch-Mode") == "navigate"
+                      and self.headers.get("Sec-Fetch-Dest") == "document")
+        if self.headers.get("Sec-Fetch-Site") not in (None, "same-origin", "none") and not navigation:
             raise WorkshopError("Cross-origin requests are not allowed.", 403)
 
     def do_OPTIONS(self):
@@ -448,7 +547,7 @@ class WorkshopHandler(BaseHTTPRequestHandler):
 
     def do_GET(self, head=False):
         try:
-            self.check_origin()
+            self.check_origin(allow_navigation=self.path in ("/", "/index.html"))
             workshop = self.server.workshop
             if self.path in ("/", "/index.html"):
                 content = (workshop.root / "dashboard" / "index.html").read_bytes()
@@ -462,6 +561,8 @@ class WorkshopHandler(BaseHTTPRequestHandler):
                 self.send_json(200, workshop.status(), head=head)
             elif self.path == "/api/takes":
                 self.send_json(200, {"takes": workshop.list_takes()}, head=head)
+            elif self.path == "/api/lyrics":
+                self.send_json(200, workshop.lyric_catalog(), head=head)
             elif re.fullmatch(r"/api/jobs/[a-f0-9]{32}", self.path):
                 self.send_json(200, {"job": workshop.get_job(self.path.rsplit("/", 1)[1])}, head=head)
             elif re.fullmatch(r"/api/takes/[a-f0-9]{32}/(?:audio|download)", self.path):
@@ -563,7 +664,13 @@ def main():
         parser.error("port must be between 1 and 65535")
     try:
         server = WorkshopServer(args.port)
-    except (OSError, ValueError):
+    except OSError as error:
+        if error.errno == errno.EADDRINUSE:
+            parser.exit(1, f"Port {args.port} is already in use. If the workshop is running, open "
+                        f"http://127.0.0.1:{args.port}/ instead of starting a second instance. "
+                        "Otherwise choose a free port with --port.\n")
+        parser.exit(1, "Could not start the workshop. Check the port and dashboard build.\n")
+    except ValueError:
         parser.exit(1, "Could not start the workshop. Check the port and dashboard build.\n")
     print(f"Hold Music workshop: http://127.0.0.1:{server.server_port}", flush=True)
     print("Google Lyria 3.5. One generation at a time; no automatic retries. Press Ctrl+C to stop.", flush=True)

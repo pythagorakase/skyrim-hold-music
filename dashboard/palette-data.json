@@ -1,25 +1,78 @@
 {
   "version": 1,
   "updatedAt": "2026-10-08",
-  "auditionContext": "An in-world acoustic performance in Skyrim, in the Elder Scrolls setting. The music is made by the listed performers in the room, with natural close room acoustics rather than a cinematic backing score.",
+  "auditionContext": "An in-world acoustic performance in Tamriel, in the Elder Scrolls setting. The music is made by the listed performers in the room, with natural close room acoustics rather than a cinematic backing score.",
+  "auditionRaces": {
+    "nord": "Nord",
+    "imperial": "Imperial",
+    "breton": "Breton",
+    "redguard": "Redguard",
+    "dunmer": "Dunmer (Dark Elf)",
+    "altmer": "Altmer (High Elf)",
+    "bosmer": "Bosmer (Wood Elf)",
+    "orc": "Orc (Orsimer)",
+    "khajiit": "Khajiit",
+    "argonian": "Argonian"
+  },
+  "auditionRegions": {
+    "skyrim": "Skyrim; no specific hold or settlement assigned",
+    "haafingar": "Haafingar, around Solitude, Skyrim",
+    "eastmarch": "Eastmarch, around Windhelm, Skyrim",
+    "whiterun": "Whiterun Hold, Skyrim",
+    "reach": "the Reach, around Markarth, Skyrim",
+    "falkreath": "Falkreath Hold, Skyrim",
+    "rift": "the Rift, around Riften, Skyrim",
+    "winterhold": "Winterhold, Skyrim",
+    "pale": "the Pale, around Dawnstar, Skyrim",
+    "hjaalmarch": "Hjaalmarch, around Morthal, Skyrim",
+    "cyrodiil": "Cyrodiil; no specific city assigned",
+    "raven_rock": "Raven Rock, Solstheim",
+    "skaal": "the Skaal community, Solstheim"
+  },
+  "auditionVoices": {
+    "orc": "dark, full-bodied, grainy low-to-mid voice with weighty chest resonance and firm, unforced delivery",
+    "khajiit": "warm, husky, throaty voice with subtle rumbling grain, clear consonants and supple phrasing"
+  },
   "finalists": [
     {
       "id": "orc_resonant_names",
       "culture": "Orsimer",
-      "name": "Resonant Name-Songs",
+      "name": "Resonant Name-Songs · throat singing",
       "mood": "Grave, concentrated, enduring",
       "role": "Favorite vocal identity; individual technique required; instrumental reduction is weaker",
-      "reference": null,
-      "audition_casting": "mature Orc (Orsimer) vocal character: a dark, full-bodied tone with weighty chest resonance, a settled low-to-middle register and audible grain; firm, unforced delivery that retains weight even in quiet phrases",
+      "lute_instrumental": "isolated low plucks answered by ringing upper notes; a resonant contour reduction of the vocal form",
+      "reference": "Mongolian khöömei overtone singing",
+      "reference_focus": "a steady low foundation with moving upper harmonics; instrumental reductions translate contour and resonance without adding a throat singer",
+      "audition_casting": "dark, full-bodied, grainy low-to-mid voice with weighty chest resonance and firm, unforced delivery",
       "core": "slow breath-length phrases, stable tonal center, sparse resonance and decisive pauses; grave and concentrated",
-      "voice": "one singer sustains a strong low fundamental while shaping a small, clear, whistle-like melody from its upper harmonics; the high tones stay attached to that same weighty sustained voice, not a separate high lead or backing singer; long rounded vowels alternate with brief plain sung phrases",
+      "voice": "one singer sustains a weighty low fundamental with a moving whistle-like upper-overtone melody; rounded vowels alternate with plain sung phrases",
       "lute": "isolated low plucks and spare ringing upper notes, audible decay between phrases",
       "flute": "one slow narrow melodic line, separated ordinary and upper-register tones",
       "drum": "widely spaced contrasting low and dry strokes",
       "required_vocal_technique": "solo_overtones",
       "instrumental_status": "reduced_arrangement",
       "neighbor": "Eastmarch declamation; Khajiit drone; sparse northern song",
-      "boundary": "A visibly moving upper overtone melody over one steady vocal fundamental is the defining feature. Ordinary low chanting is not enough. Keep the tempo and tonal center settled; its instrumental arrangement is an explicitly weaker reduction."
+      "boundary": "A visibly moving upper overtone melody over one steady vocal fundamental is the defining feature. Ordinary low chanting is not enough. Keep the tempo and tonal center settled; its instrumental arrangement is an explicitly weaker reduction.",
+      "workshop": {
+        "plucked": "lute",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "drum_voice",
+          "voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "flute_voice": "Alternating flute and voice would lose the defining continuous vocal or plucked-string treatment.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": "Throat-singing finalist: khöömei, with a weighty low fundamental and moving upper overtones. Instrumentals are contour reductions."
+      },
+      "audition_race": "orc",
+      "audition_region": "skyrim"
     },
     {
       "id": "orc_seven_step",
@@ -27,15 +80,37 @@
       "name": "Seven-Step Oath-Songs",
       "mood": "Resolute, exacting, communal",
       "role": "Most portable candidate across the existing lute/voice and instrumental grammar",
-      "reference": null,
-      "audition_casting": "mature Orc (Orsimer) vocal character: a dark, full-bodied tone with weighty chest resonance, a settled low-to-middle register and audible grain; firm, unforced delivery that retains weight even in quiet phrases",
+      "lute_instrumental": "low damped strokes and a rising-fourth melody mark deliberate 2+2+3 groups, decisive rests",
+      "reference": "Bulgarian rachenitsa",
+      "reference_focus": "borrow the 2+2+3 additive rhythm, with deliberate resolute phrasing rather than a fast wedding-dance tempo",
+      "audition_casting": "dark, full-bodied, grainy low-to-mid voice with weighty chest resonance and firm, unforced delivery",
       "core": "seven pulses grouped 2+2+3, compact four-note phrases and rising fourths, dry attacks and decisive rests; resolute",
       "voice": "clipped syllabic statements, deliberate consonants and firm phrase endings",
       "lute": "damped low strums and short single-note answers marking each uneven group",
       "flute": "short clearly tongued phrases with emphatic rests",
       "drum": "deliberate two-two-three groups, deep first attack and a clean gap after each full line",
       "neighbor": "Argonian work cycles; Nord communal song; Bosmer Leaping tales",
-      "boundary": "Maintain deliberate 2+2+3 grouping, firm shared attacks and decisive rests. Argonian cells overlap continuously; Bosmer leaps through quicker 3+2 groups with light interrupted answers."
+      "boundary": "Maintain deliberate 2+2+3 grouping, firm shared attacks and decisive rests. Argonian cells overlap continuously; Bosmer leaps through quicker 3+2 groups with light interrupted answers.",
+      "workshop": {
+        "plucked": "lute",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice",
+          "drum",
+          "drum_voice",
+          "voice"
+        ],
+        "omitted": {
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": ""
+      },
+      "audition_race": "orc",
+      "audition_region": "skyrim"
     },
     {
       "id": "orc_close_circle",
@@ -43,9 +118,12 @@
       "name": "Close-Circle Songs",
       "mood": "Solemn solidarity, intimate warmth",
       "role": "Ensemble finalist; current solo version explicitly gives chord work to the lute",
+      "lute_instrumental": "simple upper melody against compact low chord blocks, every part releasing together",
       "core_monophonic": "one plain narrow melody in slow measured phrases, decisive releases and clean pauses; solemn warmth",
-      "reference": null,
-      "audition_casting": "mature Orc (Orsimer) vocal character: a dark, full-bodied tone with weighty chest resonance, a settled low-to-middle register and audible grain; firm, unforced delivery that retains weight even in quiet phrases",
+      "reference": "Sardinian canto a tenore",
+      "reference_focus": "compact chord responses and coordinated releases; the listed solo or three-voice reduction is not an authentic four-part tenore ensemble",
+      "reference_focus_monophonic": "the plain lead melody, short measured phrases and coordinated clean cutoffs, reduced to one line without chord responses",
+      "audition_casting": "dark, full-bodied, grainy low-to-mid voice with weighty chest resonance and firm, unforced delivery",
       "core": "slow measured phrases, a few compact chord shapes changing together, open fifths and collective cutoffs; solemn warmth",
       "voice": "one plain text-bearing lead line, short statements ending in clean silence",
       "lute": "low chord blocks under a simple upper line, with simultaneous releases",
@@ -58,7 +136,27 @@
       ],
       "ensemble_clause": "three visible singers: one lead, two compact chord responses, all releases synchronized",
       "neighbor": "Altmer counterpoint; Nord open-fifth song",
-      "boundary": "Compact chord blocks change and stop together, unlike Altmer independently moving lines. The full vocal form needs the three listed singers. Solo flute or drum omits the chordal core; one lute may supply the explicit reduction."
+      "boundary": "Compact chord blocks change and stop together, unlike Altmer independently moving lines. The full vocal form needs the three listed singers. Solo flute or drum omits the chordal core; one lute may supply the explicit reduction.",
+      "workshop": {
+        "plucked": "lute",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "trio"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "drum_voice": "Percussion would displace the defining free phrasing, chordal support or sustained tonal friction.",
+          "flute": "A flute alone loses the defining simultaneous chord responses.",
+          "flute_voice": "Alternating flute and voice would lose the defining continuous vocal or plucked-string treatment.",
+          "voice": "A lone voice would lose the defining chordal or instrumental structure."
+        },
+        "note": "The plucked instrument supplies the chord responses; the ensemble study uses exactly three voices."
+      },
+      "audition_race": "orc",
+      "audition_region": "skyrim"
     },
     {
       "id": "bosmer_leaping_tales",
@@ -66,14 +164,36 @@
       "name": "Leaping tales",
       "mood": "Mischievous, alert, slightly uncanny",
       "role": "Preferred broadly usable Bosmer candidate",
-      "reference": null,
+      "lute_instrumental": "angular wide-leaping melody in quick 3+2 groups, dry plucks and sudden gaps",
+      "reference": "Balkan aksak dance music",
+      "reference_focus": "use the selected five-pulse 3+2 grouping, quick wide leaps and sudden rests rather than inheriting another dance meter",
       "core": "quick five-pulse groups of 3+2, short angular motives with wide leaps, dry attacks and sudden rests; alert and mischievous",
       "voice": "agile clear syllables, light register jumps, pauses with a punchline's timing",
       "lute": "dry clipped single notes and occasional open intervals, brief answers at phrase endings",
       "flute": "focused tongued tone, agile leaps and short turns cut off by silence",
       "drum": "light three-two groups, a clipped final answer and deliberate missing strokes",
       "neighbor": "Orsimer Seven-Step; Falkreath five-beat lament; Reach dance",
-      "boundary": "Current audition meter is five pulses grouped 3+2. Quick wide leaps, dry attacks and sudden gaps distinguish it from Orsimer 2+2+3, Falkreath slow descending cells and Reach connected ornamental flow."
+      "boundary": "Current audition meter is five pulses grouped 3+2. Quick wide leaps, dry attacks and sudden gaps distinguish it from Orsimer 2+2+3, Falkreath slow descending cells and Reach connected ornamental flow.",
+      "workshop": {
+        "plucked": "cittern",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice",
+          "drum",
+          "drum_voice",
+          "voice"
+        ],
+        "omitted": {
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": ""
+      },
+      "audition_race": "bosmer",
+      "audition_region": "skyrim"
     },
     {
       "id": "bosmer_hunting_calls",
@@ -81,14 +201,36 @@
       "name": "Hunting-call airs",
       "mood": "Watchful, restrained, faintly predatory",
       "role": "Strong flute and quiet-instrumental candidate",
-      "reference": null,
+      "lute_instrumental": "isolated two- or three-note calls in high and middle registers with complete gaps",
+      "reference": "Swedish kulning and Scandinavian herding-call music",
+      "reference_focus": "brief clear calls, register contrasts and complete gaps, rendered intimately rather than as distant shouting",
       "core": "brief two- or three-note calls at separated registers, complete gaps and clean endings; watchful and spare",
       "voice": "one singer alternates a clear compact high call with a quieter lower answer",
       "lute": "isolated picked calls in high and middle registers, each phrase ending before the next",
       "flute": "clear focused calls, fourth and fifth leaps, sharply defined entrances",
       "drum": "pairs of contrasting strokes with complete pauses; a rhythmic reduction of the calls",
       "neighbor": "Winterhold circular vocables; Pale exposed calls; Argonian cells",
-      "boundary": "Use brief precise calls in separated registers, each followed by a complete gap and clean ending. Avoid a continuous northern melodic circle, long rocking Pale phrases or Argonian overlapping texture."
+      "boundary": "Use brief precise calls in separated registers, each followed by a complete gap and clean ending. Avoid a continuous northern melodic circle, long rocking Pale phrases or Argonian overlapping texture.",
+      "workshop": {
+        "plucked": "lute",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice",
+          "voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "drum_voice": "Percussion would displace the defining free phrasing, chordal support or sustained tonal friction.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": ""
+      },
+      "audition_race": "bosmer",
+      "audition_region": "skyrim"
     },
     {
       "id": "bosmer_spinners_tales",
@@ -96,14 +238,37 @@
       "name": "Spinner's tales",
       "mood": "Intimate, absorbing, uncanny",
       "role": "Narrative finalist; weaker as a drum-only or purely instrumental identity",
-      "reference": null,
+      "core_instrumental": "a recurring three-note tag amid irregular phrase lengths, sudden register turns and clear endings; intimate and uncanny",
+      "lute_instrumental": "a recurring three-note tag, irregular phrase lengths and sudden register turns, sparse plucked punctuation",
+      "reference": "Japanese biwa narrative song, especially biwa hōshi storytelling",
+      "reference_focus": "speech-shaped narration, sparse plucked punctuation and the returning three-note tag; retain the chosen lyric language and listed instrument",
       "core": "a recurring three-note tag amid changing speech-paced phrase lengths, sudden register turns and clear endings; intimate and uncanny",
       "voice": "one conversational singer changes character through register, pacing and articulation",
       "lute": "a recognizable short tag and sparse punctuation, fuller playing only in interludes",
       "flute": "one recurring figure alternates plain low and ornamented high versions in sequence",
       "drum": "short muted strokes in changing phrase lengths, a recurring three-stroke tag and deliberate pauses",
       "neighbor": "Eastmarch narrative declamation; Altmer formal development",
-      "boundary": "One conversational voice changes character through register and pacing around a recurring three-note tag. Keep the line agile and discontinuous; instrumental reductions retain the tag and phrase structure without implying speech or extra characters."
+      "boundary": "One conversational voice changes character through register and pacing around a recurring three-note tag. Keep the line agile and discontinuous; instrumental reductions retain the tag and phrase structure without implying speech or extra characters.",
+      "workshop": {
+        "plucked": "biwa",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "drum_voice",
+          "voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "flute_voice": "Alternating flute and voice would lose the defining continuous vocal or plucked-string treatment.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": ""
+      },
+      "audition_race": "bosmer",
+      "audition_region": "skyrim"
     }
   ],
   "existing": [
@@ -112,131 +277,343 @@
       "kind": "culture",
       "culture": "Nord",
       "name": "Nord ballads",
+      "lute_instrumental": "plain modal melody with open-string tonic and fifth drones, a short returning refrain",
       "core_monophonic": "strophic modal melody with a short refrain, plain Dorian or Mixolydian phrases and few ornaments",
       "reference": "Scandinavian medieval ballads",
       "core": "strophic ballad with a short refrain, Dorian or Mixolydian mode, steady drone on the tonic and fifth, plain melody with few ornaments",
       "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
       "lute": "simple plucked melody over open-string drones",
       "flute": "plain modal melody, few ornaments",
-      "drum": "steady walking pulse"
+      "drum": "steady walking pulse",
+      "workshop": {
+        "plucked": "cittern",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice",
+          "drum_voice",
+          "voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": ""
+      },
+      "audition_race": "nord",
+      "audition_region": "skyrim"
     },
     {
       "id": "imperial",
       "kind": "culture",
       "culture": "Imperial",
       "name": "Imperial expressive solo song",
+      "lute_instrumental": "upper-string melody with ornamental runs over arpeggiated bass, clear cadences",
       "reference": "Italian frottola and early Baroque monody",
       "core": "clear major or minor tonality, flexible expressive tempo, strong cadences",
       "voice": "lyrical solo line with ornamental runs and cadential trills",
       "lute": "arpeggiated chordal accompaniment under the melody, continuo style",
       "flute": "singing, vocal-style melody with cadential trills",
-      "drum": "light, even dance pulse"
+      "drum": "light, even dance pulse",
+      "workshop": {
+        "plucked": "lute",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice",
+          "voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "drum_voice": "Percussion would displace the defining free phrasing, chordal support or sustained tonal friction.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": ""
+      },
+      "audition_race": "imperial",
+      "audition_region": "skyrim"
     },
     {
       "id": "imperial_vernacular",
       "kind": "culture",
       "culture": "Imperial",
       "name": "Cyrodiil vernacular",
-      "reference": null,
+      "lute_instrumental": "short refrain melody between crisp chord strokes, regular pulse and strong cadence returns",
+      "audition_region": "cyrodiil",
+      "reference": "Italian frottola and Renaissance villanella",
+      "reference_focus": "short strophic refrains, a firm pulse and clear cadences; a vernacular adaptation rather than courtly monody",
       "core": "firm regular pulse, short memorable refrain, clear major or minor harmony, decisive cadence returns",
       "voice": "direct syllabic delivery with brief ornamental pickups",
       "lute": "crisp chordal rhythm with a short melodic answer",
       "flute": "clear tuneful phrases returning to strong cadence notes",
-      "drum": "even dance pulse with clear phrase-ending accents"
+      "drum": "even dance pulse with clear phrase-ending accents",
+      "workshop": {
+        "plucked": "cittern",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice",
+          "drum_voice",
+          "voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": ""
+      },
+      "audition_race": "imperial"
     },
     {
       "id": "breton_court",
       "kind": "culture",
       "culture": "Breton",
       "name": "Breton court song",
+      "lute_instrumental": "delicate melody above soft broken chords, small graces and breathing pauses",
       "reference": "French air de cour",
       "core": "minor or Dorian mode, gentle unhurried pace, speech-like phrasing, delicate grace notes",
       "voice": "light, intimate, restrained",
       "lute": "soft broken-chord accompaniment",
       "flute": "soft, sweet tone with small graces",
-      "drum": "quiet, restrained pulse"
+      "drum": "quiet, restrained pulse",
+      "workshop": {
+        "plucked": "lute",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "drum_voice": "Percussion would displace the defining free phrasing, chordal support or sustained tonal friction.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble.",
+          "voice": "A lone voice would lose the defining chordal or instrumental structure."
+        },
+        "note": "Voice and flute are single-line reductions of a form usually supported by plucked chords."
+      },
+      "audition_race": "breton",
+      "audition_region": "skyrim"
     },
     {
       "id": "breton_folk",
       "kind": "culture",
       "culture": "Breton",
       "name": "Breton folk lament",
+      "core_instrumental": "slow strophic instrumental air, long restrained phrases, flexible rhythm and little ornament",
+      "lute_instrumental": "one restrained repeating melody, sparse plucks and flexible unhurried phrasing",
       "reference": "Breton gwerz",
       "core": "slow text-led lament, long stanzas on a repeating restrained melody, flexible syllabic rhythm, little melodic ornament",
       "voice": "clear plain syllables, unhurried narrative delivery, almost unaccompanied",
       "lute": "sparse single notes following each melodic phrase",
       "flute": "soft, sweet tone with small graces",
-      "drum": "quiet, restrained pulse"
+      "drum": "quiet, restrained pulse",
+      "workshop": {
+        "plucked": "cittern",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice",
+          "voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "drum_voice": "Percussion would displace the defining free phrasing, chordal support or sustained tonal friction.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": ""
+      },
+      "audition_race": "breton",
+      "audition_region": "skyrim"
     },
     {
       "id": "redguard",
       "kind": "culture",
       "culture": "Redguard",
       "name": "Redguard articulated cycles",
+      "lute_instrumental": "clearly picked Phrygian melody, articulated runs and decisive returns to the cycle",
       "reference": "Arab-Andalusian and Spanish Renaissance song",
       "core": "Phrygian color, articulated ornamental phrases in a clear recurring rhythmic cycle, runs returning to firm cadence notes",
       "voice": "ornamented but clearly articulated phrases, brief melismas ending decisively",
       "lute": "oud-like melodic plucking, distinct attacks and brief runs returning to the cycle, few chords",
       "flute": "articulated ornamented phrases with clear cadence returns",
-      "drum": "cyclic hand-drum pattern mixing deep and sharp strokes"
+      "drum": "cyclic hand-drum pattern mixing deep and sharp strokes",
+      "workshop": {
+        "plucked": "oud",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice",
+          "drum",
+          "drum_voice",
+          "voice"
+        ],
+        "omitted": {
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": ""
+      },
+      "audition_race": "redguard",
+      "audition_region": "skyrim"
     },
     {
       "id": "dunmer",
       "kind": "culture",
       "culture": "Dunmer",
       "name": "Dunmer modal lament",
+      "lute_instrumental": "long sorrowful melody with slow ornaments over the same instrument’s low drone strings",
       "core_monophonic": "slow free-rhythm lament, long sorrowful single-line phrases and augmented-second color",
       "reference": "Armenian and Persian modal lament",
       "core": "slow lament, minor mode with augmented-second color, free rhythm, long sorrowful phrases over a sustained low drone",
       "voice": "mournful, restrained, long-breathed, slow melisma",
       "lute": "sparse plucked notes over a low drone string",
       "flute": "low, breathy tone with slow pitch bends",
-      "drum": "slow, sparse pulse"
+      "drum": "slow, sparse pulse",
+      "workshop": {
+        "plucked": "lute",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice",
+          "voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "drum_voice": "Percussion would displace the defining free phrasing, chordal support or sustained tonal friction.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": ""
+      },
+      "audition_race": "dunmer",
+      "audition_region": "skyrim"
     },
     {
       "id": "altmer",
       "kind": "culture",
       "culture": "Altmer",
       "name": "Altmer counterpoint",
+      "lute_instrumental": "two or three independently moving plucked lines, precise imitation and balanced cadences",
       "core_monophonic": "precise sequential imitation within one melodic line, measured phrasing and formal ornaments",
       "reference": "ricercars and fantasias",
       "core": "learned counterpoint, strict measured tempo, imitative lines, precise formal ornaments, balanced phrases",
       "voice": "pure straight tone, exact intonation, little vibrato",
       "lute": "two or three independent lines implied on the one lute",
       "flute": "one clean line imitates its own earlier phrase in sequence, with precise trills",
-      "drum": "exact and understated"
+      "drum": "exact and understated",
+      "workshop": {
+        "plucked": "lute",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "drum_voice": "Percussion would displace the defining free phrasing, chordal support or sustained tonal friction.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble.",
+          "voice": "A lone voice would lose the defining chordal or instrumental structure."
+        },
+        "note": "Flute and alternating voice/flute use sequential imitation; independent counterpoint remains on plucked strings."
+      },
+      "audition_race": "altmer",
+      "audition_region": "skyrim"
     },
     {
       "id": "khajiit",
       "kind": "culture",
       "culture": "Khajiit",
       "name": "Khajiit unfolding drone",
+      "lute_instrumental": "long sliding meend phrases over the same instrument’s open drone strings; free alap grows into a measured pulse",
       "core_monophonic": "one sliding melodic line around a stable tone, unmetered opening slowly finding pulse and gathering speed",
-      "reference": "Rajasthani desert music and raga form",
+      "reference": "Hindustani instrumental raga, with Rajasthani desert-music color",
+      "drum_reference": "Hindustani tabla solo",
       "core": "sustained drone, unmetered opening that slowly finds a pulse and accelerates, notes joined by slides instead of clean steps",
-      "voice": "supple, sliding between notes, long ornamented phrases",
-      "lute": "single-line melody with slides and bends over a drone string",
-      "flute": "breathy, sliding between notes, long phrases",
-      "drum": "hand-drum cycle that starts sparse and gathers speed",
+      "lute": "plucked melody with long meend bends, ringing open drone strings on the same instrument",
+      "flute": "breathy bamboo tone, continuous pitch slides, long phrases returning to a resting note",
+      "drum": "deep sliding bayan bass against crisp dayan finger strokes; 16-beat teental (4+4+4+4), playful syncopation and increasingly rapid variations; finish with a threefold tihai landing on the first beat",
       "ignores_hold_tint": true,
       "phase_modes": {
         "new": "darkest mode with a flattened second, low register, the pulse arrives late and stays slow",
         "waxing": "brighter mode with a raised fourth, rising phrases, gathering tempo",
         "full": "bright major or Mixolydian mode, fast, fully metered and dance-like",
         "waning": "minor mode, descending phrases, slowing tempo"
-      }
+      },
+      "workshop": {
+        "plucked": "sitar",
+        "flute": "bamboo flute (bansuri)",
+        "drum": "tabla (dayan + bayan pair)",
+        "allowed": [
+          "lute",
+          "flute",
+          "drum"
+        ],
+        "omitted": {
+          "drum_voice": "Khajiit repertoire is instrumental only while convincing beastfolk vocals remain unresolved.",
+          "flute_voice": "Khajiit repertoire is instrumental only while convincing beastfolk vocals remain unresolved.",
+          "lute_voice": "Khajiit repertoire is instrumental only while convincing beastfolk vocals remain unresolved.",
+          "trio": "Khajiit repertoire is instrumental only while convincing beastfolk vocals remain unresolved.",
+          "voice": "Khajiit repertoire is instrumental only while convincing beastfolk vocals remain unresolved."
+        },
+        "note": "Choose sitar, unaccompanied bamboo flute, or a virtuoso tabla solo on the dayan/bayan pair. Each uses one performer; singing stays omitted."
+      },
+      "audition_race": "khajiit",
+      "audition_region": "skyrim"
     },
     {
       "id": "argonian",
       "kind": "culture",
       "culture": "Argonian",
       "name": "Argonian interlocking cells",
-      "reference": null,
-      "core": "five-note cells in a continuous crisp rhythmic cycle, alternating registers, level intensity and little cadential drive, clean abrupt ending",
-      "voice": "low rhythmic chant on vocables",
-      "lute": "quick alternation between two registers to imply interlocking parts",
-      "flute": "short clear attacks alternate between two registers in a continuous recurring cell",
-      "drum": "interlocking two-handed pattern, steady and unchanging"
+      "lute_instrumental": "alternating low anchors and rippling upper five-note cells, crisp woody attacks and ringing decay",
+      "reference": "Sundanese kacapi suling, with Balinese kotekan-inspired repeating cells",
+      "reference_focus": "a fictional solo adaptation: plucked zither or bamboo flute, with cyclic cells borrowed from the earlier kotekan sketch",
+      "core": "five-note modal cells, rippling even pulse and alternating registers, poised level intensity, recurring low anchor and a clean abrupt ending",
+      "lute": "crisp woody plucks, alternating low anchor and bright upper cells on one zither, brief ringing decay",
+      "flute": "soft bamboo tone with small tongued attacks; one line alternates registers and curls around five recurring notes",
+      "drum": "interlocking two-handed pattern, steady and unchanging",
+      "workshop": {
+        "plucked": "plucked zither (kacapi)",
+        "flute": "bamboo flute (suling)",
+        "drum": "hand drum",
+        "allowed": [
+          "lute",
+          "flute"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "drum_voice": "Argonian repertoire is instrumental only while convincing beastfolk vocals remain unresolved.",
+          "flute_voice": "Argonian repertoire is instrumental only while convincing beastfolk vocals remain unresolved.",
+          "lute_voice": "Argonian repertoire is instrumental only while convincing beastfolk vocals remain unresolved.",
+          "trio": "Argonian repertoire is instrumental only while convincing beastfolk vocals remain unresolved.",
+          "voice": "Argonian repertoire is instrumental only while convincing beastfolk vocals remain unresolved."
+        },
+        "note": "New instrumental study: kacapi-like woody plucks or one bamboo flute. Keep recurring five-note cells; no gamelan ensemble."
+      },
+      "audition_race": "argonian",
+      "audition_region": "skyrim"
     },
     {
       "id": "haafingar",
@@ -247,11 +624,32 @@
       "lute": "simple plucked melody over open-string drones",
       "flute": "plain modal melody, few ornaments",
       "drum": "steady walking pulse",
+      "lute_instrumental": "refined upper melody over spacious chord answers, a clear triple dance pulse",
       "core_monophonic": "polished triple dance motion, refined single-line phrases and clear cadence returns",
       "reference": "the Danish court of Christian IV and Dowland's lute airs",
       "dialect": "polished courtly style, recognizable triple dance pulse, refined airs and spacious instrumental answers",
       "tint": "polished, courtly phrasing",
-      "core": "polished courtly style, recognizable triple dance pulse, refined airs and spacious instrumental answers"
+      "core": "polished courtly style, recognizable triple dance pulse, refined airs and spacious instrumental answers",
+      "workshop": {
+        "plucked": "lute",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "drum_voice": "Percussion would displace the defining free phrasing, chordal support or sustained tonal friction.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble.",
+          "voice": "A lone voice would lose the defining chordal or instrumental structure."
+        },
+        "note": "The flute versions are melodic reductions of the court air; plucked strings retain its harmonic answers."
+      },
+      "audition_race": "nord",
+      "audition_region": "haafingar"
     },
     {
       "id": "eastmarch",
@@ -261,11 +659,34 @@
       "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
       "lute": "bare fifths between phrases and single notes following the lead melody",
       "flute": "plain modal melody, few ornaments",
-      "drum": "steady walking pulse",
-      "reference": "Icelandic rímur",
+      "drum": "isolated low strokes at the ends of declaimed phrases; leave speech-paced gaps",
+      "core_instrumental": "austere heroic melody, narrow range, irregular declamatory phrase lengths and complete pauses",
+      "lute_instrumental": "austere narrow melody punctuated by bare fifths and clean pauses",
+      "reference": "Icelandic rímur and tvísöngur",
+      "reference_focus": "austere narrative declamation and open-fifth color; a single melodic line replaces the second singer in a solo reduction",
       "dialect": "austere speech-shaped heroic phrases, narrow melodic range and exposed single melody",
       "tint": "sparser and more austere",
-      "core": "austere speech-shaped heroic phrases, narrow melodic range and exposed single melody"
+      "core": "austere speech-shaped heroic phrases, narrow melodic range and exposed single melody",
+      "workshop": {
+        "plucked": "lute",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice",
+          "drum_voice",
+          "voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": ""
+      },
+      "audition_race": "nord",
+      "audition_region": "eastmarch"
     },
     {
       "id": "whiterun",
@@ -275,12 +696,33 @@
       "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
       "lute": "simple plucked melody over open-string drones",
       "flute": "plain modal melody, few ornaments",
-      "drum": "steady walking pulse",
+      "drum": "broad three-pulse groups with a weighted first beat and a lighter turning third",
+      "lute_instrumental": "plain modal refrain above open tonic and fifth strings, a broad triple dance lilt",
       "core_monophonic": "strophic Dorian or Mixolydian melody, short refrain, plain ornaments and broad triple sway",
       "reference": "Swedish and Danish ballads and polska dance tunes",
       "dialect": "strophic ballad with a short refrain, Dorian or Mixolydian mode, steady drone on the tonic and fifth, triple-meter dance lilt in livelier pieces",
       "tint": null,
-      "core": "strophic ballad with a short refrain, Dorian or Mixolydian mode, steady drone on the tonic and fifth, triple-meter dance lilt in livelier pieces"
+      "core": "strophic ballad with a short refrain, Dorian or Mixolydian mode, steady drone on the tonic and fifth, triple-meter dance lilt in livelier pieces",
+      "workshop": {
+        "plucked": "cittern",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice",
+          "drum_voice",
+          "voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": ""
+      },
+      "audition_race": "nord",
+      "audition_region": "whiterun"
     },
     {
       "id": "reach",
@@ -291,11 +733,32 @@
       "lute": "simple plucked melody over open-string drones",
       "flute": "a plain theme followed by increasingly ornamented variations",
       "drum": "steady walking pulse",
-      "reference": "Gaelic song",
+      "lute_instrumental": "one unfolding air with connected picked graces and increasingly ornamented variations",
+      "reference": "Gaelic sean-nós song and pibroch",
       "dialect": "free-rhythm air with connected grace-note ornament and a slowly unfolding melody",
       "dance_dialect": "quick flowing mouth-music dance, connected ornamental runs and a recurring lively pulse",
       "tint": "extra grace-note ornament",
-      "core": "free-rhythm air with connected grace-note ornament and a slowly unfolding melody"
+      "core": "free-rhythm air with connected grace-note ornament and a slowly unfolding melody",
+      "workshop": {
+        "plucked": "lute",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice",
+          "voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "drum_voice": "Percussion would displace the defining free phrasing, chordal support or sustained tonal friction.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": ""
+      },
+      "audition_race": "nord",
+      "audition_region": "reach"
     },
     {
       "id": "falkreath",
@@ -305,11 +768,32 @@
       "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
       "lute": "simple plucked melody over open-string drones",
       "flute": "plain modal melody, few ornaments",
-      "drum": "steady walking pulse",
+      "drum": "slow five-beat groups, a falling sequence of softer attacks and a gap after each cell",
+      "lute_instrumental": "short descending five-beat melody cells, sparse open strings and restrained repeats",
       "reference": "Karelian laments and runo-song",
       "dialect": "slow lament, narrow range within a fifth, perceptible five-beat repetition and short descending cells",
       "tint": "slower and more mournful",
-      "core": "slow lament, narrow range within a fifth, perceptible five-beat repetition and short descending cells"
+      "core": "slow lament, narrow range within a fifth, perceptible five-beat repetition and short descending cells",
+      "workshop": {
+        "plucked": "lute",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice",
+          "drum_voice",
+          "voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": ""
+      },
+      "audition_race": "nord",
+      "audition_region": "falkreath"
     },
     {
       "id": "rift",
@@ -319,11 +803,32 @@
       "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
       "lute": "simple plucked melody over open-string drones",
       "flute": "plain modal melody, few ornaments",
-      "drum": "steady walking pulse",
-      "reference": "English country dance tunes and broadside ballads",
+      "drum": "bouncing six-pulse jig groups, alternating deep first and crisp fourth strokes",
+      "lute_instrumental": "catchy Mixolydian jig melody between bright chord strokes, bouncing compound pulse",
+      "reference": "Playford English country dance tunes and broadside ballads",
       "dialect": "fast and bawdy, bouncing jig rhythm, major or Mixolydian mode, catchy strophic tune",
       "tint": "faster and rowdier",
-      "core": "fast and bawdy, bouncing jig rhythm, major or Mixolydian mode, catchy strophic tune"
+      "core": "fast and bawdy, bouncing jig rhythm, major or Mixolydian mode, catchy strophic tune",
+      "workshop": {
+        "plucked": "cittern",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice",
+          "drum",
+          "drum_voice",
+          "voice"
+        ],
+        "omitted": {
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": ""
+      },
+      "audition_race": "nord",
+      "audition_region": "rift"
     },
     {
       "id": "winterhold",
@@ -333,11 +838,32 @@
       "voice": "plain wordless vocables, recurring intimate phrases",
       "lute": "simple plucked melody over open-string drones",
       "flute": "plain modal melody, few ornaments",
-      "drum": "steady walking pulse",
+      "drum": "sparse returning stroke figure with open pauses; avoid a closing flourish",
+      "lute_instrumental": "a sparse circular figure with returning small variations, open pauses and no grand cadence",
       "reference": "Sámi joik",
       "dialect": "sparse circular melody with recurring short figures and little sense of a beginning or final cadence",
       "tint": "sparser, with more silence between phrases",
-      "core": "sparse circular melody with recurring short figures and little sense of a beginning or final cadence"
+      "core": "sparse circular melody with recurring short figures and little sense of a beginning or final cadence",
+      "workshop": {
+        "plucked": "lute",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice",
+          "drum_voice",
+          "voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": ""
+      },
+      "audition_race": "nord",
+      "audition_region": "winterhold"
     },
     {
       "id": "pale",
@@ -347,11 +873,33 @@
       "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
       "lute": "widely separated low notes mark a slow rocking pulse",
       "flute": "long clear calls with distinct endings and open gaps",
-      "drum": "steady walking pulse",
-      "reference": null,
+      "drum": "widely spaced low strokes in a slow rocking compound pulse",
+      "lute_instrumental": "long complete melody calls above widely separated low plucks, slow rocking compound pulse",
+      "reference": "Scottish and Hebridean slow airs",
+      "reference_focus": "long complete phrases, a slow rocking compound pulse and open gaps rather than circular joik or an unmetered lament",
       "dialect": "long exposed melodic calls, slow rocking compound pulse, broad register and silence between complete phrases",
       "tint": "more space between complete phrases",
-      "core": "long exposed melodic calls, slow rocking compound pulse, broad register and silence between complete phrases"
+      "core": "long exposed melodic calls, slow rocking compound pulse, broad register and silence between complete phrases",
+      "workshop": {
+        "plucked": "lute",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice",
+          "drum_voice",
+          "voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble."
+        },
+        "note": ""
+      },
+      "audition_race": "nord",
+      "audition_region": "pale"
     },
     {
       "id": "hjaalmarch",
@@ -362,11 +910,33 @@
       "lute": "melody shadowed a whole step away so the two lines grate",
       "flute": "circles the same few notes, leaning on clashing neighbor tones",
       "drum": "steady walking pulse",
+      "lute_instrumental": "one melody shadowed a whole step away on the same instrument, lingering adjacent-tone friction",
       "core_monophonic": "one hushed slowly reiterated melody with neighboring-note turns and lingering unstable endings",
-      "reference": null,
+      "reference": "Lithuanian sutartinės",
+      "reference_focus": "repeated motifs, neighboring-tone friction and interlocking or canonic phrasing; a single-line reduction uses neighbor-note turns rather than hidden parts",
       "dialect": "hushed slowly reiterated phrases, sustained neighboring-tone friction and lingering unstable endings",
       "tint": "hushed, unresolved, with clashing seconds",
-      "core": "hushed slowly reiterated phrases, sustained neighboring-tone friction and lingering unstable endings"
+      "core": "hushed slowly reiterated phrases, sustained neighboring-tone friction and lingering unstable endings",
+      "workshop": {
+        "plucked": "lute",
+        "flute": "flute",
+        "drum": "hand drum",
+        "allowed": [
+          "lute_voice",
+          "lute",
+          "flute",
+          "flute_voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "drum_voice": "Percussion would displace the defining free phrasing, chordal support or sustained tonal friction.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble.",
+          "voice": "A lone voice would lose the defining chordal or instrumental structure."
+        },
+        "note": "Plucked strings can retain simultaneous neighboring tones; flute uses an explicitly weaker sequential reduction."
+      },
+      "audition_race": "nord",
+      "audition_region": "hjaalmarch"
     }
   ],
   "ideas": [
