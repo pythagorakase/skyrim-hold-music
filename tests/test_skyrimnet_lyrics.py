@@ -69,6 +69,17 @@ class CatalogTests(unittest.TestCase):
             self.assertIn("error", catalog.load_catalog(self.root))
         run.assert_not_called()
 
+    def test_oversized_remote_command_fails_before_contacting_the_host(self):
+        databases = [{"path": "C:\\" + ("very-long-folder-name\\" * 12) + f"SkyrimNet-{index}.db", "label": f"Library {index}"}
+                     for index in range(8)]
+        self.configure(databases=databases, ssh_host="halcyon", python="C:\\Python\\python.exe")
+        with patch.object(catalog.subprocess, "run") as run:
+            result = catalog.load_catalog(self.root)
+        self.assertIn("error", result)
+        run.assert_not_called()
+        short = {"databases": databases[:2], "ssh_host": "halcyon", "python": "C:\\Python\\python.exe"}
+        self.assertLessEqual(len(catalog.remote_command(short)[-1]), catalog.MAX_REMOTE_COMMAND)
+
     def test_ids_are_namespaced_and_duplicate_rows_rejected(self):
         rows = [{"id": 1, "title": "A", "lyrics": self.lyrics}]
         self.assertNotEqual(catalog.normalize_rows(rows, "first")[0]["id"], catalog.normalize_rows(rows, "second")[0]["id"])

@@ -19,6 +19,7 @@ import subprocess
 MAX_SONGS = 1000
 MAX_LYRICS = 20_000
 MAX_CATALOG_BYTES = 24 * 1024 * 1024
+MAX_REMOTE_COMMAND = 8000
 CONFIG_NAME = "skyrimnet-lyrics-source.json"
 
 
@@ -52,8 +53,13 @@ def remote_command(config):
                   "$code=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('" + encoded + "')); "
                   "$code | & '" + python + "' -; exit $LASTEXITCODE")
     ps_encoded = base64.b64encode(powershell.encode("utf-16-le")).decode("ascii")
+    remote = "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + ps_encoded
+    if len(remote) > MAX_REMOTE_COMMAND:
+        # Windows cmd.exe rejects command lines above 8,191 characters; fail
+        # before contacting the host instead of producing a confusing remote error.
+        raise ValueError("Remote command too long; configure fewer or shorter database paths")
     return ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "-o", "ConnectionAttempts=1",
-            config["ssh_host"], "powershell.exe -NoProfile -NonInteractive -EncodedCommand " + ps_encoded]
+            config["ssh_host"], remote]
 
 
 def normalize_rows(rows, identity):
