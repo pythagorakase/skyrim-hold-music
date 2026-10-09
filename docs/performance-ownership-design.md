@@ -129,6 +129,7 @@ toggle. Lyric generation moves to Hold Music's own prompt at that point; the
 | T3 | Hand-off: overlay toggle for `bard_singing.enabled`, retire the marker template, documentation | Config tests | One session with SkyrimNet bards off |
 
 T0 format and API: [Performer registry and recording library](library-format.md).
+T1 package implementation and offline boundaries: [game package README](../game_package/README.md).
 
 T0 and T1 are independent of each other and can be built in parallel; T2
 depends on T0; T3 depends on T1 and T2 passing their headset gates.

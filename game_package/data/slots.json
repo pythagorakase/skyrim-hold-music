@@ -1,0 +1,194 @@
+[
+  {
+    "slot": 1,
+    "descriptor": "HM_Slot01",
+    "marker": "HM_Sound_01",
+    "descriptor_id": "0x00000820",
+    "marker_id": "0x00000840",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_01.wav"
+  },
+  {
+    "slot": 2,
+    "descriptor": "HM_Slot02",
+    "marker": "HM_Sound_02",
+    "descriptor_id": "0x00000821",
+    "marker_id": "0x00000841",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_02.wav"
+  },
+  {
+    "slot": 3,
+    "descriptor": "HM_Slot03",
+    "marker": "HM_Sound_03",
+    "descriptor_id": "0x00000822",
+    "marker_id": "0x00000842",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_03.wav"
+  },
+  {
+    "slot": 4,
+    "descriptor": "HM_Slot04",
+    "marker": "HM_Sound_04",
+    "descriptor_id": "0x00000823",
+    "marker_id": "0x00000843",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_04.wav"
+  },
+  {
+    "slot": 5,
+    "descriptor": "HM_Slot05",
+    "marker": "HM_Sound_05",
+    "descriptor_id": "0x00000824",
+    "marker_id": "0x00000844",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_05.wav"
+  },
+  {
+    "slot": 6,
+    "descriptor": "HM_Slot06",
+    "marker": "HM_Sound_06",
+    "descriptor_id": "0x00000825",
+    "marker_id": "0x00000845",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_06.wav"
+  },
+  {
+    "slot": 7,
+    "descriptor": "HM_Slot07",
+    "marker": "HM_Sound_07",
+    "descriptor_id": "0x00000826",
+    "marker_id": "0x00000846",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_07.wav"
+  },
+  {
+    "slot": 8,
+    "descriptor": "HM_Slot08",
+    "marker": "HM_Sound_08",
+    "descriptor_id": "0x00000827",
+    "marker_id": "0x00000847",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_08.wav"
+  },
+  {
+    "slot": 9,
+    "descriptor": "HM_Slot09",
+    "marker": "HM_Sound_09",
+    "descriptor_id": "0x00000828",
+    "marker_id": "0x00000848",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_09.wav"
+  },
+  {
+    "slot": 10,
+    "descriptor": "HM_Slot10",
+    "marker": "HM_Sound_10",
+    "descriptor_id": "0x00000829",
+    "marker_id": "0x00000849",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_10.wav"
+  },
+  {
+    "slot": 11,
+    "descriptor": "HM_Slot11",
+    "marker": "HM_Sound_11",
+    "descriptor_id": "0x0000082A",
+    "marker_id": "0x0000084A",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_11.wav"
+  },
+  {
+    "slot": 12,
+    "descriptor": "HM_Slot12",
+    "marker": "HM_Sound_12",
+    "descriptor_id": "0x0000082B",
+    "marker_id": "0x0000084B",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_12.wav"
+  },
+  {
+    "slot": 13,
+    "descriptor": "HM_Slot13",
+    "marker": "HM_Sound_13",
+    "descriptor_id": "0x0000082C",
+    "marker_id": "0x0000084C",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_13.wav"
+  },
+  {
+    "slot": 14,
+    "descriptor": "HM_Slot14",
+    "marker": "HM_Sound_14",
+    "descriptor_id": "0x0000082D",
+    "marker_id": "0x0000084D",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_14.wav"
+  },
+  {
+    "slot": 15,
+    "descriptor": "HM_Slot15",
+    "marker": "HM_Sound_15",
+    "descriptor_id": "0x0000082E",
+    "marker_id": "0x0000084E",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_15.wav"
+  },
+  {
+    "slot": 16,
+    "descriptor": "HM_Slot16",
+    "marker": "HM_Sound_16",
+    "descriptor_id": "0x0000082F",
+    "marker_id": "0x0000084F",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_16.wav"
+  },
+  {
+    "slot": 17,
+    "descriptor": "HM_Slot17",
+    "marker": "HM_Sound_17",
+    "descriptor_id": "0x00000830",
+    "marker_id": "0x00000850",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_17.wav"
+  },
+  {
+    "slot": 18,
+    "descriptor": "HM_Slot18",
+    "marker": "HM_Sound_18",
+    "descriptor_id": "0x00000831",
+    "marker_id": "0x00000851",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_18.wav"
+  },
+  {
+    "slot": 19,
+    "descriptor": "HM_Slot19",
+    "marker": "HM_Sound_19",
+    "descriptor_id": "0x00000832",
+    "marker_id": "0x00000852",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_19.wav"
+  },
+  {
+    "slot": 20,
+    "descriptor": "HM_Slot20",
+    "marker": "HM_Sound_20",
+    "descriptor_id": "0x00000833",
+    "marker_id": "0x00000853",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_20.wav"
+  },
+  {
+    "slot": 21,
+    "descriptor": "HM_Slot21",
+    "marker": "HM_Sound_21",
+    "descriptor_id": "0x00000834",
+    "marker_id": "0x00000854",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_21.wav"
+  },
+  {
+    "slot": 22,
+    "descriptor": "HM_Slot22",
+    "marker": "HM_Sound_22",
+    "descriptor_id": "0x00000835",
+    "marker_id": "0x00000855",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_22.wav"
+  },
+  {
+    "slot": 23,
+    "descriptor": "HM_Slot23",
+    "marker": "HM_Sound_23",
+    "descriptor_id": "0x00000836",
+    "marker_id": "0x00000856",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_23.wav"
+  },
+  {
+    "slot": 24,
+    "descriptor": "HM_Slot24",
+    "marker": "HM_Sound_24",
+    "descriptor_id": "0x00000837",
+    "marker_id": "0x00000857",
+    "file": "Sound\\fx\\holdmusic\\hm_slot_24.wav"
+  }
+]

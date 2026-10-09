@@ -1,0 +1,55 @@
+{
+  "modName": "HoldMusic",
+  "displayName": "Hold Music",
+  "pages": [
+    {
+      "pageDisplayName": "Performances",
+      "content": [
+        {
+          "id": "bEnabled:General",
+          "text": "Enable Hold Music",
+          "type": "toggle",
+          "valueOptions": {
+            "sourceType": "ModSettingBool"
+          }
+        },
+        {
+          "id": "iInstrumentalPercent:General",
+          "text": "Instrumental chance",
+          "type": "slider",
+          "valueOptions": {
+            "sourceType": "ModSettingInt",
+            "min": 0,
+            "max": 100,
+            "step": 1
+          }
+        },
+        {
+          "id": "iSessionCap:General",
+          "text": "Performances per session",
+          "type": "slider",
+          "valueOptions": {
+            "sourceType": "ModSettingInt",
+            "min": 0,
+            "max": 24,
+            "step": 1
+          }
+        },
+        {
+          "id": "sWorldId:General",
+          "text": "World ID (optional)",
+          "type": "input"
+        },
+        {
+          "id": "stop",
+          "text": "Stop performance",
+          "type": "text",
+          "action": {
+            "type": "CallFunction",
+            "function": "StopPerformance"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "performers": [
+    {
+      "id": "mikael",
+      "name": "Mikael",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 108144
+      },
+      "venue": {
+        "id": "bannered_mare",
+        "region": "whiterun"
+      },
+      "instrument": "lute",
+      "vocal_gender": "male"
+    },
+    {
+      "id": "sven",
+      "name": "Sven",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 78975
+      },
+      "venue": {
+        "id": "sleeping_giant_inn",
+        "region": "whiterun"
+      },
+      "instrument": "lute",
+      "vocal_gender": "male"
+    }
+  ]
+}

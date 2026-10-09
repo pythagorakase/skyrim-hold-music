@@ -13,3 +13,6 @@ auditions/
 local/
 dist/
 game_adapter/hold_music_adapter/local.json
+game_package/build/
+game_package/tools/PluginBuilder/bin/
+game_package/tools/PluginBuilder/obj/

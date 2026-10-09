@@ -1,0 +1,673 @@
+{
+  "source": "Halcyon cached active-load-order records.pickle (20261008-bard-roster); sound records read directly from Skyrim.esm on 2026-10-09",
+  "forms": [
+    {
+      "plugin": "skyrim.esm",
+      "id": "0x0001CB87",
+      "edid": "LocTypeInn",
+      "type": "KYWD",
+      "winner": "Skyrim.esm"
+    },
+    {
+      "plugin": "skyrim.esm",
+      "id": "0x000CF8F9",
+      "edid": "BardSingerFaction",
+      "type": "FACT",
+      "winner": "Skyrim.esm"
+    },
+    {
+      "plugin": "skyrim.esm",
+      "id": "0x0005C84E",
+      "edid": "CurrentFollowerFaction",
+      "type": "FACT",
+      "winner": "Unofficial Skyrim Special Edition Patch.esp"
+    },
+    {
+      "plugin": "skyrim.esm",
+      "id": "0x00053514",
+      "edid": "JobBardFaction",
+      "type": "FACT",
+      "winner": "Skyrim.esm"
+    },
+    {
+      "plugin": "skyrim.esm",
+      "id": "0x0001A670",
+      "edid": "Mikael",
+      "type": "NPC_",
+      "winner": "Synthesis.esp"
+    },
+    {
+      "plugin": "skyrim.esm",
+      "id": "0x0001347F",
+      "edid": "Sven",
+      "type": "NPC_",
+      "winner": "Synthesis.esp"
+    },
+    {
+      "plugin": "skyrim.esm",
+      "id": "0x000B240C",
+      "edid": "IdleSalute",
+      "type": "IDLE",
+      "winner": "Unofficial Skyrim Special Edition Patch.esp"
+    },
+    {
+      "plugin": "skyrim.esm",
+      "id": "0x000E4242",
+      "edid": "IdleStop",
+      "type": "IDLE",
+      "winner": "Skyrim.esm"
+    },
+    {
+      "plugin": "skyrim.esm",
+      "id": "0x00096F8D",
+      "edid": "IdleLuteStart",
+      "type": "IDLE",
+      "winner": "Skyrim.esm"
+    },
+    {
+      "plugin": "skyrim.esm",
+      "id": "0x00096F8C",
+      "edid": "IdleFluteStart",
+      "type": "IDLE",
+      "winner": "Skyrim.esm"
+    },
+    {
+      "plugin": "skyrim.esm",
+      "id": "0x00093643",
+      "edid": "AnimObjectLute",
+      "type": "ANIO",
+      "winner": "Skyrim.esm"
+    },
+    {
+      "plugin": "skyrim.esm",
+      "id": "0x00093642",
+      "edid": "AnimObjectFlute",
+      "type": "ANIO",
+      "winner": "Skyrim.esm"
+    },
+    {
+      "plugin": "adamantbard.esp",
+      "id": "0x0000080B",
+      "edid": "IdleBardFluteStart01",
+      "type": "IDLE",
+      "winner": "AdamantBard.esp"
+    },
+    {
+      "plugin": "adamantbard.esp",
+      "id": "0x0000080C",
+      "edid": "IdleBardLuteStart01",
+      "type": "IDLE",
+      "winner": "AdamantBard.esp"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010E447",
+      "edid": "MUSBardLute04",
+      "type": "SOUN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010E446",
+      "edid": "MUSBardLute03",
+      "type": "SOUN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010E445",
+      "edid": "MUSBardLute02",
+      "type": "SOUN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010E444",
+      "edid": "MUSBardLute01",
+      "type": "SOUN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010E443",
+      "edid": "MUSBardLute04SD",
+      "type": "SNDR"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010E442",
+      "edid": "MUSBardLute03SD",
+      "type": "SNDR"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010E441",
+      "edid": "MUSBardLute02SD",
+      "type": "SNDR"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010E440",
+      "edid": "MUSBardLute01SD",
+      "type": "SNDR"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00000F72",
+      "edid": "AudioCategoryFSTnpc",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00000E9E",
+      "edid": "AudioCategorySFXFadeDuringDialogue",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000172A1",
+      "edid": "AudioCategorySFX",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010AA60",
+      "edid": "AudioCategoryPausedDuringMenuLoad",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000F5FFC",
+      "edid": "AudioCategoryFST",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000F23BB",
+      "edid": "AudioCategoryMuteSubmerged",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000EB803",
+      "edid": "_AudioCategoryMaster",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000EA51F",
+      "edid": "AudioCategoryNPCKillMove",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000DDDC5",
+      "edid": "AudioCategoryPausedDuringMenu",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0001A0BD",
+      "edid": "AudioCategoryMAG",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0009F254",
+      "edid": "AudioCategoryPausedDuringMenuFade",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000876BD",
+      "edid": "AudioCategoryVOCGeneral",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000876BC",
+      "edid": "AudioCategoryNonVOC",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000876BB",
+      "edid": "AudioCategoryVOC",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0007F80B",
+      "edid": "AudioCategoryAMB",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00071E64",
+      "edid": "AudioCategoryMUS",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00071E63",
+      "edid": "AudioCategoryAMBr",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00064451",
+      "edid": "AudioCategoryUI",
+      "type": "SNCT"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00000F86",
+      "edid": "SOMDialogue3D4000BARDS",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00000EC7",
+      "edid": "SOMStereoRad09000_verbSHOUTS",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00000E8B",
+      "edid": "SOMStereoRad12000MS06",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00000E81",
+      "edid": "SOMDialogue3D8000ThrowVoiceShout",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00017497",
+      "edid": "SOMMono09000_verbSHOUTS",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00017465",
+      "edid": "SOMDialogue3DDefault_verb",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00017464",
+      "edid": "SOMStereoRadDragonRoar40960",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000172A3",
+      "edid": "SOMStereoRad40960",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010FDDF",
+      "edid": "SOMDialogue3D10000Dragon",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010FDDE",
+      "edid": "SOMDialogue3D10000Odahviing",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010FDDD",
+      "edid": "SOMDialogue3D10000Alduin",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010FDDC",
+      "edid": "SOMDialogue3D10000Paarthurnax",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010F5EC",
+      "edid": "SOMMono10000SovengardePortal",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010F216",
+      "edid": "SOMDialogue3D4000",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010E425",
+      "edid": "SOMMono01800_verb",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010D278",
+      "edid": "SOMMono02500DistantFirePillar",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010C300",
+      "edid": "SOMMono10000_dryDistant",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0010C2ED",
+      "edid": "SOMMono06000_dry",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00109AC9",
+      "edid": "SOMStereoRad06000_verb",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00104D56",
+      "edid": "SOMMono10000_verb",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00103463",
+      "edid": "SOMDialogue2D_verb",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00100FAE",
+      "edid": "SOMStereoRad00900",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00100402",
+      "edid": "SOMStereoRad04000DA16Distant",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x001003FC",
+      "edid": "SOMMono06000ElkAggroWarningDistant",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000FE240",
+      "edid": "SOMMono04000_verb",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000FD93D",
+      "edid": "SOMStereoRad03000_verb",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000F1B1A",
+      "edid": "SOMMono06000_verb",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000F1B12",
+      "edid": "SOMMono03000_verb",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000F11FD",
+      "edid": "SOMStereoRad01400",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000E32BF",
+      "edid": "SOMStereoRad02100_verb",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000E324B",
+      "edid": "SOMMono02000_verb",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000E322C",
+      "edid": "SOMMono00900_verb",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000D78B8",
+      "edid": "SOMStereo_verb",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000D78B4",
+      "edid": "SOMMono01400_verb",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00099391",
+      "edid": "SOMMono00400",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000960E8",
+      "edid": "SOMMono03000LargeInnerRadius",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0002DE0E",
+      "edid": "SOMDialogue3D8000",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000428B6",
+      "edid": "SOMMono01400Player3rd",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000E670D",
+      "edid": "SOMMono08000WolfHowlDistant",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000E363A",
+      "edid": "SOMStereoRad04000",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000E360E",
+      "edid": "SOMMono10000LinearCoastWaves",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000D92EF",
+      "edid": "SOMDialogue3D5000",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0001A2FF",
+      "edid": "SOMMono15000Linear",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000B75FB",
+      "edid": "SOMUIDefault",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000B6465",
+      "edid": "SOMMono06000",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000B6464",
+      "edid": "SOMStereoRad10000",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000B6463",
+      "edid": "SOMStereoRad05000",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000B5184",
+      "edid": "SOMDialogue3DDefault",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000B5183",
+      "edid": "SOMDialogue2D",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000B4249",
+      "edid": "SOMMono15000",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000B4248",
+      "edid": "SOMMono10000",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000B4247",
+      "edid": "SOMStereoRad09000DragonCrashLand",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000B4246",
+      "edid": "SOMStereoRad03000",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000B4058",
+      "edid": "SOMMono01400Player1st",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000ABF1A",
+      "edid": "SOMStereoRad02100",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000ABEF3",
+      "edid": "SOMMono03000",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000A0E4B",
+      "edid": "SOMMono04000",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000A0D92",
+      "edid": "SOMMono40960",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0009173E",
+      "edid": "SOMStereoRad05000Linear",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0008F3E5",
+      "edid": "SOMStereoRad10000Linear",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0008F3E4",
+      "edid": "SOMStereoRad07000",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0008F3E3",
+      "edid": "SOMStereoRad09000Linear",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0006CB4F",
+      "edid": "SOMMono00900",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0005A28A",
+      "edid": "SOMMono01400",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00081970",
+      "edid": "SOMMono08000",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0007F80C",
+      "edid": "SOMMono02000",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0007EDCA",
+      "edid": "SOMStereo",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0007E5DD",
+      "edid": "SOMStereoRad01800",
+      "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0007E5DC",
+      "edid": "SOMMono01800",
+      "type": "SOPM"
+    }
+  ]
+}
