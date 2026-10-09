@@ -17,6 +17,7 @@ import urllib.request
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "game_adapter" / "hold_music_adapter"))
 import engine
 import service
+from mp3_fixture import mp3_frames
 
 
 CONFIG = '''bard_singing:
@@ -230,9 +231,16 @@ class TransportTests(unittest.TestCase):
         self.received = []
         self.status = 200
         fixture = self
-        # A tiny fake audio payload. No music is generated and no paid API is called.
-        audio = base64.b64encode(b"offline-audio-fixture").decode()
-        self.stream = ("data: " + json.dumps({"id": "fixture-1", "choices": [{"delta": {"audio": {"data": audio}}}]}) + "\n\ndata: [DONE]\n\n").encode()
+        # Hand-assembled Layer III frames; split one base64 string off quartet boundaries.
+        self.audio = mp3_frames()
+        audio = base64.b64encode(self.audio).decode()
+        fragments = (audio[:31], audio[31:1003], audio[1003:])
+        events = [{"id": "fixture-1", "choices": [{"index": 0, "delta": {"audio": {"data": part}},
+                                                      "finish_reason": None}]} for part in fragments]
+        events.append({"choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}]})
+        self.stream = b"".join(("data: " + json.dumps(event) + "\n\n").encode() for event in events)
+        self.stream += b"data: [DONE]\n\n"
+        self.stall = 0
 
         class Upstream(http.server.BaseHTTPRequestHandler):
             def log_message(self, *_):
@@ -245,8 +253,9 @@ class TransportTests(unittest.TestCase):
                 self.send_header("Content-Type", "text/event-stream")
                 self.end_headers()
                 if fixture.status == 200:
-                    for i in range(0, len(fixture.stream), 7):
-                        self.wfile.write(fixture.stream[i:i+7])
+                    time.sleep(fixture.stall)
+                    for i in range(0, len(fixture.stream), 997):
+                        self.wfile.write(fixture.stream[i:i+997])
                         self.wfile.flush()
                 else:
                     self.wfile.write(b'{"error":"test quota"}')
@@ -266,9 +275,82 @@ class TransportTests(unittest.TestCase):
                                          headers={"Content-Type": "application/json", **(headers or {})})
         return urllib.request.urlopen(request, timeout=3)
 
+    def assert_duration_stream(self, relayed):
+        init = engine.content_event({"role": "assistant", "content": ""})
+        self.assertTrue(relayed.startswith(init))
+        # Exact suffix checks every original audio/finish line, spacing and event order.
+        self.assertTrue(relayed.endswith(self.stream))
+        prefix = relayed[:-len(self.stream)]
+        self.assertIn(b"**Duration:** 5s", prefix)
+        self.assertNotIn(b'"audio"', prefix)
+        self.assertTrue(relayed.endswith(b"data: [DONE]\n\n"))
+        events = [json.loads(line[6:]) for line in relayed.splitlines()
+                  if line.startswith(b"data: ") and line != b"data: [DONE]"]
+        self.assertEqual(events[0], {"choices": [{"index": 0,
+                         "delta": {"role": "assistant", "content": ""}, "finish_reason": None}]})
+        fragments = [choice["delta"]["audio"]["data"] for event in events
+                     for choice in event.get("choices", []) if "audio" in choice.get("delta", {})]
+        self.assertEqual(base64.b64decode("".join(fragments), validate=True), self.audio)
+
+    def test_duration_metadata_precedes_verbatim_audio_and_updates_health(self):
+        with self.assertLogs(engine.LOG, level="INFO") as logs:
+            with self.post() as response:
+                self.assertEqual(response.headers["Connection"], "close")
+                self.assert_duration_stream(response.read())
+        self.assertEqual(service.health(self.url)["counts"]["duration_reported"], 1)
+        self.assertEqual(self.adapter.counts["errors"], 0)
+        self.assertIn(f"duration_seconds=5 audio_bytes={len(self.audio)} reported=true", "\n".join(logs.output))
+
+    def test_heartbeat_arrives_during_three_second_upstream_stall(self):
+        self.stall = 3
+        started = time.monotonic()
+        with self.post() as response:
+            init = response.readline() + response.readline()
+            self.assertLess(time.monotonic() - started, 1.5)
+            heartbeat = response.readline() + response.readline()
+            self.assertEqual(json.loads(heartbeat.splitlines()[0][6:])["choices"][0]["delta"], {"content": "."})
+            self.assertLess(time.monotonic() - started, 2.9)
+            self.assertGreaterEqual(time.monotonic() - started, 1.8)
+            self.assert_duration_stream(init + heartbeat + response.read())
+
+    def assert_fallback(self, reason):
+        with self.assertLogs(engine.LOG, level="INFO") as logs:
+            with self.post() as response:
+                relayed = response.read()
+        self.assertEqual(relayed, engine.content_event({"role": "assistant", "content": ""}) + self.stream)
+        self.assertNotIn(b"**Duration:**", relayed)
+        self.assertEqual(self.adapter.counts["duration_reported"], 0)
+        self.assertEqual(self.adapter.counts["errors"], 0)
+        self.assertEqual(self.adapter.counts["upstream_http_200"], 1)
+        self.assertIn(reason, "\n".join(logs.output))
+        self.assertIn("reported=false", "\n".join(logs.output))
+        self.assertNotIn("PRIVATE_UPSTREAM_TEXT", "\n".join(logs.output))
+
+    def test_upstream_error_event_uses_verbatim_fallback(self):
+        self.stream = b'data: {"error":{"message":"PRIVATE_UPSTREAM_TEXT"}}\n\n' + self.stream
+        self.assert_fallback("upstream error event")
+
+    def test_invalid_base64_uses_verbatim_fallback(self):
+        self.stream = b'data: {"choices":[{"delta":{"audio":{"data":"PRIVATE_UPSTREAM_TEXT!"}}}]}\n\ndata: [DONE]\n\n'
+        self.assert_fallback("invalid audio base64")
+
+    def test_missing_done_uses_verbatim_fallback(self):
+        self.stream = self.stream.removesuffix(b"data: [DONE]\n\n")
+        self.assert_fallback("missing [DONE]")
+
+    def test_no_audio_uses_verbatim_fallback(self):
+        self.stream = b'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n'
+        self.assert_fallback("no audio")
+
+    def test_zero_duration_skips_metadata(self):
+        self.stream = b'data: {"choices":[{"delta":{"audio":{"data":"bm90IG1wMw=="}}}]}\n\ndata: [DONE]\n\n'
+        self.assert_fallback("unrecognized MP3 duration")
+
     def test_instrumental_through_http_and_sse_audio_is_byte_identical(self):
+        self.settings.write_text("instrumentalPercent: 100\nreportDuration: false\n")
         with self.post() as response:
             self.assertEqual(response.read(), self.stream)
+        self.assertEqual(self.adapter.counts["duration_reported"], 0)
         body, headers = self.received[0]
         self.assertNotIn("Lyrics:", body["messages"][0]["content"])
         self.assertEqual(headers["Authorization"], "Bearer fake-key-for-local-tests")
@@ -277,7 +359,7 @@ class TransportTests(unittest.TestCase):
     def test_vocal_branch_through_http(self):
         self.settings.write_text("instrumentalPercent: 0\n")
         with self.post() as response:
-            self.assertEqual(response.read(), self.stream)
+            self.assert_duration_stream(response.read())
         self.assertTrue(self.received[0][0]["messages"][0]["content"].endswith("Lyrics:\n[Verse]\nThe road bends toward the sea."))
 
     def test_upstream_error_is_not_retried_or_changed_to_a_vocal(self):
@@ -300,7 +382,7 @@ class TransportTests(unittest.TestCase):
                 with self.assertLogs(engine.LOG, level="INFO") as logs:
                     with mock.patch.object(engine, "context", wraps=engine.context) as context:
                         with self.post(incoming) as response:
-                            self.assertEqual(response.read(), self.stream)
+                            self.assert_duration_stream(response.read())
                         self.assertEqual(context.call_count, 1)
                 body, _ = self.received[-1]
                 prompt = body["messages"][0]["content"]
@@ -324,7 +406,7 @@ class TransportTests(unittest.TestCase):
         self.settings.write_text("instrumentalPercent: 0\n")
         with self.assertLogs(engine.LOG, level="INFO") as logs:
             with self.post(incoming) as response:
-                self.assertEqual(response.read(), self.stream)
+                self.assert_duration_stream(response.read())
         prompt = self.received[0][0]["messages"][0]["content"]
         self.assertIn("Wordless singing with vocables only; no lyrics, sentences or spoken words.", prompt)
         self.assertNotIn("Lyrics:", prompt)
@@ -342,7 +424,7 @@ class TransportTests(unittest.TestCase):
             self.settings.write_text(f"instrumentalPercent: {percent}\n")
             with self.assertLogs(engine.LOG, level="INFO") as logs:
                 with self.post(incoming) as response:
-                    self.assertEqual(response.read(), self.stream)
+                    self.assert_duration_stream(response.read())
             self.assertEqual(self.received[-1][0], engine.transform(incoming, mode))
             self.assertNotIn("HM1[", self.received[-1][0]["messages"][0]["content"])
             self.assertEqual(self.adapter.counts["excluded"], index)
@@ -374,6 +456,7 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(logs.output, ["WARNING:hold_music_adapter:Music request stopped: BadStatusLine"])
 
     def test_incomplete_stream_counts_error_without_retry_or_private_log_text(self):
+        self.settings.write_text("instrumentalPercent: 100\nreportDuration: false\n")
         upstream = mock.MagicMock()
         upstream.__enter__.return_value = upstream
         upstream.status = 200
@@ -391,7 +474,36 @@ class TransportTests(unittest.TestCase):
     def test_health_reports_compatible_protocol_and_current_build(self):
         info = service.health(self.url)
         self.assertEqual(info["version"], "0.2.0")
-        self.assertEqual(info["build"], "0.2.1")
+        self.assertEqual(info["build"], "0.2.2")
+
+    def test_buffered_timeout_flushes_and_retains_error_accounting_and_slots(self):
+        upstream = mock.MagicMock()
+        upstream.__enter__.return_value = upstream
+        upstream.status = 200
+        upstream.headers = {"Content-Type": "text/event-stream"}
+        prefix = self.stream.removesuffix(b"data: [DONE]\n\n")
+        upstream.read1.side_effect = [prefix, engine.socket.timeout("PRIVATE_UPSTREAM_TEXT")]
+        with mock.patch.object(self.adapter.opener, "open", return_value=upstream) as opened:
+            with self.assertLogs(engine.LOG, level="WARNING") as logs:
+                with self.post() as response:
+                    self.assertEqual(response.read(), engine.content_event({"role": "assistant", "content": ""}) + prefix)
+        opened.assert_called_once()
+        self.assertEqual(self.adapter.counts["errors"], 1)
+        self.assertEqual(self.adapter.counts["upstream_http_200"], 0)
+        self.assertEqual(self.adapter.counts["duration_reported"], 0)
+        self.assertNotIn("PRIVATE_UPSTREAM_TEXT", "\n".join(logs.output))
+        self.assertIn("Music stream disconnected or timed out; no adapter retry", "\n".join(logs.output))
+        self.assertTrue(self.adapter.slot.acquire(blocking=False))
+        self.assertTrue(self.adapter.slot.acquire(blocking=False))
+        try:
+            self.assertFalse(self.adapter.slot.acquire(blocking=False))
+            with self.assertRaises(urllib.error.HTTPError) as caught:
+                self.post()
+            self.assertEqual(caught.exception.code, 429)
+            caught.exception.close()
+        finally:
+            self.adapter.slot.release()
+            self.adapter.slot.release()
 
     def test_browser_origins_and_wrong_routes_cannot_generate_music(self):
         for kwargs in ({"headers": {"Origin": "https://example.com"}},
@@ -421,8 +533,8 @@ class ProcessTests(unittest.TestCase):
         self.assertNotEqual(info['pid'], os.getpid())
         self.assertEqual(adapter.start(), endpoint)
         self.assertEqual(service.health(endpoint)['pid'], info['pid'])
-        self.assertEqual(info['build'], '0.2.1')
-        self.assertIn('build=0.2.1', (self.root / 'service.log').read_text())
+        self.assertEqual(info['build'], '0.2.2')
+        self.assertIn('build=0.2.2', (self.root / 'service.log').read_text())
         status = adapter.status_file
         adapter.stop()
         self.assertFalse(status.exists())

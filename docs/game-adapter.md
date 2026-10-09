@@ -1,7 +1,7 @@
-# Hold Music 0.2.1: regional composition pilot
+# Hold Music 0.2.2: regional composition pilot
 
 The 0.2.0 pilot was installed in the experimental profile on October 8, 2026.
-The 0.2.1 changes have offline verification only. See the
+The 0.2.2 changes have offline verification only. See the
 [verification record](game-adapter-verification.md) for tested boundaries and the
 remaining in-game playback check.
 
@@ -110,6 +110,35 @@ order.`, a blank line, and `Lyrics:` followed by the unchanged lyric text.
 Default directions remain below 1,000 characters excluding the lyrics block.
 Lurbuk retains the separate legacy prompt unchanged.
 
+## Duration reporting
+
+SkyrimNet reads the recording duration from response text. Lyria's audio-only
+stream did not supply it, so installations without FFmpeg cached recordings
+with a duration of zero. Helper build 0.2.2 buffers the audio and walks its MP3
+frames in Python, then reports the duration rounded to whole seconds.
+
+`reportDuration` defaults to `true`, including when the key is missing. Set
+`reportDuration: false` in the same `config/plugins/HoldMusic/settings.yaml`
+file as `instrumentalPercent` to restore byte-for-byte upstream pass-through.
+The setting is read for each request; the content dashboard schema is unchanged.
+
+After upstream HTTP 200, the helper immediately sends headers and an assistant
+init event. While buffering, it sends a `.` content heartbeat every two seconds.
+It then sends `\n\n## Metadata\n**Duration:** <N>s\n` as a content event,
+followed by the original upstream audio and finish events in their original
+order, ending with the original `[DONE]`. Audio base64 fragments are joined
+before decoding; the forwarded audio bytes are unchanged. Connections close
+when the relay finishes.
+
+Upstream error events, missing audio or `[DONE]`, invalid base64, and unreadable
+MP3 duration fall back to the buffered upstream bytes without duration metadata.
+Read failures also flush the buffer before using the existing error handling.
+The init/heartbeat events already sent remain in the response. Warnings contain
+only the fallback reason, never response bodies. Logs record rounded duration,
+decoded audio size and whether metadata was reported; `/health` adds a
+`duration_reported` counter. The 64 MB response cap, two-request limit and
+upstream timeout remain in place. No in-game verification of 0.2.2 was performed.
+
 ## Local installation
 
 Requires the beta 26 experimental profile, its isolated profile-data mod, and
@@ -139,8 +168,9 @@ not a new in-game MCM. Settings changes apply to subsequent requests.
 
 `engine.VERSION` remains `0.2.0`: the MO2-resident plugin compares helper health
 against the protocol version it imported when MO2 started. `engine.BUILD` is
-`0.2.1`, exposed as `build` in `/health` and in the independent helper's ready
-log line. User-visible plugin/content/installer versions are 0.2.1.
+`0.2.2`, exposed as `build` in `/health` and in the independent helper's ready
+log line. Content and installer versions are 0.2.2. The unchanged MO2-resident
+plugin and its startup message remain at 0.2.1.
 
 With Skyrim closed and no music request in flight, copy the rebuilt package
 files over `plugins\hold_music_adapter`. In the profile's

@@ -1,12 +1,14 @@
 """Hold Music's out-of-process music adapter. Python standard library only.
 
 The game uses its supported local music URL. This adapter constructs a fresh
-Lyria request, then passes the response through without decoding the audio.
+Lyria request, then reports the recording duration before relaying its audio.
 No process injection, Papyrus, or database writes. A standalone Python helper
 keeps the network listener independent of MO2's embedded interpreter.
 """
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import hmac
 import http.client
@@ -32,7 +34,7 @@ else:
 # Protocol compatibility: MO2 keeps the VERSION imported at startup while the
 # independent helper can be hot-swapped. BUILD identifies the updated helper.
 VERSION = "0.2.0"
-BUILD = "0.2.1"
+BUILD = "0.2.2"
 UPSTREAM = "https://openrouter.ai/api/v1/chat/completions"
 MODEL = "google/lyria-3-pro-preview"
 PALETTE_PATH = Path(__file__).parent / 'palette-data.json'
@@ -256,9 +258,166 @@ def transform(request, mode, details=None):
 
 def load_settings(path):
     if not Path(path).exists():
-        return 50
+        return 50, True
     text = read_text(path)
-    return get_scalar(text, ("instrumentalPercent",))
+    percent = get_scalar(text, ("instrumentalPercent",))
+    report = True
+    if re.search(r'^ *reportDuration:', text, re.M):
+        report = get_scalar(text, ("reportDuration",))
+        if not isinstance(report, bool):
+            raise ValueError("reportDuration must be a boolean")
+    return percent, report
+
+
+def mp3_duration(data: bytes) -> float:
+    """Sum complete MPEG-1/2/2.5 Layer III frames; never guess past damage."""
+    offset = 0
+    duration = 0.0
+    if data.startswith(b"ID3"):
+        if len(data) < 10 or any(value & 0x80 for value in data[6:10]):
+            return 0.0
+        size = 0
+        for value in data[6:10]:
+            size = (size << 7) | value
+        offset = 10 + size
+        if data[3] == 4 and data[5] & 0x10:  # ID3v2.4 footer
+            offset += 10
+    while offset + 4 <= len(data):
+        if data[offset:offset + 3] == b"TAG":
+            break
+        header = int.from_bytes(data[offset:offset + 4], "big")
+        version = (header >> 19) & 3
+        layer = (header >> 17) & 3
+        bitrate_index = (header >> 12) & 15
+        rate_index = (header >> 10) & 3
+        if (header >> 21 != 0x7FF or version == 1 or layer != 1
+                or bitrate_index == 15 or rate_index == 3
+                or header & 3 == 2):
+            break
+        if bitrate_index == 0:  # Free-format needs a different frame scanner.
+            return 0.0
+        rates = (44100, 48000, 32000)
+        sample_rate = rates[rate_index] // {3: 1, 2: 2, 0: 4}[version]
+        bitrates = ((0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320)
+                    if version == 3 else
+                    (0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160))
+        samples = 1152 if version == 3 else 576
+        length = (144 if version == 3 else 72) * bitrates[bitrate_index] * 1000 // sample_rate
+        length += (header >> 9) & 1
+        if offset + length > len(data):
+            break
+        duration += samples / sample_rate
+        offset += length
+    return duration
+
+
+def content_event(delta):
+    return ("data: " + json.dumps({"choices": [{"index": 0, "delta": delta,
+                                               "finish_reason": None}]},
+                                  separators=(",", ":")) + "\n\n").encode()
+
+
+def buffered_duration(lines):
+    """Return duration, decoded size and a body-free fallback reason."""
+    fragments = []
+    done = False
+    for line in lines:
+        if not line.startswith(b"data:"):
+            continue
+        payload = line[5:].strip()
+        if payload == b"[DONE]":
+            done = True
+            continue
+        try:
+            event = json.loads(payload)
+        except (ValueError, UnicodeError):
+            return 0.0, 0, "invalid SSE JSON"
+        if not isinstance(event, dict):
+            return 0.0, 0, "invalid SSE event"
+        if isinstance(event.get("error"), dict):
+            return 0.0, 0, "upstream error event"
+        choices = event.get("choices", [])
+        if not isinstance(choices, list):
+            return 0.0, 0, "invalid SSE choices"
+        for choice in choices:
+            delta = choice.get("delta") if isinstance(choice, dict) else None
+            audio = delta.get("audio") if isinstance(delta, dict) else None
+            fragment = audio.get("data") if isinstance(audio, dict) else None
+            if isinstance(fragment, str):
+                fragments.append(fragment)
+    if not done:
+        return 0.0, 0, "missing [DONE]"
+    if not fragments or not any(fragments):
+        return 0.0, 0, "no audio"
+    try:
+        audio = base64.b64decode("".join(fragments), validate=True)
+    except (ValueError, binascii.Error):
+        return 0.0, 0, "invalid audio base64"
+    duration = mp3_duration(audio)
+    return duration, len(audio), None if duration else "unrecognized MP3 duration"
+
+
+def relay_duration(response, output, request_id, count):
+    """Buffer upstream while a small writer thread keeps SkyrimNet alive."""
+    output.write(content_event({"role": "assistant", "content": ""}))
+    output.flush()
+    stopped = threading.Event()
+    heartbeat_errors = []
+
+    def heartbeat():
+        while not stopped.wait(2):
+            try:
+                output.write(content_event({"content": "."}))
+                output.flush()
+            except OSError as exc:
+                heartbeat_errors.append(exc)
+                return
+
+    thread = threading.Thread(target=heartbeat, name="HoldMusicHeartbeat", daemon=True)
+    thread.start()
+    chunks = []
+    total = 0
+    failure = None
+    try:
+        while True:
+            chunk = response.read1(65536)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > 64_000_000:
+                raise ValueError("Unexpectedly large music response")
+            chunks.append(chunk)
+            if heartbeat_errors:
+                raise heartbeat_errors[0]
+    except (ValueError, TypeError, OSError, http.client.HTTPException) as exc:
+        failure = exc
+    finally:
+        stopped.set()
+        thread.join()
+    # Stop the sole concurrent writer before emitting metadata or upstream bytes.
+    lines = b"".join(chunks).splitlines(keepends=True)
+    if failure is None and heartbeat_errors:
+        failure = heartbeat_errors[0]
+    if failure is None:
+        duration, audio_bytes, reason = buffered_duration(lines)
+    else:
+        duration, audio_bytes, reason = 0.0, 0, type(failure).__name__
+    reported = reason is None and duration > 0.0
+    seconds = round(duration)
+    if reason:
+        LOG.warning("request=%s duration fallback: %s", request_id, reason)
+    if reported:
+        output.write(content_event({"content": f"\n\n## Metadata\n**Duration:** {seconds}s\n"}))
+        output.flush()
+        count("duration_reported")
+    LOG.info("request=%s duration_seconds=%s audio_bytes=%s reported=%s",
+             request_id, seconds, audio_bytes, str(reported).lower())
+    for line in lines:
+        output.write(line)
+    output.flush()
+    if failure is not None:
+        raise failure
+    return total
 
 
 class NoRedirects(urllib.request.HTTPRedirectHandler):
@@ -278,7 +437,7 @@ class Adapter:
         self.server = None
         self.thread = None
         self.slot = threading.BoundedSemaphore(2)
-        self.counts = {"vocal": 0, "instrumental": 0, "wordless": 0, "excluded": 0, "upstream_http_200": 0, "errors": 0}
+        self.counts = {"vocal": 0, "instrumental": 0, "wordless": 0, "excluded": 0, "upstream_http_200": 0, "errors": 0, "duration_reported": 0}
         self.lock = threading.Lock()
         self.opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirects())
 
@@ -347,7 +506,7 @@ class Adapter:
                     if len(raw) != length:
                         raise ValueError("Incomplete request")
                     incoming = json.loads(raw)
-                    percent = load_settings(adapter.settings_file)
+                    percent, report_duration = load_settings(adapter.settings_file)
                     mode = adapter.selector.choose(incoming, percent)
                     details = context(incoming)
                     outgoing = transform(incoming, mode, details)
@@ -378,7 +537,9 @@ class Adapter:
                         self.end_headers()
                         sent_headers = True
                         total = 0
-                        while True:
+                        if report_duration:
+                            total = relay_duration(response, self.wfile, request_id, adapter.count)
+                        while not report_duration:
                             chunk = response.read1(65536)
                             if not chunk:
                                 break

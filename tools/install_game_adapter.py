@@ -88,7 +88,7 @@ def install(root, profile, data_mod, game_data):
         python = python.with_name('pythonw.exe')
     local = {'profile': profile, 'data_mod': data_mod, 'mod': marker, 'port': 0, 'python': str(python)}
     (plugin/'local.json').write_text(json.dumps(local, indent=2)+'\n', encoding='utf-8')
-    (mod/'meta.ini').write_text('[General]\nmodid=0\nversion=0.2.1\ncategory=0\nnotes=Hold Music regional composition pilot; requires its MO2 companion.\n', encoding='utf-8')
+    (mod/'meta.ini').write_text('[General]\nmodid=0\nversion=0.2.2\ncategory=0\nnotes=Hold Music regional composition pilot; requires its MO2 companion.\n', encoding='utf-8')
     shutil.copy2(ROOT/'docs/game-adapter.md', mod/'Hold Music - Readme.md')
     shutil.copy2(ROOT/'docs/game-adapter-verification.md', mod/'game-adapter-verification.md')
     if not settings.exists():
@@ -104,7 +104,7 @@ def install(root, profile, data_mod, game_data):
     lines.insert(1 if lines and lines[0].startswith('#') else 0, '+'+marker)
     newline = '\r\n' if '\r\n' in raw else '\n'
     modlist.write_bytes((newline.join(lines)+newline).encode('utf-8'))
-    record = {'version': '0.2.1', 'root': str(root), 'profile': profile, 'data_mod': data_mod,
+    record = {'version': '0.2.2', 'root': str(root), 'profile': profile, 'data_mod': data_mod,
               'game_data': str(Path(game_data).resolve()), 'mod': str(mod), 'mo2_plugin': str(plugin),
               'backup': str(backup), 'settings': str(settings),
               'source_config_sha256': hashlib.sha256(config.read_bytes()).hexdigest()}

@@ -133,3 +133,46 @@ helper. The MO2-resident plugin code (version string and in-process reconcile
 recovery) takes effect only after MO2 restarts. Backup:
 `C:\MGO\codex-backups\20261009-055334-hold-music-0.2.1-hotswap`. No in-game
 composition or playback has been observed yet for either 0.2.0 or 0.2.1.
+
+## 0.2.2 offline verification — 9 October 2026
+
+No in-game check, external provider request or paid generation was performed.
+These checks verify the helper's offline transport and parsing behavior only.
+The MO2-resident plugin and its startup version remain 0.2.1; helper build,
+content and installer versions are 0.2.2, with protocol version still 0.2.0.
+
+The tests cover:
+
+- Hand-assembled MPEG-1, MPEG-2 and MPEG-2.5 Layer III streams, padding,
+  alternate bitrate/sample rate, ID3v2 tags (including a v2.4 footer), ID3v1
+  trailers, invalid headers, unsupported free-format bitrate and truncated data.
+- A loopback upstream sending 200 MPEG-1 frames (5.224 seconds) as fragments of
+  one base64 string: init first, `**Duration:** 5s` before audio, original
+  audio/finish events preserved byte for byte and in order, `[DONE]` last,
+  identical decoded MP3 bytes, duration logs and the health counter.
+- Byte-identical pass-through with `reportDuration: false`, default-on settings,
+  and a heartbeat arriving during a three-second upstream stall before audio.
+- Verbatim fallback without metadata for upstream error events, invalid base64,
+  missing audio or `[DONE]`, malformed events and unrecognized MP3 data;
+  body-free warnings and unchanged error accounting.
+- Buffered timeout/IncompleteRead fallback, no retry, heartbeat-thread cleanup,
+  the 64 MB response cap, and both semaphore slots remaining available after a
+  failed request, with a third request rejected.
+
+Results: `Hold Music game package synchronized from canonical recipes and
+location registry.` The full suite reported `Ran 167 tests in 18.144s` and
+`OK (skipped=1)`. The skip is the Windows-only embedded-interpreter regression
+on this macOS host. Protected source files remained byte-identical.
+
+Existing streaming assertions were adapted as follows: instrumental byte
+identity and IncompleteRead pass-through explicitly disable reporting; vocal,
+recorded-request (both modes), wordless and excluded (both modes) now check the
+duration envelope plus exact upstream bytes. The health build assertion and
+helper process health/ready-log assertions now expect 0.2.2.
+
+Commands run unpiped from the worktree root:
+
+```text
+/Users/pythagor/hold_music/.venv/bin/python tools/build_game_adapter.py
+/Users/pythagor/hold_music/.venv/bin/python -m unittest discover -s tests -v
+```

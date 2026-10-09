@@ -1,6 +1,6 @@
 plugin:
   name: "HoldMusic"
-  version: "0.2.1"
+  version: "0.2.2"
   description: "Regional music recipes for new bard compositions. Requires the Hold Music MO2 companion."
   icon: "🎵"
 schema:
