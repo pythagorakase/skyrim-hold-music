@@ -1,0 +1,364 @@
+{
+  "version": 1,
+  "scope": "MGO 4.0 RC4.1 experimental profile; authored from the 2026-10-08 roster audit",
+  "performers": [
+    {
+      "id": "delacourt",
+      "name": "Delacourt",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x00072663"
+      },
+      "venue": "Dead Man's Drink",
+      "region": "falkreath",
+      "gender": "male",
+      "instrument": "lute",
+      "traditions": [
+        "falkreath"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "Nordic ballads; cheering a gloomy town. Gender source: vanilla."
+    },
+    {
+      "id": "luaffyn",
+      "name": "Luaffyn",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x00047CAD"
+      },
+      "venue": "Candlehearth Hall",
+      "region": "eastmarch",
+      "gender": "female",
+      "instrument": "lute",
+      "traditions": [
+        "eastmarch",
+        "dunmer"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "Dunmer; Nordic, Imperial and Dunmeri training; also flute and drum. Gender source: vanilla."
+    },
+    {
+      "id": "talsgar",
+      "name": "Talsgar the Wanderer",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x00083D99"
+      },
+      "venue": null,
+      "region": null,
+      "gender": "male",
+      "instrument": "lute",
+      "traditions": [
+        "nord"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "Traveling Nordic balladeer; no fixed venue. Gender source: vanilla."
+    },
+    {
+      "id": "lurbuk",
+      "name": "Lurbuk",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x0001AA63"
+      },
+      "venue": "Moorside Inn",
+      "region": "hjaalmarch",
+      "gender": "male",
+      "instrument": "lute",
+      "traditions": [
+        "hjaalmarch"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "Poor lute playing and discordant original songs; preserve his limitations. Gender source: vanilla."
+    },
+    {
+      "id": "mikael",
+      "name": "Mikael",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x0001A670"
+      },
+      "venue": "The Bannered Mare",
+      "region": "whiterun",
+      "gender": "male",
+      "instrument": "lute",
+      "traditions": [
+        "whiterun"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "Nordic lute and voice; travel and cross-cultural learning. Gender source: vanilla."
+    },
+    {
+      "id": "karita",
+      "name": "Karita",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x0001361A"
+      },
+      "venue": "Windpeak Inn",
+      "region": "pale",
+      "gender": "female",
+      "instrument": "lute",
+      "traditions": [
+        "pale"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "The Dawnstar bard, biography karita_6C7.prompt. Gender source: vanilla. venue ambiguous in locations.json; region authored."
+    },
+    {
+      "id": "sven",
+      "name": "Sven",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x0001347F"
+      },
+      "venue": "Sleeping Giant Inn",
+      "region": "whiterun",
+      "gender": "male",
+      "instrument": "lute",
+      "traditions": [
+        "whiterun"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "Explicitly registered musician; SkyrimNet static bard check excludes him. Gender source: vanilla. venue ambiguous in locations.json; region authored."
+    },
+    {
+      "id": "ogmund",
+      "name": "Ogmund",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x000133AD"
+      },
+      "venue": "Silver-Blood Inn",
+      "region": "reach",
+      "gender": "male",
+      "instrument": "lute",
+      "traditions": [
+        "reach"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "Nordic warrior-poet; region is not a claim of Reachfolk repertoire. Gender source: vanilla."
+    },
+    {
+      "id": "lisette",
+      "name": "Lisette",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x00013297"
+      },
+      "venue": "The Winking Skeever",
+      "region": "haafingar",
+      "gender": "female",
+      "instrument": "lute",
+      "traditions": [
+        "haafingar"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "College-trained lute and vocal performer. Gender source: vanilla."
+    },
+    {
+      "id": "viarmo",
+      "name": "Viarmo",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x000132AD"
+      },
+      "venue": "Bards College",
+      "region": "haafingar",
+      "gender": "male",
+      "instrument": "voice",
+      "traditions": [
+        "haafingar"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "Altmer headmaster; ceremonial role, not a constant tavern singer. Gender source: vanilla."
+    },
+    {
+      "id": "pantea_ateia",
+      "name": "Pantea Ateia",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x0001329F"
+      },
+      "venue": "Bards College",
+      "region": "haafingar",
+      "gender": "female",
+      "instrument": "voice",
+      "traditions": [
+        "haafingar"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "Master vocalist and expert flautist. Gender source: vanilla."
+    },
+    {
+      "id": "ataf",
+      "name": "Ataf",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x00013295"
+      },
+      "venue": "Bards College",
+      "region": "haafingar",
+      "gender": "male",
+      "instrument": "lute",
+      "traditions": [
+        "haafingar"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "Redguard student of Nordic ballads; developing technique. Gender source: vanilla."
+    },
+    {
+      "id": "jorn",
+      "name": "Jorn",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x0001328F"
+      },
+      "venue": "Bards College",
+      "region": "haafingar",
+      "gender": "male",
+      "instrument": "drum",
+      "traditions": [
+        "haafingar"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "Martial drumming and Imperial military cadences. Gender source: vanilla."
+    },
+    {
+      "id": "inge_six_fingers",
+      "name": "Inge Six Fingers",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x0001328A"
+      },
+      "venue": "Bards College",
+      "region": "haafingar",
+      "gender": "female",
+      "instrument": "lute",
+      "traditions": [
+        "haafingar"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "Master lute teacher; Nord in biography, ElderRace in records. Gender source: vanilla."
+    },
+    {
+      "id": "illdi",
+      "name": "Illdi",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x00013289"
+      },
+      "venue": "Bards College",
+      "region": "haafingar",
+      "gender": "female",
+      "instrument": "flute",
+      "traditions": [
+        "haafingar"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "Student and instrumental specialist. Gender source: vanilla."
+    },
+    {
+      "id": "giraud_gemane",
+      "name": "Giraud Gemane",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x00013281"
+      },
+      "venue": "Bards College",
+      "region": "haafingar",
+      "gender": "male",
+      "instrument": "voice",
+      "traditions": [
+        "haafingar"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "Historian, poetry and teaching; voice denotes recitation, not an established singing role. Gender source: vanilla."
+    },
+    {
+      "id": "aia_arria",
+      "name": "Aia Arria",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x0001325C"
+      },
+      "venue": "Bards College",
+      "region": "haafingar",
+      "gender": "female",
+      "instrument": "voice",
+      "traditions": [
+        "haafingar"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "Exceptional voice; also lute and flute. Gender source: vanilla."
+    },
+    {
+      "id": "llewellyn",
+      "name": "Llewellyn the Nightingale",
+      "form": {
+        "plugin": "HearthFires.esm",
+        "id": "0x00018DE0"
+      },
+      "venue": "Lakeview Manor",
+      "region": "falkreath",
+      "gender": "male",
+      "instrument": "lute",
+      "traditions": [
+        "falkreath"
+      ],
+      "source": "Hearthfire; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "House bard when hired; also flute and drum. Gender source: vanilla."
+    },
+    {
+      "id": "sonir",
+      "name": "Sonir",
+      "form": {
+        "plugin": "HearthFires.esm",
+        "id": "0x00019630"
+      },
+      "venue": "Windstad Manor",
+      "region": "hjaalmarch",
+      "gender": "female",
+      "instrument": "lute",
+      "traditions": [
+        "hjaalmarch"
+      ],
+      "source": "Hearthfire; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "House bard when hired; also flute and drum. Gender source: vanilla."
+    },
+    {
+      "id": "oriella",
+      "name": "Oriella",
+      "form": {
+        "plugin": "HearthFires.esm",
+        "id": "0x00019631"
+      },
+      "venue": "Heljarchen Hall",
+      "region": "pale",
+      "gender": "female",
+      "instrument": "lute",
+      "traditions": [
+        "pale"
+      ],
+      "source": "Hearthfire; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "House bard when hired; also flute and drum. Gender source: vanilla."
+    },
+    {
+      "id": "lynly_star_sung",
+      "name": "Lynly Star-Sung",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": "0x000136BC"
+      },
+      "venue": "Vilemyr Inn",
+      "region": "rift",
+      "gender": "female",
+      "instrument": "lute",
+      "traditions": [
+        "rift"
+      ],
+      "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
+      "notes": "Explicitly registered competent lute player; not accepted by SkyrimNet static bard check. Gender source: vanilla."
+    }
+  ]
+}

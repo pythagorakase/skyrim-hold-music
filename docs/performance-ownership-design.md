@@ -128,6 +128,8 @@ toggle. Lyric generation moves to Hold Music's own prompt at that point; the
 | T2 | Executor: ahead-of-time composition with planner cooldowns and spend caps, lyrics from SkyrimNet memories read-only | Planner tests with recorded snapshots, dry-run mode with no provider calls, one paid end-to-end generation | One session: hear a fresh composition made for the current bard and hold |
 | T3 | Hand-off: overlay toggle for `bard_singing.enabled`, retire the marker template, documentation | Config tests | One session with SkyrimNet bards off |
 
+T0 format and API: [Performer registry and recording library](library-format.md).
+
 T0 and T1 are independent of each other and can be built in parallel; T2
 depends on T0; T3 depends on T1 and T2 passing their headset gates.
 
