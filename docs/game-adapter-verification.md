@@ -196,3 +196,29 @@ to 175.15 s, matching the reported value; service log
 counter 1. Sample kept in the ignored `local/music-service-check-0.2.2/`. Not
 listened to or judged musically. No in-game composition or playback has been
 observed yet for any adapter build.
+
+### First in-game performance through Hold Music — 9 October 2026, 11:14 Central
+
+Observed in SkyrimNet's main log and `HoldMusic-Service.log`, with the player
+in the Bannered Mare on Save263: `Generation check` at 11:14:10 with
+`shouldGenerate=true` (last song 823.1 h, clock 896.0 h); the adapter received
+Mikael's request at 11:14:15 (`The Bannered Mare, Hold: Whiterun`, region
+whiterun via `suffix-table`, sung mode, lyrics forwarded), relayed the
+recording 36 s later with `duration_seconds=162 ... reported=true`; SkyrimNet
+logged `Generation complete - 'The Shadowed Rose' (162.0s, 3797.0 KB audio)`
+and stored the row with `duration_seconds 162.0`, selected it at 11:14:56,
+muted the 21 vanilla bard scenes, triggered the lute animation and started
+playback at 11:14:57. Playback ran until 11:17:17 (140 s), paced 14 of 16
+lyric lines over the real duration, and was stopped by SkyrimNet's distance
+check when the player left; scenes were unmuted and cleaned up.
+
+While the composition was generating, SkyrimNet first played the cached
+Talsgar song (stored at 0.0 s by the 0.2.0 adapter), force-stopped the vanilla
+drum scene that was running, and cancelled that playback after two seconds:
+the user heard a brief overlap between the vanilla drum track and the start
+of the music. That row keeps its 0.0 s duration; new songs are stored
+correctly.
+
+The user reports a plausible solo performance with no ghost chorus; the
+sung words were hard to make out, which is typical for them. This is the
+first audible in-game result for any adapter build.

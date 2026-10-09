@@ -1,5 +1,10 @@
 # In-game test plan: Hold Music at the Bannered Mare
 
+**Result (9 October 2026, 11:14):** passed. Mikael composed and performed
+"The Shadowed Rose" through adapter 0.2.2 with the Whiterun recipe, correct
+duration and lyric pacing; see the verification record. The plan below is kept
+for repeating the test.
+
 Written 9 October 2026 for the next short play session. Nothing here changes
 the game; it describes what to do and what to look at afterwards. It assumes
 the adapter currently installed on HALCYON (0.2.1, or 0.2.2 if the duration
