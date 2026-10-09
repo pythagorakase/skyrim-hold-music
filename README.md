@@ -4,6 +4,8 @@ Musical traditions for Skyrim's bards, with a local workshop for generating song
 
 The current design contains **six Orsimer/Bosmer finalists, nineteen existing cultural and regional profiles, and forty candidate ideas**. Strong predominant moods are intentional: build a distinct, coherent palette first, then develop its exceptions.
 
+The [knowledge bridge](docs/knowledge-bridge.md) supports private actor-scoped snapshots and [bounded lyrical library preparation](docs/executor.md).
+
 ## Run the music workshop
 
 The workshop calls Google's Gemini API directly with **`lyria-3.5`**. Choose two musical traditions, select their shared performer arrangement and optionally a saved SkyrimNet lyric draft, edit the musical directions, then click **Generate song**. Each generation is a paid API request using your Google project's billing and quota. Requests run one at a time; the workshop never retries a generation automatically.

@@ -87,5 +87,48 @@ class PrepareLibraryTests(unittest.TestCase):
         key.assert_not_called()
 
 
+    def test_lyrical_requires_database(self):
+        with redirect_stderr(io.StringIO()) as output, self.assertRaises(SystemExit):
+            main(self.args + ['--modes', 'lyrical'])
+        self.assertIn('lyrical mode requires --db', output.getvalue())
+
+    def test_lyrical_cli_dry_run_private_by_default(self):
+        from test_knowledge_bridge import make_database
+        db = make_database(Path(self.temp.name) / 'SkyrimNet-fixture.db')
+        with redirect_stdout(io.StringIO()) as output, \
+                patch('tools.prepare_library.lyria_client.chat_completion') as chat, \
+                patch('tools.prepare_library.lyria_client.read_openrouter_key') as key:
+            self.assertEqual(main(self.args + ['--performers', 'mikael', '--modes', 'lyrical',
+                '--db', str(db), '--allow-name-match', '--lyric-model', 'fixture-model']), 0)
+        data = json.loads(output.getvalue())
+        self.assertEqual(data['job_count'], 1)
+        self.assertEqual(data['decisions'][0]['action'], 'compose_lyrics')
+        self.assertNotIn('summary', output.getvalue())
+        self.assertNotIn('event_data', output.getvalue())
+        chat.assert_not_called()
+        key.assert_not_called()
+
+    def test_snapshot_cli_writes_only_named_private_output_and_reports_counts(self):
+        from test_knowledge_bridge import make_database
+        from tools.snapshot_knowledge import main as snapshot_main
+        db = make_database(Path(self.temp.name) / 'SkyrimNet-fixture.db')
+        dest = self.library / 'private-snapshot.json'
+        with redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(snapshot_main(['--db', str(db), '--registry', str(DEFAULT_PATH),
+                '--performer', 'mikael', '--library', str(self.library), '--out', str(dest),
+                '--allow-name-match', '--now-hours', '105']), 0)
+        report = json.loads(output.getvalue())
+        self.assertEqual(report['now_hours'], 105)
+        self.assertTrue(report['uuid_resolved'])
+        self.assertNotIn('fictional', output.getvalue())
+        from hold_music.repertoire import Snapshot
+        Snapshot.from_dict(json.loads(dest.read_text())['snapshot'])
+        before = db.read_bytes()
+        with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            snapshot_main(['--db', str(db), '--registry', str(DEFAULT_PATH),
+                '--performer', 'mikael', '--library', str(self.library), '--out', str(db)])
+        self.assertEqual(before, db.read_bytes())
+
+
 if __name__ == '__main__':
     unittest.main()

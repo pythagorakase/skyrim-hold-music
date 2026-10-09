@@ -4,9 +4,10 @@
 wordless recordings in an explicit offline library. It uses the authored
 performer registry, shared regional prompts, OpenRouter
 `google/lyria-3-pro-preview`, and ffmpeg. Nothing here installs a game package,
-changes SkyrimNet, or plays audio in-game. Lyrical compositions and the live
-planner's knowledge, cooldown and scheduling integration are deferred to the
-knowledge bridge; `vocal` is rejected. No lyrics are requested or attached.
+changes SkyrimNet, or plays audio in-game. T2b adds actor-scoped lyrical
+compositions through the [knowledge bridge](knowledge-bridge.md); use `lyrical`
+on the CLI (`vocal` is the library mode name). Instrumental and wordless jobs
+request no lyrics.
 
 The plan contains one job per missing playable recording of each requested mode,
 up to `--target` per performer. Counts match performer, region, mode and gender.
@@ -103,3 +104,70 @@ Executor tests substitute conversion with a valid `wave`-written WAV; CLI tests
 mock provider entry points. Tests never call a provider or require an encoder.
 These checks establish transport, accounting and library publication, not
 musical quality or game playback.
+
+
+## Lyrical preparation (T2b)
+
+```sh
+python tools/prepare_library.py --library /private/library \
+  --registry game_adapter/data/performers.json --performers mikael \
+  --modes lyrical --db /private/SkyrimNet-save.db --allow-name-match
+```
+
+`--db` is mandatory for lyrical mode. The read-only bridge requires a resolved
+actor and registered region. Name matching is opt-in and restricted to the
+performer's plugin; placed-reference registration remains a follow-up.
+`--now-hours` overrides the default last known in-game time. `--lyric-model`
+defaults to `openai/gpt-5.6-terra`. No key is read by a dry run.
+
+For each selected performer, the planner receives `topical_when_salient`,
+`solo_lute_and_voice`, lyrical mode, the vocal gender, `region/vocal`, and the
+Lyria model ID. `compose_lyrics` emits one job with its brief and topic;
+`generate_recording` reuses a known composition's exact words without a lyric
+call. Other actions emit no job and retain the planner's reason. Lyrical jobs
+follow planner cooldowns and topic selection, rather than multiplying a single
+brief up to `--target`; target zero suppresses dispatch. Null-region performers
+are skipped. Winterhold's approved recipe remains wordless, so lyrical dispatch
+is skipped there. Mixed comma-separated modes retain the existing deficit plans.
+
+Dry-run JSON includes decisions, counts and topic IDs. Briefs contain private
+memories and are omitted unless `--show-briefs` is explicitly supplied; this
+flag also reveals existing lyrics. Never paste those private contents into
+shared logs, tests or reports. An unresolved identity is reported, not treated
+as an empty successful retrieval.
+
+Add `--spend --max-jobs 1 --max-usd 0.20`, `--ffmpeg`, and `--bardsinging` to
+execute. A composed vocal job has **two costs**: one non-streaming lyric-model
+call, then one existing streaming music call. The executor reserves USD 0.01
+for lyrics plus USD 0.08 for music before the job. It counts reported lyric
+`usage.cost` immediately, even if lyric parsing later rejects the response,
+and requires another USD 0.08 of remaining capacity before dispatching music.
+Absent/null costs use their respective estimates; zero is retained. As before,
+these are estimates, not provider-enforced ceilings. `max_jobs` counts attempted
+recording jobs (a new lyrical job may make two calls). Neither call is retried.
+The key reader and body-free typed transport errors are shared with Lyria;
+text responses are capped at 1 MB and requests use a 1024-token output bound.
+
+The lyric prompt asks for a title, two or three short verses and a chorus,
+under 200 words, with `[Verse]`/`[Chorus]` tags, actor-known facts and preserved
+hearsay. Parsing requires `Title:` and `Lyrics:`, nonempty content, at most
+1,200 lyric characters, and no adapter markers or style line. Prompt constraints
+about literary content are not claimed as a semantic verifier.
+
+Successful publication writes the exact UTF-8 lyrics sidecar/hash, song title,
+source observation IDs, topic ID, save/world scope and in-game creation time.
+New composition IDs are `lyric:<topic_id>:<first-16-SHA256-of-lyrics>`; a new
+recording of an existing composition retains its composition ID. Both successful
+`compose_lyrics` and `generate_recording` receipts publish atomically with a new
+composition's recording. Reused lyrics create only the music receipt. Bridge
+snapshots restore topic metadata so a published song is selected again rather
+than recomposed for the same topic.
+
+Spend reports contain the title/manifest and separate model/request IDs,
+numeric usage and costs; they exclude lyrics and briefs. Failures contain only
+identity and exception type. An unreported call has an explicit unknown-cost
+flag. The existing publication contract persists generation receipts only with
+a successfully published recording: budget stops or failed conversion after a
+paid call leave accounting in the returned report, not a durable planner receipt.
+This remains a single-invocation executor, not a crash-safe paid-job queue;
+inspect uncertain outcomes before any separately authorized future run.

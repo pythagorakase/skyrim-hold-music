@@ -1,0 +1,30 @@
+{
+  "synthetic": true,
+  "schema": {
+    "uuid_mappings": "id INTEGER PRIMARY KEY, uuid BIGINT NOT NULL, form_id INTEGER NOT NULL, actor_name TEXT, bio_template_name TEXT, created_at REAL DEFAULT (julianday('now')), updated_at REAL DEFAULT (julianday('now')), mod_file TEXT DEFAULT NULL, local_form_id INTEGER DEFAULT NULL",
+    "memories": "id INTEGER PRIMARY KEY, actor_uuid BIGINT NOT NULL, content TEXT NOT NULL, location TEXT, game_time REAL, creation_time REAL DEFAULT (julianday('now')), related_event_ids TEXT, related_actors TEXT, emotion TEXT, importance_score REAL DEFAULT 0.5, tags TEXT, memory_type TEXT DEFAULT 'EXPERIENCE', embedding_checksum TEXT, condition_expr TEXT DEFAULT NULL, always_inject INTEGER DEFAULT 0, is_active INTEGER DEFAULT 1, display_name TEXT DEFAULT NULL, pack_id INTEGER DEFAULT NULL, knowledge_key TEXT DEFAULT NULL, source_key TEXT DEFAULT NULL, source_hash TEXT DEFAULT NULL, updated_at REAL",
+    "events": "id INTEGER PRIMARY KEY, event_type TEXT NOT NULL, event_data TEXT NOT NULL, location TEXT, game_time REAL, game_time_str TEXT, local_time REAL DEFAULT (julianday('now')), actor_UUIDs TEXT, originating_actor_UUID BIGINT DEFAULT 0, target_actor_UUID BIGINT DEFAULT 0, memory_generated_for_actors TEXT DEFAULT '[]', playtime INTEGER",
+    "bard_songs": "id INTEGER PRIMARY KEY, save_id TEXT NOT NULL DEFAULT '', title TEXT NOT NULL, lyrics TEXT NOT NULL, style_tags TEXT NOT NULL, gender TEXT NOT NULL, audio_filename TEXT NOT NULL, suno_song_id TEXT, duration_seconds REAL, game_time_created REAL NOT NULL, play_count INTEGER DEFAULT 0, is_cached INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, composer_uuid INTEGER NOT NULL DEFAULT 0, composer_name TEXT NOT NULL DEFAULT ''"
+  },
+  "rows": {
+    "uuid_mappings": [
+      {"id": 1, "uuid": 101, "form_id": 108145, "actor_name": "Mikael", "mod_file": "skyrim.esm", "local_form_id": 108145},
+      {"id": 2, "uuid": 202, "form_id": 700001, "actor_name": "Invented Traveler", "mod_file": "skyrim.esm", "local_form_id": 700001},
+      {"id": 3, "uuid": 303, "form_id": 108144, "actor_name": "Mikael", "mod_file": "Invented.esp", "local_form_id": 108144}
+    ],
+    "memories": [
+      {"id": 1, "actor_uuid": 101, "content": "A fictional potter recovered a missing blue cup.", "location": "THE BANNERED MARE", "game_time": 360000, "creation_time": 1700000000, "updated_at": 1800000000, "related_event_ids": "[21]", "related_actors": "[202]", "emotion": "relief", "importance_score": 0.9, "tags": "[\"witnessed\", \"quest_completed\"]", "memory_type": "EXPERIENCE"},
+      {"id": 2, "actor_uuid": 101, "content": "An invented rumor says a baker misplaced three spoons.", "location": null, "game_time": 356400, "creation_time": 1700000500, "importance_score": 2, "tags": "[\"hearsay\"]", "memory_type": "EXPERIENCE"},
+      {"id": 3, "actor_uuid": 101, "content": "A timeless imaginary memory of a painted door.", "location": "Another fictional inn", "game_time": null, "creation_time": 2460000.5, "importance_score": -1, "tags": "[]", "memory_type": ""},
+      {"id": 4, "actor_uuid": 202, "content": "OTHER_ACTOR_ONLY_SYNTHETIC", "game_time": 900000, "importance_score": 1, "memory_type": "EXPERIENCE"},
+      {"id": 5, "actor_uuid": 0, "content": "UNSCOPED_SYNTHETIC_KNOWLEDGE", "game_time": 950000, "importance_score": 1, "memory_type": "KNOWLEDGE"}
+    ],
+    "events": [
+      {"id": 21, "event_type": "quest_completed", "event_data": "An invented cup was returned.", "game_time": 360000, "local_time": 1700000000, "location": "whiterun", "originating_actor_UUID": 101, "target_actor_UUID": 202},
+      {"id": 22, "event_type": "news", "event_data": "An imaginary bell was rung.", "game_time": 363600, "local_time": 1700000900, "location": "Whiterun", "originating_actor_UUID": 202, "target_actor_UUID": 101},
+      {"id": 23, "event_type": "news", "event_data": "OTHER_EVENT_ONLY_SYNTHETIC", "game_time": 367200, "local_time": 1700001000, "originating_actor_UUID": 202, "target_actor_UUID": 202, "actor_UUIDs": "[101]"},
+      {"id": 24, "event_type": "unknown", "event_data": "An undated imaginary event.", "game_time": null, "local_time": 1800000000, "originating_actor_UUID": 101, "target_actor_UUID": 0}
+    ],
+    "bard_songs": []
+  }
+}

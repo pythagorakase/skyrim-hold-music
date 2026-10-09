@@ -250,3 +250,51 @@ def generate(prompt, *, key, upstream=UPSTREAM, timeout=300):
         raise HTTPStatusError(status) from None
     except (OSError, http.client.HTTPException):
         raise StreamError("Upstream transport failed") from None
+
+
+def chat_completion(messages, *, model, key=None, bardsinging_yaml_path=None,
+                    upstream=UPSTREAM, timeout=300):
+    """One non-streaming text POST; same key source and body-free typed errors.
+
+    No redirects or retries. Returned content is private; callers must not log it.
+    """
+    if key is None:
+        key = read_openrouter_key(bardsinging_yaml_path)
+    if not isinstance(key, str) or not key.strip() or '\n' in key or '\r' in key:
+        raise ValueError('Missing or invalid OpenRouter key')
+    body = json.dumps(dict(model=model, messages=messages, stream=False,
+                           max_tokens=1024), ensure_ascii=False).encode('utf-8')
+    request = urllib.request.Request(upstream, data=body, headers={
+        'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json',
+        'Accept': 'application/json', 'X-Title': 'Hold Music - SkyrimNet',
+    }, method='POST')
+    opener = urllib.request.build_opener(NoRedirects())
+    try:
+        with opener.open(request, timeout=timeout) as response:
+            if response.status != 200:
+                raise HTTPStatusError(response.status)
+            request_id = response.headers.get('X-Request-ID') or 'local:' + uuid.uuid4().hex
+            raw = response.read(1_000_001)
+            if len(raw) > 1_000_000:
+                raise ResponseTooLargeError('Unexpectedly large text response')
+        try:
+            data = json.loads(raw)
+            if not isinstance(data, dict) or data.get('error'):
+                raise ValueError
+            content = data['choices'][0]['message']['content']
+            if not isinstance(content, str) or not content.strip():
+                raise ValueError
+            if isinstance(data.get('id'), str) and data['id'].strip():
+                request_id = data['id']
+            usage = data.get('usage')
+            if usage is not None and not isinstance(usage, dict):
+                raise ValueError
+        except (ValueError, KeyError, TypeError, IndexError):
+            raise StreamError('Invalid text completion response') from None
+        return dict(content=content, request_id=request_id, usage=usage)
+    except urllib.error.HTTPError as exc:
+        status = exc.code
+        exc.close()
+        raise HTTPStatusError(status) from None
+    except (OSError, http.client.HTTPException):
+        raise StreamError('Upstream transport failed') from None

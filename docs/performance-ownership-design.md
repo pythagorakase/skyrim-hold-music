@@ -132,6 +132,7 @@ T0 format and API: [Performer registry and recording library](library-format.md)
 T1 package implementation and offline boundaries: [game package README](../game_package/README.md).
 T1c install/rollback: `game_package/tools/install_game_package.py` supports write-free JSON dry runs and `--uninstall`; JsonUtil's physical write target remains open pending the probe.
 T2a implements [offline instrumental and Winterhold wordless preparation](executor.md); lyrical work and live planner integration await the knowledge bridge.
+T2b adds the [read-only actor knowledge bridge](knowledge-bridge.md), planner-driven lyrical jobs, and separately accounted lyric/music calls.
 
 T0 and T1 are independent of each other and can be built in parallel; T2
 depends on T0; T3 depends on T1 and T2 passing their headset gates.

@@ -201,5 +201,150 @@ class ExecutorTests(unittest.TestCase):
                                         check=True, capture_output=True, text=True)
 
 
+class LyricalExecutorTests(unittest.TestCase):
+    setUp = ExecutorTests.setUp
+    run_jobs = ExecutorTests.run_jobs
+
+    def lyrical_jobs(self, **kwargs):
+        from test_knowledge_bridge import make_database
+        self.db = Path(self.temp.name) / 'SkyrimNet-synthetic-save.db'
+        make_database(self.db)
+        self.jobs = plan_work(self.registry, self.library, performer_ids=['mikael'],
+            modes=('lyrical',), db_path=self.db, allow_name_match=True, **kwargs)
+        from test_lyricist import RESPONSE
+        self.client.chat_completion.return_value = dict(content=RESPONSE,
+            request_id='lyrics-1', usage={'cost': .003, 'prompt_tokens': 120})
+        return self.jobs
+
+    def test_compose_publish_receipts_hash_and_cache_reuse(self):
+        from hold_music.knowledge_bridge import snapshot
+        from test_knowledge_bridge import request
+        from hold_music.repertoire import Snapshot
+        self.lyrical_jobs()
+        self.assertEqual(self.jobs.decisions[0]['action'], 'compose_lyrics')
+        self.assertEqual(len(self.jobs), 1)
+        report = self.run_jobs(max_jobs=1, max_usd=.20)
+        self.assertEqual(report['status'], 'complete')
+        self.assertEqual(report['cost_usd'], .083)
+        self.client.chat_completion.assert_called_once()
+        self.client.generate.assert_called_once()
+        self.assertIn('Lyrics:', self.client.generate.call_args.args[0])
+        row = report['recordings'][0]
+        raw = (self.library.root / 'hm_slot_01.lyrics.txt').read_bytes()
+        self.assertEqual(row['lyrics_sha256'], hashlib.sha256(raw).hexdigest())
+        self.assertEqual(row['composition_id'],
+            f"lyric:{self.jobs[0]['topic_id']}:{hashlib.sha256(raw).hexdigest()[:16]}")
+        self.assertEqual(row['created_at_hours'], 102)
+        self.assertEqual(row['save_id'], 'synthetic-save')
+        manifest = json.loads((self.library.root / 'library.json').read_text())
+        self.assertEqual([r['action'] for r in manifest['generation_receipts']],
+                         ['compose_lyrics', 'generate_recording'])
+        self.assertTrue(all(r['at_hours'] == 102 for r in manifest['generation_receipts']))
+        data, _ = snapshot(self.registry.find_by_name('Mikael'), self.db, self.library,
+                           102, request(), allow_name_match=True)
+        Snapshot.from_dict(data)
+        self.assertEqual(data['compositions'][0]['topic_id'], row['topic_id'])
+        jobs = plan_work(self.registry, self.library, performer_ids=['mikael'], modes=('lyrical',),
+                         db_path=self.db, allow_name_match=True)
+        self.assertEqual(jobs, [])
+        self.assertEqual(jobs.decisions[0]['action'], 'play_recording')
+        self.assertEqual(self.library.validate(), [])
+
+    def test_existing_composition_generates_without_lyric_call(self):
+        self.lyrical_jobs()
+        first = self.run_jobs(max_jobs=1, max_usd=.20)['recordings'][0]
+        (self.library.root / first['file']).unlink()
+        self.jobs = plan_work(self.registry, self.library, performer_ids=['mikael'],
+            modes=('lyrical',), db_path=self.db, allow_name_match=True, now_hours=104)
+        self.assertEqual(self.jobs.decisions[0]['action'], 'generate_recording')
+        self.assertIn('lyrics', self.jobs[0])
+        self.assertNotIn('lyric_brief', self.jobs[0])
+        self.client.chat_completion.reset_mock()
+        report = self.run_jobs(max_jobs=1, max_usd=.08)
+        self.assertEqual(report['status'], 'complete')
+        self.client.chat_completion.assert_not_called()
+        self.assertEqual(report['recordings'][0]['composition_id'], first['composition_id'])
+        self.assertEqual([g['action'] for g in report['generations']], ['generate_recording'])
+
+    def test_foreign_recording_metadata_cannot_override_current_topic(self):
+        from hold_music.knowledge_bridge import snapshot
+        from test_knowledge_bridge import request
+        self.lyrical_jobs()
+        row = self.run_jobs(max_jobs=1, max_usd=.20)['recordings'][0]
+        lyrics = (self.library.root / 'hm_slot_01.lyrics.txt').read_text()
+        self.library.add_recording(self.library.root / row['file'], performer_id='mikael',
+            region='whiterun', mode='vocal', gender='male', composition_id=row['composition_id'],
+            recipe_id=row['recipe_id'], model_id=MODEL, source=row['source'], lyrics=lyrics,
+            save_id='foreign-save', world_id='foreign-world', created_at_hours=1,
+            topic_id='FOREIGN_TOPIC', title='FOREIGN_TITLE')
+        data, _ = snapshot(self.registry.find_by_name('Mikael'), self.db, self.library,
+                           102, request(), allow_name_match=True)
+        self.assertEqual(data['compositions'][0]['topic_id'], row['topic_id'])
+        self.assertNotIn('FOREIGN', json.dumps(data))
+
+    def test_dry_run_hides_private_material_unless_explicit(self):
+        self.lyrical_jobs()
+        self.jobs[0]['lyric_brief']['summary'] = 'SYNTHETIC_PRIVATE_SENTINEL'
+        for show in (False, True):
+            with redirect_stdout(io.StringIO()) as output:
+                report = self.run_jobs(dry_run=True, show_briefs=show)
+            self.assertEqual('SYNTHETIC_PRIVATE_SENTINEL' in output.getvalue(), show)
+            self.assertEqual('SYNTHETIC_PRIVATE_SENTINEL' in json.dumps(report), show)
+            self.assertIn('compose_lyrics', output.getvalue())
+        self.client.chat_completion.assert_not_called()
+        self.client.generate.assert_not_called()
+
+    def test_two_cost_reservation_and_second_call_gate(self):
+        self.lyrical_jobs()
+        self.assertEqual(self.run_jobs(max_usd=.089)['status'], 'budget')
+        self.client.chat_completion.assert_not_called()
+        self.client.chat_completion.return_value['usage']['cost'] = .03
+        report = self.run_jobs(max_usd=.10)
+        self.assertEqual(report['status'], 'budget')
+        self.assertEqual(report['cost_usd'], .03)
+        self.client.chat_completion.assert_called_once()
+        self.client.generate.assert_not_called()
+
+    def test_invalid_lyrics_cost_is_retained_and_never_retried(self):
+        self.lyrical_jobs()
+        self.client.chat_completion.return_value['content'] = 'PRIVATE invalid response'
+        report = self.run_jobs(max_usd=.20)
+        self.assertEqual(report['status'], 'failed')
+        self.assertEqual(report['cost_usd'], .003)
+        self.assertNotIn('unreported_attempt_cost', report)
+        self.assertNotIn('PRIVATE', json.dumps(report))
+        self.assertNotIn('PRIVATE', (self.library.root / 'executor.log').read_text())
+        self.client.chat_completion.assert_called_once()
+        self.client.generate.assert_not_called()
+
+    def test_music_failure_after_lyrics_has_unknown_cost_flag(self):
+        self.lyrical_jobs()
+        self.client.generate.side_effect = StreamError('PRIVATE')
+        report = self.run_jobs(max_usd=.20)
+        self.assertEqual(report['status'], 'failed')
+        self.assertTrue(report['unreported_attempt_cost'])
+        self.assertEqual(report['cost_usd'], .003)
+        self.client.chat_completion.assert_called_once()
+        self.client.generate.assert_called_once()
+
+    def test_unresolved_and_stale_actor_have_no_jobs(self):
+        self.lyrical_jobs()
+        self.jobs = plan_work(self.registry, self.library, performer_ids=['mikael'],
+            modes=('lyrical',), db_path=self.db)
+        self.assertEqual(self.jobs, [])
+        self.assertEqual(self.jobs.decisions[0]['action'], 'no_selection')
+        self.jobs = plan_work(self.registry, self.library, performer_ids=['mikael'],
+            modes=('lyrical',), db_path=self.db, allow_name_match=True, now_hours=1000)
+        self.assertEqual(self.jobs, [])
+        self.assertEqual(self.jobs.decisions[0]['action'], 'no_selection')
+
+    def test_vocal_preflight_failure_does_not_spend(self):
+        self.lyrical_jobs()
+        self.which.return_value = None
+        self.assertEqual(self.run_jobs()['status'], 'failed')
+        self.client.chat_completion.assert_not_called()
+        self.client.generate.assert_not_called()
+
+
 if __name__ == '__main__':
     unittest.main()
