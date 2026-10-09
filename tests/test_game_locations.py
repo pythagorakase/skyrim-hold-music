@@ -30,7 +30,7 @@ class ObservedLocations(unittest.TestCase):
         import json
         from pathlib import Path
         from hold_music.regional import resolve_location_detail
-        data = json.loads((Path(__file__).resolve().parents[1] / 'game_adapter/data/locations.json').read_text())
+        data = json.loads((Path(__file__).resolve().parents[1] / 'game_adapter/data/locations.json').read_text(encoding='utf-8'))
         cases = [
             ('The Bannered Mare, Hold: Whiterun', 'whiterun', 'suffix-table'),
             ('Sleeping Giant Inn, Hold: Riverwood', 'whiterun', 'suffix-registry'),

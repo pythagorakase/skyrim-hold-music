@@ -1,5 +1,6 @@
 """Read-only catalog checks; no game installation or provider is contacted."""
 
+from contextlib import closing
 import hashlib
 import json
 from pathlib import Path
@@ -20,10 +21,12 @@ class CatalogTests(unittest.TestCase):
         (self.root / "local").mkdir()
         self.db = self.root / "songs.db"
         self.lyrics = "[Verse]\r\nA bard’s road — sung softly.\r\n\r\n"
-        with sqlite3.connect(self.db) as db:
+        # Close connections explicitly: Windows cannot delete an open database file.
+        with closing(sqlite3.connect(self.db)) as db:
             db.execute("CREATE TABLE bard_songs (id INTEGER, title TEXT, lyrics TEXT, composer_name TEXT, created_at TEXT)")
             db.execute("INSERT INTO bard_songs VALUES (1, ?, ?, 'Lurbuk', '2026-10-05')", ("The road", self.lyrics))
             db.execute("INSERT INTO bard_songs VALUES (2, 'Empty', '', '', '')")
+            db.commit()
         self.configure(database=str(self.db), label="Test library")
 
     def configure(self, **values):
@@ -48,7 +51,7 @@ class CatalogTests(unittest.TestCase):
         self.assertFalse(missing.exists())
 
     def test_committed_wal_rows_are_visible(self):
-        with sqlite3.connect(self.db) as writer:
+        with closing(sqlite3.connect(self.db)) as writer:
             writer.execute("PRAGMA journal_mode=WAL")
             writer.execute("INSERT INTO bard_songs VALUES (3, 'New song', 'New words', 'Karita', '2026-10-08')")
             writer.commit()
@@ -87,8 +90,9 @@ class CatalogTests(unittest.TestCase):
             catalog.normalize_rows(rows * 2, "first")
 
     def test_legacy_database_without_composer_name(self):
-        with sqlite3.connect(self.db) as db:
+        with closing(sqlite3.connect(self.db)) as db:
             db.execute("ALTER TABLE bard_songs DROP COLUMN composer_name")
+            db.commit()
         self.assertEqual(catalog.load_catalog(self.root)["songs"][0]["bard_name"], "Unknown bard")
 
     def test_current_and_archived_sources_are_identified_separately(self):

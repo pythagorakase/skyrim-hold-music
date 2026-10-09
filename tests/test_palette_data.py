@@ -21,7 +21,7 @@ class ArrangementPolicyTests(unittest.TestCase):
                     self.assertTrue(reason.strip())
 
     def test_invalid_policy_edits_fail_the_build(self):
-        original = builder.documents(builder.DEFAULT_SPEC.read_text())
+        original = builder.documents(builder.DEFAULT_SPEC.read_text(encoding='utf-8'))
         mutations = [
             lambda d: d['workshop_arrangements'].pop('nord'),
             lambda d: d['workshop_arrangements']['nord'].update(allowed=['unknown']),

@@ -328,7 +328,7 @@ class WorkshopHTTPTests(unittest.TestCase):
         self.generator.assert_not_called()
 
     def test_current_khajiit_recipe_accepts_tabla_solo_without_lyrics(self):
-        palette = json.loads((server.ROOT / "dashboard" / "palette-data.json").read_text())
+        palette = json.loads((server.ROOT / "dashboard" / "palette-data.json").read_text(encoding="utf-8"))
         self.workshop.profiles["khajiit"] = next(profile for profile in palette["existing"] if profile["id"] == "khajiit")
         payload = self.payload(profile_id="khajiit", arrangement="drum", prompt="A Hindustani tabla solo in 16-beat teental.")
         status, _, response = self.request("POST", "/api/generate", payload)
