@@ -122,6 +122,8 @@ The snapshot excludes local settings, credentials, recorded request payloads, ga
 
 ## Current status
 
+The [offline library executor](docs/executor.md) prepares instrumental and Winterhold wordless recordings with explicit job and spending caps. It defaults to a JSON dry run; lyrical work awaits the knowledge bridge, and this tool neither installs nor plays anything in-game.
+
 Dashboard comparison, filtering, saved notes, arrangement-specific prompt reductions, and JSON/text backup restoration were checked in a browser through a local HTTP preview. The six finalists remain design candidates: stylistic fidelity, specialist vocal technique, advanced animation support and ensemble synchronization are not validated by this dashboard.
 
 The workshop's generation lifecycle, exact prompt retention, duplicate suppression, take playback/download, reload recovery and failure display were checked in a browser with synthetic audio. Offline server tests cover the Google request format, credential isolation, request validation, single-job behavior, response parsing, saved audio and redacted failure diagnostics. On October 8, 2026, a live Lyria 3.5 request for Resonant Name-Songs with lute and voice returned a 167-second song. Its audio, original prompt and returned lyrics were saved, and browser decoding/playback succeeded. That transport check does not establish musical compliance with the proposed style.
