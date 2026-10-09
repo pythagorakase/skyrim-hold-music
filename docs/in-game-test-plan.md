@@ -55,14 +55,41 @@ the game; it describes what to do and what to look at afterwards.
   cause is the lyric model omitting the routing marker; a failed request is
   not retried and costs nothing.
 
+## How SkyrimNet decides (from its own log and binary, 9 October)
+
+SkyrimNet's bard manager runs about two seconds after every cell load. If an
+eligible bard (Bard class, or a member of `BardSingerFaction`) is in the loaded
+cell it logs a `Generation check` line with the last composition's game time,
+the current game time and the 8-hour interval, then either starts a new
+generation or picks a gender-matched cached song. If no eligible bard is in the
+cell it logs nothing at all. The main log is
+`profiles\MGO EXP - SkyrimNet b26 + SeverActions 4.2\experimental-documents\SKSE\SkyrimNet.log`
+(local timestamps); search it for `Generation check`, `Starting song
+generation`, `BardSinging/Filter` and `Playing '`.
+
+Mikael's record has `BardSingerFaction`, so entering the Bannered Mare with him
+inside should produce a `Generation check`. The last composition's game time is
+hours behind the current clock, so a new composition is the expected outcome
+rather than a replay.
+
 ## Why Riverwood was silent
 
-Riverwood does have a bard, Sven at the Sleeping Giant Inn, but SkyrimNet's
-bard check accepts the Bard class or `BardSingerFaction`, and Sven's winning
-record has the Lumberjack class with only `JobBardFaction`. SkyrimNet never
-treats him as a performer, so no music request reaches the adapter there.
-Registering Sven is a design decision for the performance-ownership work, not
-an adapter fix.
+Two reasons. Sven's winning record has the Lumberjack class and is listed in
+`BardSingerFaction` at rank -1 (not a member), so SkyrimNet's check never
+treats him as a performer. And he was not in the Sleeping Giant Inn when you
+entered it at 00:17 (in-game 7:53 AM); only Orgnar, Delphine, Embry and Gorr
+were nearby. The Bannered Mare itself was never entered on Oct 8 (Whiterun
+interiors visited were Warmaiden's and Belethor's). Registering Sven is a
+design decision for the performance-ownership work, not an adapter fix.
+
+## One known unknown
+
+The Oct 8 test composition was stored with `duration_seconds = 0.0` because
+SkyrimNet found no duration in the adapter's response. Whether SkyrimNet
+derives the playback length from the audio itself or from that field is not
+yet known; if a performance stops almost immediately or the lute pose never
+ends, that is the cause, and the service log plus the `Playing '...' (N s)`
+line in SkyrimNet's log will show it.
 
 ## Afterwards
 
