@@ -15,11 +15,11 @@ import time
 import urllib.request
 
 if __package__:
-    from .engine import Adapter, VERSION, atomic_text
+    from .engine import Adapter, VERSION, BUILD, atomic_text
 else:
     # The helper is launched with -I, so explicitly load only its sibling module.
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from engine import Adapter, VERSION, atomic_text
+    from engine import Adapter, VERSION, BUILD, atomic_text
 
 
 def health(endpoint):
@@ -156,7 +156,7 @@ def serve(args):
         adapter = Adapter(args.credentials, args.settings, args.runtime, args.port)
         endpoint = adapter.start()
         atomic_text(status_path, json.dumps({'pid': os.getpid(), 'version': VERSION, 'endpoint': endpoint}))
-        log.info('Independent music helper ready pid=%s parent=%s', os.getpid(), args.parent_pid)
+        log.info('Independent music helper ready pid=%s parent=%s build=%s', os.getpid(), args.parent_pid, BUILD)
         while parent.alive() and not stop_path.exists():
             time.sleep(0.25)
     except Exception as exc:

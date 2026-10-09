@@ -1,0 +1,10 @@
+{
+  "model": "google/lyria-3-pro-preview",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Male vocal. Medieval tavern ballad with lute accompaniment, HM1[Mikael||The Bannered Mare, Hold: Whiterun] quietly hopeful\n\nLyrics:\n[Verse]\nThe lantern warms the winding road.\n[Chorus]\nWe share the light and lift the load."
+    }
+  ],
+  "stream": true
+}

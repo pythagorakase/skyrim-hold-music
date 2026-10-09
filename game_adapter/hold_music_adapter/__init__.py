@@ -34,7 +34,7 @@ class HoldMusic(mobase.IPluginFileMapper):
         return "Location-based Nord music recipes. Enabled by the Hold Music mod in the configured profile."
 
     def version(self):
-        return mobase.VersionInfo(0, 2, 0)
+        return mobase.VersionInfo(0, 2, 1)
 
     def settings(self):
         return []
@@ -51,7 +51,7 @@ class HoldMusic(mobase.IPluginFileMapper):
         organizer.onAboutToRun(self._before)
         organizer.onFinishedRun(self._after)
         QCoreApplication.instance().aboutToQuit.connect(self._close)
-        self.log.info("Hold Music 0.2.0 loaded; music routing is inactive until a configured-profile launch")
+        self.log.info("Hold Music 0.2.1 loaded; music routing is inactive until a configured-profile launch")
         return True
 
     def _active(self):

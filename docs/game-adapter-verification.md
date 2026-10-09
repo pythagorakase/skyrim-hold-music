@@ -61,3 +61,53 @@ Evidence is retained in ignored `local/`: `test-results.txt`,
 `music-service-check/result.json`, `vfs-probe.json`, `vfs-native-validation.json`
 and `vfs-disabled.json`. Installation backup:
 `C:\MGO\codex-backups\20261008-213059-hold-music`.
+
+
+## 0.2.1 offline verification — 9 October 2026
+
+This change performed no in-game or paid check. The earlier 0.2.0 evidence
+above is historical and does not verify 0.2.1 in Skyrim or MO2.
+
+The offline tests cover:
+
+- All fifteen recorded location descriptions and their winning resolution rules
+  against the real registry; exact suffix/segment precedence, normalization,
+  generic tokens, absent/unknown suffixes, invalid/ambiguous registry values,
+  long hold names and no substring guessing.
+- Full golden text for Whiterun vocal, Whiterun instrumental, Winterhold
+  wordless and Pale instrumental; all ten regions in vocal, instrumental and
+  explicit wordless modes for both genders, each below 1,000 direction
+  characters with exactly one named Style/adaptation line. Instrumental clause
+  selection, missing-field/lute fallback, voice/lyric omission and verbatim
+  vocal lyrics are checked.
+- The recorded SkyrimNet request shape for Mikael through the real loopback
+  Adapter and fake upstream in both modes: Whiterun label, Style prefix, lyric
+  inclusion/omission, marker removal, resolution logs and one context parse.
+- HTTP wordless and excluded counters/logs, both Lurbuk choices, missing-marker
+  502 without an upstream call, HTTPException/IncompleteRead error accounting
+  and type-only diagnostics without retry, byte-identical fixture SSE forwarding,
+  upstream errors and local route/origin restrictions. The upstream is an
+  offline fixture; no music is generated.
+- Conflict preservation, warning, baseline removal and successful next prepare,
+  including a pending conflict recovered after restart; BOM preservation in
+  overlay, baseline, source write-back and conflict files, with CRLF preserved.
+- Health protocol version 0.2.0 plus build 0.2.1, helper ready-log build,
+  independent helper reuse/shutdown, stable mode choices, unchanged Lurbuk legacy
+  parity and byte equality of packaged canonical recipes/palette.
+- The existing repository unittest suite and Node workshop prompt checks. The
+  Windows-only embedded-interpreter regression is skipped on this macOS host.
+
+Commands run unpiped:
+
+```text
+/Users/pythagor/hold_music/.venv/bin/python tools/build_game_adapter.py
+/Users/pythagor/hold_music/.venv/bin/python -m unittest discover -s tests -v
+node tests/test_workshop_prompts.js
+```
+
+Results: package synchronization succeeded; `Ran 146 tests in 10.020s`,
+`OK (skipped=1)`. The Node check reported `Prompt contracts passed: 14820 valid
+combinations; maximum 768/1000 characters
+(bosmer_spinners_tales/drum_voice/orc/haafingar).` The game-specific maximum was
+710 characters (Whiterun wordless, female). The Python run also emitted
+non-failing SQLite connection ResourceWarnings in the existing suite.

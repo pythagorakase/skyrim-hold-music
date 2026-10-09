@@ -1,4 +1,5 @@
 import base64
+import http.client
 import http.server
 import json
 import os
@@ -9,6 +10,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 import urllib.error
 import urllib.request
 
@@ -52,13 +54,15 @@ class TransformTests(unittest.TestCase):
         for unwanted in ("UNIQUE_DRAFT", "EXTRA_LYRICS", "Female vocal", "Lyrics:", "audio_config", "Old style"):
             self.assertNotIn(unwanted, text)
         self.assertEqual(set(result), {"model", "messages", "stream"})
-        self.assertIn("entirely instrumental", text)
+        self.assertIn("One adult female performer; solo lute instrumental; plucked strings.", text)
+        self.assertIn("Style: Karelian laments and runo-song (instrumental reduction).", text)
+        self.assertNotIn("Voice:", text)
 
     def test_vocal_keeps_gender_and_lyrics_verbatim(self):
         lyric = "[Verse]\nZohra’s road — and a lute.\n[Chorus]\nSing!\n"
         for gender in ("Male", "Female"):
             text = engine.transform(sample(lyric, gender), "vocal")["messages"][0]["content"]
-            self.assertIn("One " + gender.lower() + " singer", text)
+            self.assertIn("One adult " + gender.lower() + " performer; singing with plucked lute.", text)
             self.assertTrue(text.endswith("Lyrics:\n" + lyric))
             self.assertNotIn("Old style", text)
 
@@ -139,10 +143,64 @@ class ConfigTests(unittest.TestCase):
         engine.atomic_text(overlay, engine.read_text(overlay).replace("volume: 0.7", "volume: 0.4"))
         self.source.write_text(CONFIG.replace("interval_hours: 8", "interval_hours: 12"))
         before = self.source.read_bytes()
-        with self.assertRaises(ValueError):
-            self.bridge.reconcile()
+        with self.assertLogs(engine.LOG, level="WARNING") as logs:
+            self.assertIsNone(self.bridge.reconcile())
+        self.assertIn("preserved a conflict copy", logs.output[0])
         self.assertEqual(before, self.source.read_bytes())
-        self.assertTrue((self.bridge.runtime / "BardSinging.conflict.yaml").exists())
+        conflict = self.bridge.runtime / "BardSinging.conflict.yaml"
+        self.assertTrue(conflict.exists())
+        self.assertIn("volume: 0.4", engine.read_text(conflict))
+        self.assertEqual(engine.get_scalar(engine.read_text(conflict), engine.MANAGED[0]), "openrouter")
+        self.assertFalse(self.bridge.baseline.exists())
+        self.assertTrue(self.bridge.prepare("http://127.0.0.1:18765/test/v1/chat/completions").exists())
+
+    def test_prepare_recovers_a_pending_conflict_after_restart(self):
+        endpoint = "http://127.0.0.1:18765/test/v1/chat/completions"
+        overlay = self.bridge.prepare(endpoint)
+        engine.atomic_text(overlay, engine.read_text(overlay).replace("volume: 0.7", "volume: 0.4"))
+        self.source.write_text(CONFIG.replace("interval_hours: 8", "interval_hours: 12"))
+        bridge = engine.ConfigOverlay(self.source, self.bridge.runtime)
+        with self.assertLogs(engine.LOG, level="WARNING"):
+            prepared = bridge.prepare(endpoint)
+        self.assertTrue(prepared.exists())
+        self.assertIn("interval_hours: 12", engine.read_text(prepared))
+        self.assertIn("volume: 0.7", engine.read_text(prepared))
+        self.assertIn("volume: 0.4", engine.read_text(bridge.runtime / "BardSinging.conflict.yaml"))
+        self.assertEqual(engine.get_scalar(engine.read_text(prepared), engine.MANAGED[0]), "acestep_local")
+        bridge.reconcile()
+        self.assertFalse(bridge.baseline.exists())
+
+    def test_bom_round_trip_in_every_derived_file_and_after_restart(self):
+        bom = b"\xef\xbb\xbf"
+        original = bom + CONFIG.replace("\n", "\r\n").encode()
+        self.source.write_bytes(original)
+        endpoint = "http://127.0.0.1:18765/test/v1/chat/completions"
+        overlay = self.bridge.prepare(endpoint)
+        for path in (self.source, self.bridge.baseline, overlay):
+            self.assertTrue(path.read_bytes().startswith(bom))
+            self.assertFalse(engine.read_text(path).startswith("\ufeff"))
+            self.assertIn(b"\r\n", path.read_bytes())
+        self.bridge.reconcile()
+        self.assertEqual(self.source.read_bytes(), original)
+        self.bridge.prepare(endpoint)
+        # A dashboard writer may omit the BOM; the baseline remembers the source.
+        engine.atomic_text(overlay, engine.read_text(overlay).replace("volume: 0.7", "volume: 0.4"))
+        recovered = engine.ConfigOverlay(self.source, self.bridge.runtime)
+        recovered.reconcile()
+        self.assertEqual(self.source.read_bytes(), original.replace(b"volume: 0.7", b"volume: 0.4"))
+        recovered.prepare(endpoint)
+        engine.atomic_text(overlay, engine.read_text(overlay).replace("volume: 0.4", "volume: 0.2"))
+        self.source.write_bytes(self.source.read_bytes().replace(b"interval_hours: 8", b"interval_hours: 12"))
+        with self.assertLogs(engine.LOG, level="WARNING"):
+            engine.ConfigOverlay(self.source, self.bridge.runtime).reconcile()
+        conflict = self.bridge.runtime / "BardSinging.conflict.yaml"
+        self.assertTrue(conflict.read_bytes().startswith(bom))
+        self.assertIn(b"volume: 0.2", conflict.read_bytes())
+        self.assertIn(b"\r\n", conflict.read_bytes())
+        self.assertFalse(self.bridge.baseline.exists())
+        recovered.prepare(endpoint)
+        for path in (self.source, recovered.baseline, overlay, conflict):
+            self.assertEqual(path.read_bytes().count(bom), 1)
 
     def test_unknown_provider_falls_back_before_overlay_creation(self):
         self.source.write_text(CONFIG.replace("provider: openrouter", "provider: minimax"))
@@ -230,6 +288,111 @@ class TransportTests(unittest.TestCase):
         self.assertEqual(len(self.received), 1)
         self.assertEqual(self.adapter.counts["vocal"], 0)
 
+    def real_request(self):
+        return json.loads((Path(__file__).parent / "fixtures/skyrimnet_music_request.json").read_text(encoding="utf-8"))
+
+    def test_recorded_request_shape_through_http_in_both_modes(self):
+        incoming = self.real_request()
+        lyrics = incoming["messages"][0]["content"].split("\n\nLyrics:\n", 1)[1]
+        for percent, mode in ((0, "vocal"), (100, "instrumental")):
+            with self.subTest(mode=mode):
+                self.settings.write_text(f"instrumentalPercent: {percent}\n")
+                with self.assertLogs(engine.LOG, level="INFO") as logs:
+                    with mock.patch.object(engine, "context", wraps=engine.context) as context:
+                        with self.post(incoming) as response:
+                            self.assertEqual(response.read(), self.stream)
+                        self.assertEqual(context.call_count, 1)
+                body, _ = self.received[-1]
+                prompt = body["messages"][0]["content"]
+                self.assertTrue(prompt.startswith("Style: "))
+                self.assertEqual(prompt.splitlines()[1], "Tamriel (Elder Scrolls): Whiterun Hold, Skyrim.")
+                self.assertNotIn("HM1[", prompt)
+                self.assertEqual(lyrics in prompt, mode == "vocal")
+                self.assertEqual("Lyrics:" in prompt, mode == "vocal")
+                self.assertEqual(set(body), {"model", "messages", "stream"})
+                self.assertEqual(body["model"], engine.MODEL)
+                self.assertTrue(body["stream"])
+                self.assertEqual(self.adapter.counts[mode], 1)
+                log = "\n".join(logs.output)
+                self.assertIn(f"bard='Mikael' location='The Bannered Mare, Hold: Whiterun' region=whiterun via=suffix-table mode={mode}", log)
+                self.assertNotIn(lyrics, log)
+
+    def test_wordless_counter_and_log_through_http(self):
+        incoming = self.real_request()
+        incoming["messages"][0]["content"] = incoming["messages"][0]["content"].replace(
+            "The Bannered Mare, Hold: Whiterun", "The Frozen Hearth, Hold: Winterhold College")
+        self.settings.write_text("instrumentalPercent: 0\n")
+        with self.assertLogs(engine.LOG, level="INFO") as logs:
+            with self.post(incoming) as response:
+                self.assertEqual(response.read(), self.stream)
+        prompt = self.received[0][0]["messages"][0]["content"]
+        self.assertIn("Wordless singing with vocables only; no lyrics, sentences or spoken words.", prompt)
+        self.assertNotIn("Lyrics:", prompt)
+        self.assertNotIn("The lantern warms", prompt)
+        self.assertNotIn("HM1[", prompt)
+        self.assertEqual(self.adapter.counts["wordless"], 1)
+        self.assertEqual(self.adapter.counts["vocal"], 0)
+        self.assertIn("region=winterhold via=suffix-registry mode=wordless lyrics_forwarded=False", "\n".join(logs.output))
+
+    def test_excluded_counter_and_log_through_http_in_both_modes(self):
+        incoming = self.real_request()
+        incoming["messages"][0]["content"] = incoming["messages"][0]["content"].replace(
+            "Mikael||The Bannered Mare, Hold: Whiterun", "Lurbuk||Moorside Inn, Hold: Hjaalmarch")
+        for index, (percent, mode) in enumerate(((0, "vocal"), (100, "instrumental")), 1):
+            self.settings.write_text(f"instrumentalPercent: {percent}\n")
+            with self.assertLogs(engine.LOG, level="INFO") as logs:
+                with self.post(incoming) as response:
+                    self.assertEqual(response.read(), self.stream)
+            self.assertEqual(self.received[-1][0], engine.transform(incoming, mode))
+            self.assertNotIn("HM1[", self.received[-1][0]["messages"][0]["content"])
+            self.assertEqual(self.adapter.counts["excluded"], index)
+            self.assertEqual(self.adapter.counts[mode], 0)
+            self.assertIn(f"region=hjaalmarch via=suffix-table mode=excluded lyrics_forwarded={mode == 'vocal'}", "\n".join(logs.output))
+
+    def test_marker_missing_returns_502_without_upstream_and_counts_error(self):
+        incoming = self.real_request()
+        incoming["messages"][0]["content"] = incoming["messages"][0]["content"].replace(
+            "HM1[Mikael||The Bannered Mare, Hold: Whiterun]", "")
+        with self.assertLogs(engine.LOG, level="WARNING") as logs:
+            with self.assertRaises(urllib.error.HTTPError) as caught:
+                self.post(incoming)
+        self.assertEqual(caught.exception.code, 502)
+        caught.exception.close()
+        self.assertEqual(self.received, [])
+        self.assertEqual(self.adapter.counts["errors"], 1)
+        self.assertIn("Hold Music requires one request-scoped bard/location marker", "\n".join(logs.output))
+
+    def test_http_exception_before_headers_counts_error_and_logs_only_type(self):
+        with mock.patch.object(self.adapter.opener, "open", side_effect=http.client.BadStatusLine("PRIVATE_UPSTREAM_TEXT")):
+            with self.assertLogs(engine.LOG, level="WARNING") as logs:
+                with self.assertRaises(urllib.error.HTTPError) as caught:
+                    self.post(self.real_request())
+        self.assertEqual(caught.exception.code, 502)
+        caught.exception.close()
+        self.assertEqual(self.adapter.counts["errors"], 1)
+        self.assertEqual(self.received, [])
+        self.assertEqual(logs.output, ["WARNING:hold_music_adapter:Music request stopped: BadStatusLine"])
+
+    def test_incomplete_stream_counts_error_without_retry_or_private_log_text(self):
+        upstream = mock.MagicMock()
+        upstream.__enter__.return_value = upstream
+        upstream.status = 200
+        upstream.headers = {"Content-Type": "text/event-stream"}
+        upstream.read1.side_effect = [b"partial stream", http.client.IncompleteRead(b"PRIVATE_AUDIO", 42)]
+        with mock.patch.object(self.adapter.opener, "open", return_value=upstream) as opened:
+            with self.assertLogs(engine.LOG, level="WARNING") as logs:
+                with self.post(self.real_request()) as response:
+                    self.assertEqual(response.read(), b"partial stream")
+        opened.assert_called_once()
+        self.assertEqual(self.adapter.counts["errors"], 1)
+        self.assertEqual(self.adapter.counts["upstream_http_200"], 0)
+        self.assertEqual(logs.output, ["WARNING:hold_music_adapter:Music request stopped: IncompleteRead"])
+
+    def test_health_reports_compatible_protocol_and_current_build(self):
+        info = service.health(self.url)
+        self.assertEqual(info["version"], "0.2.0")
+        self.assertEqual(info["build"], "0.2.1")
+
     def test_browser_origins_and_wrong_routes_cannot_generate_music(self):
         for kwargs in ({"headers": {"Origin": "https://example.com"}},
                        {"url": f"http://127.0.0.1:{self.adapter.port}/v1/chat/completions"}):
@@ -258,6 +421,8 @@ class ProcessTests(unittest.TestCase):
         self.assertNotEqual(info['pid'], os.getpid())
         self.assertEqual(adapter.start(), endpoint)
         self.assertEqual(service.health(endpoint)['pid'], info['pid'])
+        self.assertEqual(info['build'], '0.2.1')
+        self.assertIn('build=0.2.1', (self.root / 'service.log').read_text())
         status = adapter.status_file
         adapter.stop()
         self.assertFalse(status.exists())

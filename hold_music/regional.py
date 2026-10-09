@@ -13,6 +13,8 @@ REGIONS = ('haafingar', 'eastmarch', 'whiterun', 'reach', 'falkreath',
            'rift', 'winterhold', 'pale', 'hjaalmarch')
 PALETTE = Path(__file__).resolve().parents[1] / 'dashboard' / 'palette-data.json'
 HOLD_NAMES = {**{region: region for region in REGIONS},
+              'whiterun hold': 'whiterun', 'falkreath hold': 'falkreath',
+              'winterhold hold': 'winterhold',
               'the pale': 'pale', 'dawnstar': 'pale',
               'the reach': 'reach', 'markarth': 'reach',
               'the rift': 'rift', 'riften': 'rift',
@@ -28,17 +30,44 @@ def load_profiles(path=PALETTE):
 
 
 def resolve_location(location, registry):
-    """Prefer SkyrimNet's explicit hold suffix, then an exact audited name."""
+    """Return the region, preserving the original caller interface."""
+    return resolve_location_detail(location, registry)[0]
+
+
+def resolve_location_detail(location, registry):
+    """Resolve exact suffix/segment names and report the first matching rule."""
     if not isinstance(location, str):
-        return 'nord'
-    name = ' '.join(location.casefold().split())
-    # Observed native inputs include "Windpeak Inn, Hold: Dawnstar" and
-    # "Bards College, Solitude, Outdoors, Hold: Haafingar". Do not substring-guess.
-    hold = re.search(r'(?:^|, )hold: ([^,]+)$', name)
-    if hold:
-        return HOLD_NAMES.get(hold[1], 'nord')
-    region = registry.get('locations', {}).get(name)
-    return region if region in REGIONS else 'nord'
+        return 'nord', 'default'
+
+    def normalize(value):
+        return ' '.join(value.casefold().split()).strip(' \"\'[](){}.,;:!?')
+
+    segments = [normalize(part) for part in normalize(location).split(',')]
+    locations = registry.get('locations', {})
+    hold_value = None
+    # An empty suffix may have lost its trailing colon during normalization.
+    suffix = re.fullmatch(r'hold:(?:\s*(.*))?', segments[-1])
+    if suffix or segments[-1] == 'hold':
+        segments.pop()
+        hold_value = normalize(suffix[1] or '') if suffix else ''
+    if hold_value not in (None, '', 'unknown', 'none'):
+        region = HOLD_NAMES.get(hold_value) or HOLD_NAMES.get(hold_value.removesuffix(' hold'))
+        if region:
+            return region, 'suffix-table'
+        region = locations.get(hold_value)
+        if region in REGIONS:
+            return region, 'suffix-registry'
+    generic = {'outdoors', 'indoors', 'interior', 'exterior', 'unknown', 'skyrim', 'tamriel'}
+    for segment in segments:
+        if not segment or segment in generic:
+            continue
+        region = HOLD_NAMES.get(segment)
+        if region:
+            return region, 'segment-table'
+        region = locations.get(segment)
+        if region in REGIONS:
+            return region, 'segment-registry'
+    return 'nord', 'default'
 
 
 def performance_mode(region, choice):
@@ -51,30 +80,43 @@ def performance_mode(region, choice):
 
 
 def music_prompt(region, choice, gender, lyrics='', palette_path=PALETTE):
-    setting, profiles = load_profiles(palette_path)
+    _, profiles = load_profiles(palette_path)
     if region not in profiles:
         raise ValueError('Unknown regional recipe')
     if gender.casefold() not in ('male', 'female'):
         raise ValueError('Unsupported SkyrimNet vocal gender')
     profile = profiles[region]
-    mode = performance_mode(region, choice)
+    mode = 'wordless' if choice == 'wordless' else performance_mode(region, choice)
+    palette = json.loads(Path(palette_path).read_text(encoding='utf-8'))
+    region_label = 'Skyrim, unnamed venue' if region == 'nord' else palette['auditionRegions'][region]
+    instrument = profile.get('workshop', {}).get('plucked') or 'lute'
     if mode == 'instrumental':
-        performer = 'One musician playing a single lute, entirely instrumental. No singing, humming, spoken words or vocalizations.'
+        adaptation = 'instrumental reduction'
+        role = f'solo {instrument} instrumental; plucked strings'
+        # Cheap insurance for a paid in-game request: the compact workshop
+        # wording implies an instrumental, but say so outright.
+        role += '. Entirely instrumental; no singing, humming or spoken words'
     else:
-        performer = f'One {gender.casefold()} singer accompanying themselves on a single lute. Only one voice and one lute.'
-        if mode == 'wordless':
-            performer += ' Wordless singing with vocables only; no lyrics, sentences or spoken words.'
-    reference = profile.get('reference')
-    idiom = (f'In the style of {reference}: ' if reference else '') + profile['core'].rstrip('.') + '.'
-    sections = [setting, performer, idiom]
+        adaptation = 'solo wordless adaptation' if mode == 'wordless' else 'solo adaptation'
+        role = f'singing with plucked {instrument}'
+    core = (profile.get('core_instrumental') or profile['core']) if mode == 'instrumental' else profile['core']
+    lute = (profile.get('lute_instrumental') or profile['lute']) if mode == 'instrumental' else profile['lute']
+    sections = [f"Style: {profile['reference']} ({adaptation}).",
+                f'Tamriel (Elder Scrolls): {region_label}.',
+                f'One adult {gender.casefold()} performer; {role}.',
+                'Intimate live acoustic room; only these sound sources. '
+                'No other instruments, percussion, backing voices, choir, overdubs, '
+                'orchestral backing or modern studio production.',
+                core.rstrip('.') + '.']
     if mode != 'instrumental':
-        sections.append('Voice: ' + profile['voice'].rstrip('.') + '.')
-    sections.append('Lute: ' + profile['lute'].rstrip('.') + '.')
-    sections.append('Intimate pre-modern acoustic performance by the listed performer only. '
-                    'No other instruments, percussion, backing voices, choir, overdubs, '
-                    'orchestral backing or modern studio production.')
+        voice = 'Voice: ' + profile['voice'].rstrip('.') + '.'
+        if mode == 'wordless':
+            voice += ' Wordless singing with vocables only; no lyrics, sentences or spoken words.'
+        sections.append(voice)
+    sections.append(instrument.capitalize() + ': ' + lute.rstrip('.') + '.')
     if mode == 'vocal':
         if not isinstance(lyrics, str) or not lyrics.strip():
             raise ValueError('A lyrical performance needs lyrics')
-        sections.append('Lyrics:\n' + lyrics)
-    return '\n\n'.join(sections)
+        sections.append('Sing the supplied lyrics as written, preserving their words and order.')
+        sections.append('\nLyrics:\n' + lyrics)
+    return '\n'.join(sections)

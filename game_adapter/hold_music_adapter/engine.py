@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import http.client
 import http.server
 import json
 import logging
@@ -22,13 +23,16 @@ import urllib.request
 from pathlib import Path
 
 if __package__:
-    from .regional import REGIONS, music_prompt, performance_mode, resolve_location
+    from .regional import REGIONS, music_prompt, performance_mode, resolve_location_detail
     from .legacy import transform as legacy_transform
 else:
-    from regional import REGIONS, music_prompt, performance_mode, resolve_location
+    from regional import REGIONS, music_prompt, performance_mode, resolve_location_detail
     from legacy import transform as legacy_transform
 
+# Protocol compatibility: MO2 keeps the VERSION imported at startup while the
+# independent helper can be hot-swapped. BUILD identifies the updated helper.
 VERSION = "0.2.0"
+BUILD = "0.2.1"
 UPSTREAM = "https://openrouter.ai/api/v1/chat/completions"
 MODEL = "google/lyria-3-pro-preview"
 PALETTE_PATH = Path(__file__).parent / 'palette-data.json'
@@ -43,7 +47,8 @@ MANAGED = (
 
 
 def read_text(path):
-    # Preserve line endings and BOM; SkyrimNet sometimes rewrites its YAML.
+    # Preserve line endings, but strip a leading BOM for parsing. ConfigOverlay
+    # tracks that BOM separately and restores it on derived file writes.
     return Path(path).read_bytes().decode("utf-8-sig")
 
 
@@ -117,16 +122,24 @@ class ConfigOverlay:
 
     The source is never replaced with a localhost route. Baseline/overlay files
     stay under the profile, outside the source repository and distributable.
+    Conflicts preserve dashboard edits in a recovery copy and clear the baseline
+    without raising, so the next prepare can keep the music route active.
     """
     def __init__(self, source, runtime):
         self.source = Path(source)
         self.runtime = Path(runtime)
         self.overlay = self.runtime / "BardSinging.yaml"
         self.baseline = self.runtime / "BardSinging.baseline.yaml"
+        self.source_bom = False
+
+    def _write(self, path, text):
+        atomic_text(path, ("\ufeff" if self.source_bom else "") + text)
 
     def prepare(self, endpoint):
         self.reconcile()
-        original = read_text(self.source)
+        source_bytes = self.source.read_bytes()
+        self.source_bom = source_bytes.startswith(b"\xef\xbb\xbf")
+        original = source_bytes.decode("utf-8-sig")
         if get_scalar(original, MANAGED[0]) != "openrouter":
             raise ValueError("Hold Music currently requires the OpenRouter music provider")
         if get_scalar(original, ("bard_singing", "openrouter", "model")) != MODEL:
@@ -137,14 +150,17 @@ class ConfigOverlay:
         changed = original
         for path, value in zip(MANAGED, ("acestep_local", endpoint, MODEL)):
             changed = replace_raw_scalar(changed, path, json.dumps(value))
-        atomic_text(self.baseline, original)
-        atomic_text(self.overlay, changed)
+        self._write(self.baseline, original)
+        self._write(self.overlay, changed)
         return self.overlay
 
     def reconcile(self):
+        """Restore routing; preserve conflicting edits without blocking a launch."""
         if not self.baseline.exists() or not self.overlay.exists():
             return
-        original = read_text(self.baseline)
+        baseline_bytes = self.baseline.read_bytes()
+        self.source_bom = baseline_bytes.startswith(b"\xef\xbb\xbf")
+        original = baseline_bytes.decode("utf-8-sig")
         candidate = read_text(self.overlay)
         for path in MANAGED:
             raw = scalar_location(original, path)[2]
@@ -155,9 +171,11 @@ class ConfigOverlay:
             normalized = replace_raw_scalar(normalized, path, scalar_location(original, path)[2])
         if candidate != normalized:
             if read_text(self.source) != original:
-                atomic_text(self.runtime / "BardSinging.conflict.yaml", candidate)
-                raise ValueError("Bard settings changed in two places; preserved a conflict copy")
-            atomic_text(self.source, candidate)
+                self._write(self.runtime / "BardSinging.conflict.yaml", candidate)
+                LOG.warning("Bard settings changed in two places; preserved a conflict copy")
+                self.baseline.unlink()
+                return
+            self._write(self.source, candidate)
             LOG.info("Preserved Bard Singing dashboard edits; restored the three original routing fields")
         self.baseline.unlink()
 
@@ -212,15 +230,16 @@ def context(request):
     if not bard or not location or 'HM1[' in parts[1]:
         raise ValueError('Empty routing context or routing metadata in lyrics')
     registry = json.loads(LOCATIONS_PATH.read_text(encoding='utf-8'))
-    region = resolve_location(location, registry)
-    return {'bard': bard, 'location': location, 'region': region,
+    region, rule = resolve_location_detail(location, registry)
+    return {'bard': bard, 'location': location, 'region': region, 'rule': rule,
             'excluded': bard.casefold() == 'lurbuk', 'gender': voice[1].lower(),
             'lyrics': parts[1], 'original_content': text,
             'tag_start': tag.start(), 'tag_end': tag.end()}
 
 
-def transform(request, mode):
-    details = context(request)
+def transform(request, mode, details=None):
+    if details is None:
+        details = context(request)
     if mode not in ('instrumental', 'vocal'):
         raise ValueError('Unknown performance mode')
     if details['excluded']:
@@ -298,7 +317,7 @@ class Adapter:
                     self.json_error(404, "Not found")
                     return
                 with adapter.lock:
-                    body = json.dumps({"service": "hold-music", "version": VERSION, "pid": os.getpid(), "counts": adapter.counts}).encode()
+                    body = json.dumps({"service": "hold-music", "version": VERSION, "build": BUILD, "pid": os.getpid(), "counts": adapter.counts}).encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(body)))
@@ -330,8 +349,8 @@ class Adapter:
                     incoming = json.loads(raw)
                     percent = load_settings(adapter.settings_file)
                     mode = adapter.selector.choose(incoming, percent)
-                    outgoing = transform(incoming, mode)
                     details = context(incoming)
+                    outgoing = transform(incoming, mode, details)
                     actual_mode = 'excluded' if details['excluded'] else performance_mode(details['region'], mode)
                     credential = get_scalar(read_text(adapter.credential_file), ("bard_singing", "openrouter", "api_key"))
                     if not isinstance(credential, str) or not credential or "\n" in credential or "\r" in credential:
@@ -345,8 +364,8 @@ class Adapter:
                         "X-Title": "Hold Music - SkyrimNet",
                     }, method="POST")
                     adapter.count(actual_mode)
-                    LOG.info("request=%s bard=%r location=%r region=%s mode=%s lyrics_forwarded=%s percent=%s",
-                             request_id, details['bard'], details['location'], details['region'], actual_mode,
+                    LOG.info("request=%s bard=%r location=%r region=%s via=%s mode=%s lyrics_forwarded=%s percent=%s",
+                             request_id, details['bard'], details['location'], details['region'], details['rule'], actual_mode,
                              actual_mode == 'vocal' or (actual_mode == 'excluded' and mode == 'vocal'), percent)
                     # No extra retry layer: an uncertain paid generation must not be duplicated here.
                     with adapter.opener.open(req, timeout=300) as response:
@@ -378,7 +397,7 @@ class Adapter:
                     LOG.warning("OpenRouter music HTTP status=%s; no adapter retry", exc.code)
                     if not sent_headers:
                         self.json_error(exc.code if 400 <= exc.code < 600 else 502, f"OpenRouter music returned HTTP {exc.code}")
-                except (ValueError, TypeError, OSError, urllib.error.URLError) as exc:
+                except (ValueError, TypeError, OSError, urllib.error.URLError, http.client.HTTPException) as exc:
                     adapter.count("errors")
                     # Validation errors are authored locally; never include the input body.
                     reason = str(exc) if isinstance(exc, ValueError) and type(exc) is ValueError else type(exc).__name__
