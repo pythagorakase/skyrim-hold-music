@@ -11,3 +11,5 @@ __pycache__/
 hold-music-notes-*.json
 auditions/
 local/
+dist/
+game_adapter/hold_music_adapter/local.json

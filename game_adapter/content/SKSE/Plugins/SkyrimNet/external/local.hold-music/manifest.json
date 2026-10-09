@@ -1,0 +1,21 @@
+{
+  "id": "local.hold-music",
+  "type": "bundle",
+  "title": "Hold Music",
+  "tagline": "Regional music for Skyrim’s bards",
+  "description": "Nine Nord regional music recipes selected from the bard’s current location. One lute performer; lyrical, wordless and instrumental arrangements. Requires the Hold Music MO2 companion.",
+  "author": "local",
+  "version": "0.2.0",
+  "min_skyrimnet_version": "0.26.0",
+  "tags": [
+    "music",
+    "immersion"
+  ],
+  "mods": [
+    {
+      "name": "SkyrimNet",
+      "file": "SkyrimNet.esp",
+      "required": true
+    }
+  ]
+}

@@ -74,7 +74,13 @@ The build reads the Markdown sources, regenerates the palette data and embeds it
 
 ## Existing game prototype
 
-[prototype/solo_lute](prototype/solo_lute) preserves the eleven tracked files of Solo Lute 0.1.0 from source commit `1a47016c82f311ec52ca26b0380b9e0c7ca062c5`. It is the existing Windows/MO2 request adapter, with a 50% instrumental/vocal choice and an OpenRouter/Lyria route. Its installation/probe helpers retain MGO-specific assumptions. It is not a Mac game mod, and the regional dashboard profiles are not connected to its live request path yet.
+The new **[Hold Music 0.2.0 game adapter](docs/game-adapter.md)** applies the nine
+approved Nord/region recipes to newly composed songs based on the bard's current
+location. It preserves the separate-process repair from Solo Lute 0.1.1 and
+retains SkyrimNet's own scheduling and playback. The native cache can still share
+recordings between holds; this pilot does not enforce regional playback.
+
+[prototype/solo_lute](prototype/solo_lute) preserves the eleven tracked files of Solo Lute 0.1.0 from source commit `1a47016c82f311ec52ca26b0380b9e0c7ca062c5`. It is the historical Windows/MO2 request adapter, with a 50% instrumental/vocal choice and an OpenRouter/Lyria route. Its installation/probe helpers retain MGO-specific assumptions. This frozen snapshot predates both the regional integration and the independent-process repair; use the current game adapter above.
 
 Its October 7 offline and VFS checks are recorded in the [prototype verification](prototype/solo_lute/VERIFICATION.md). In-game playback and musical compliance still need testing. To rerun its standard-library tests from this repository:
 

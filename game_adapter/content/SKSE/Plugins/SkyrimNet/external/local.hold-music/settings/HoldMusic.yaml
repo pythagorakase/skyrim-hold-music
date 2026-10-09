@@ -1,0 +1,15 @@
+plugin:
+  name: "HoldMusic"
+  version: "0.2.0"
+  description: "Regional music recipes for new bard compositions. Requires the Hold Music MO2 companion."
+  icon: "🎵"
+schema:
+  fields:
+    - name: "Instrumental chance (%)"
+      path: "instrumentalPercent"
+      type: "int"
+      description: "Chance for a new composition to be instrumental. Winterhold's sung selections use wordless vocables. Lurbuk is exempt. Retries keep the same choice."
+      defaultValue: 50
+      min: 0
+      max: 100
+      category: "Performances"

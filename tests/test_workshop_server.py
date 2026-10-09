@@ -35,8 +35,10 @@ class KeyTests(unittest.TestCase):
             path = Path(temporary) / "hold-music" / "gemini-api-key"
             configure_key.save_key(SECRET, path)
             self.assertEqual(server.read_key(path), SECRET)
-            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
-            self.assertEqual(stat.S_IMODE(path.parent.stat().st_mode), 0o700)
+            # Windows chmod only changes the read-only flag, not POSIX modes.
+            if os.name != "nt":
+                self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+                self.assertEqual(stat.S_IMODE(path.parent.stat().st_mode), 0o700)
             self.assertEqual(len(list(path.parent.iterdir())), 1)
             configure_key.save_key("replacement-key", path)
             self.assertEqual(server.read_key(path), "replacement-key")
@@ -399,7 +401,8 @@ class WorkshopHTTPTests(unittest.TestCase):
         saved = diagnostic.read_text()
         self.assertNotIn(SECRET, saved)
         self.assertNotIn(self.payload()["prompt"], saved)
-        self.assertEqual(stat.S_IMODE(diagnostic.stat().st_mode), 0o600)
+        if os.name != "nt":
+            self.assertEqual(stat.S_IMODE(diagnostic.stat().st_mode), 0o600)
         restored = server.Workshop(self.root, generator=self.generator, key_reader=self.key_reader)
         self.assertEqual(restored.get_job(first["id"]), failed)
         self.assertEqual(restored.status()["latest_failed_job"], failed)
