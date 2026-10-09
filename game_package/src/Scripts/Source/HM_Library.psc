@@ -46,7 +46,7 @@ String Function Region(String performerId)
     While i < JsonUtil.PathCount(RegistryFile, ".performers")
         String path = ".performers[" + i + "]"
         If JsonUtil.GetPathStringValue(RegistryFile, path + ".id", "") == performerId
-            Return JsonUtil.GetPathStringValue(RegistryFile, path + ".venue.region", "")
+            Return JsonUtil.GetPathStringValue(RegistryFile, path + ".region", "")
         EndIf
         i += 1
     EndWhile
@@ -54,9 +54,9 @@ String Function Region(String performerId)
 EndFunction
 
 Int Function LastReceipt(String composition)
-    Int i = JsonUtil.PathCount(ReceiptsFile, ".receipts") - 1
+    Int i = JsonUtil.PathCount(ReceiptsFile, ".performances") - 1
     While i >= 0
-        If JsonUtil.GetPathStringValue(ReceiptsFile, ".receipts[" + i + "].composition_id", "") == composition
+        If JsonUtil.GetPathStringValue(ReceiptsFile, ".performances[" + i + "].composition_id", "") == composition
             Return i
         EndIf
         i -= 1
@@ -84,10 +84,10 @@ Int Function ChooseSlot(String performerId, String region, String preferMode)
                 String composition = JsonUtil.GetPathStringValue(LibraryFile, path + ".composition_id", "")
                 Float duration = JsonUtil.GetPathFloatValue(LibraryFile, path + ".duration_seconds", 0.0)
                 String mode = JsonUtil.GetPathStringValue(LibraryFile, path + ".mode", "")
-                If composition != "" && duration > 0.0 && (mode == "vocal" || mode == "instrumental")
+                If composition != "" && duration > 0.0 && (mode == "vocal" || mode == "wordless" || mode == "instrumental")
                     Int rank = LastReceipt(composition)
                     Int modeRank = 1
-                    If mode == preferMode
+                    If mode == preferMode || (mode == "wordless" && preferMode == "vocal")
                         modeRank = 0
                     EndIf
                     ; Unperformed, then oldest receipt; requested mode breaks ties.
@@ -120,16 +120,17 @@ Function AppendReceipt(Int slot, String performerId, String region, Float starte
         SaveId = Game.GetPlayer().GetFormID() + ":" + Game.GetPlayer().GetActorBase().GetName() + ":" + Utility.GetCurrentGameTime()
     EndIf
     JsonUtil.Load(ReceiptsFile)
-    Int i = JsonUtil.PathCount(ReceiptsFile, ".receipts")
-    String path = ".receipts[" + i + "]"
-    JsonUtil.SetPathIntValue(ReceiptsFile, ".schema_version", 1)
+    Int i = JsonUtil.PathCount(ReceiptsFile, ".performances")
+    String path = ".performances[" + i + "]"
+    JsonUtil.SetPathIntValue(ReceiptsFile, ".version", 1)
+    JsonUtil.SetPathStringValue(ReceiptsFile, path + ".id", slot + ":" + i)
     JsonUtil.SetPathIntValue(ReceiptsFile, path + ".slot", slot)
     JsonUtil.SetPathStringValue(ReceiptsFile, path + ".performer_id", performerId)
     JsonUtil.SetPathStringValue(ReceiptsFile, path + ".region", region)
     JsonUtil.SetPathStringValue(ReceiptsFile, path + ".composition_id", ActiveComposition)
     JsonUtil.SetPathStringValue(ReceiptsFile, path + ".save_id", SaveId)
     JsonUtil.SetPathStringValue(ReceiptsFile, path + ".world_id", worldId)
-    JsonUtil.SetPathFloatValue(ReceiptsFile, path + ".time", Utility.GetCurrentGameTime())
+    JsonUtil.SetPathFloatValue(ReceiptsFile, path + ".at_hours", Utility.GetCurrentGameTime() * 24.0)
     JsonUtil.SetPathFloatValue(ReceiptsFile, path + ".started_real_seconds", started)
     JsonUtil.SetPathStringValue(ReceiptsFile, path + ".outcome", outcome)
     If !JsonUtil.Save(ReceiptsFile, False)

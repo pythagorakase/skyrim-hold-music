@@ -5,6 +5,7 @@ from pathlib import Path
 import struct
 import unittest
 import zlib
+from pex_vm import require_artifacts, require_pex
 
 ROOT=Path(__file__).resolve().parents[1]
 BUILD=ROOT/'build'
@@ -65,6 +66,8 @@ class Reader:
 class PluginTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        require_pex()
+        require_artifacts(BUILD/'package/HoldMusic.esp', BUILD/'package/SEQ/HoldMusic.seq', BUILD/'package-hashes.json')
         cls.records=records((BUILD/'package/HoldMusic.esp').read_bytes())
         cls.header=cls.records[0]
         cls.by_edid={r['values'][b'EDID'].rstrip(b'\0').decode():r for r in cls.records[1:]}

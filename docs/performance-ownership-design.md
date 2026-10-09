@@ -157,7 +157,7 @@ depends on T0; T3 depends on T1 and T2 passing their headset gates.
    alone attaches the lute animation object for every performer race.
 2. Whether a sound descriptor can play a 2-3 minute WAV without the engine's
    memory budget complaining; if not, cap recordings at 150 seconds in the
-   prompt and trim in ffmpeg.
+   prompt and trim in ffmpeg. T1b clears slot locks on load when the real clock is below LastRealTime (updated on loads/starts): an engine-cached WAV buffer can only survive within one process.
 3. The right interruption set in VR (menus, fast travel, cell transitions).
 4. Whether JsonUtil reads from the profile's data mod path under MO2's VFS or
    needs the file inside a mod folder; the install tool will place it where the

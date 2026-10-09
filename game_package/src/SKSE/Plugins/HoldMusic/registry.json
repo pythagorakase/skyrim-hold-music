@@ -1,6 +1,67 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "performers": [
+    {
+      "id": "delacourt",
+      "name": "Delacourt",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 468579
+      },
+      "region": "falkreath",
+      "venue": "Dead Man's Drink",
+      "instrument": "lute",
+      "gender": "male",
+      "traditions": [
+        "falkreath"
+      ]
+    },
+    {
+      "id": "luaffyn",
+      "name": "Luaffyn",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 294061
+      },
+      "region": "eastmarch",
+      "venue": "Candlehearth Hall",
+      "instrument": "lute",
+      "gender": "female",
+      "traditions": [
+        "eastmarch",
+        "dunmer"
+      ]
+    },
+    {
+      "id": "talsgar",
+      "name": "Talsgar the Wanderer",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 540057
+      },
+      "region": null,
+      "venue": null,
+      "instrument": "lute",
+      "gender": "male",
+      "traditions": [
+        "nord"
+      ]
+    },
+    {
+      "id": "lurbuk",
+      "name": "Lurbuk",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 109155
+      },
+      "region": "hjaalmarch",
+      "venue": "Moorside Inn",
+      "instrument": "lute",
+      "gender": "male",
+      "traditions": [
+        "hjaalmarch"
+      ]
+    },
     {
       "id": "mikael",
       "name": "Mikael",
@@ -8,12 +69,28 @@
         "plugin": "Skyrim.esm",
         "id": 108144
       },
-      "venue": {
-        "id": "bannered_mare",
-        "region": "whiterun"
-      },
+      "region": "whiterun",
+      "venue": "The Bannered Mare",
       "instrument": "lute",
-      "vocal_gender": "male"
+      "gender": "male",
+      "traditions": [
+        "whiterun"
+      ]
+    },
+    {
+      "id": "karita",
+      "name": "Karita",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 79386
+      },
+      "region": "pale",
+      "venue": "Windpeak Inn",
+      "instrument": "lute",
+      "gender": "female",
+      "traditions": [
+        "pale"
+      ]
     },
     {
       "id": "sven",
@@ -22,12 +99,223 @@
         "plugin": "Skyrim.esm",
         "id": 78975
       },
-      "venue": {
-        "id": "sleeping_giant_inn",
-        "region": "whiterun"
-      },
+      "region": "whiterun",
+      "venue": "Sleeping Giant Inn",
       "instrument": "lute",
-      "vocal_gender": "male"
+      "gender": "male",
+      "traditions": [
+        "whiterun"
+      ]
+    },
+    {
+      "id": "ogmund",
+      "name": "Ogmund",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 78765
+      },
+      "region": "reach",
+      "venue": "Silver-Blood Inn",
+      "instrument": "lute",
+      "gender": "male",
+      "traditions": [
+        "reach"
+      ]
+    },
+    {
+      "id": "lisette",
+      "name": "Lisette",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 78487
+      },
+      "region": "haafingar",
+      "venue": "The Winking Skeever",
+      "instrument": "lute",
+      "gender": "female",
+      "traditions": [
+        "haafingar"
+      ]
+    },
+    {
+      "id": "viarmo",
+      "name": "Viarmo",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 78509
+      },
+      "region": "haafingar",
+      "venue": "Bards College",
+      "instrument": "voice",
+      "gender": "male",
+      "traditions": [
+        "haafingar"
+      ]
+    },
+    {
+      "id": "pantea_ateia",
+      "name": "Pantea Ateia",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 78495
+      },
+      "region": "haafingar",
+      "venue": "Bards College",
+      "instrument": "voice",
+      "gender": "female",
+      "traditions": [
+        "haafingar"
+      ]
+    },
+    {
+      "id": "ataf",
+      "name": "Ataf",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 78485
+      },
+      "region": "haafingar",
+      "venue": "Bards College",
+      "instrument": "lute",
+      "gender": "male",
+      "traditions": [
+        "haafingar"
+      ]
+    },
+    {
+      "id": "jorn",
+      "name": "Jorn",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 78479
+      },
+      "region": "haafingar",
+      "venue": "Bards College",
+      "instrument": "drum",
+      "gender": "male",
+      "traditions": [
+        "haafingar"
+      ]
+    },
+    {
+      "id": "inge_six_fingers",
+      "name": "Inge Six Fingers",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 78474
+      },
+      "region": "haafingar",
+      "venue": "Bards College",
+      "instrument": "lute",
+      "gender": "female",
+      "traditions": [
+        "haafingar"
+      ]
+    },
+    {
+      "id": "illdi",
+      "name": "Illdi",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 78473
+      },
+      "region": "haafingar",
+      "venue": "Bards College",
+      "instrument": "flute",
+      "gender": "female",
+      "traditions": [
+        "haafingar"
+      ]
+    },
+    {
+      "id": "giraud_gemane",
+      "name": "Giraud Gemane",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 78465
+      },
+      "region": "haafingar",
+      "venue": "Bards College",
+      "instrument": "voice",
+      "gender": "male",
+      "traditions": [
+        "haafingar"
+      ]
+    },
+    {
+      "id": "aia_arria",
+      "name": "Aia Arria",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 78428
+      },
+      "region": "haafingar",
+      "venue": "Bards College",
+      "instrument": "voice",
+      "gender": "female",
+      "traditions": [
+        "haafingar"
+      ]
+    },
+    {
+      "id": "llewellyn",
+      "name": "Llewellyn the Nightingale",
+      "form": {
+        "plugin": "HearthFires.esm",
+        "id": 101856
+      },
+      "region": "falkreath",
+      "venue": "Lakeview Manor",
+      "instrument": "lute",
+      "gender": "male",
+      "traditions": [
+        "falkreath"
+      ]
+    },
+    {
+      "id": "sonir",
+      "name": "Sonir",
+      "form": {
+        "plugin": "HearthFires.esm",
+        "id": 103984
+      },
+      "region": "hjaalmarch",
+      "venue": "Windstad Manor",
+      "instrument": "lute",
+      "gender": "female",
+      "traditions": [
+        "hjaalmarch"
+      ]
+    },
+    {
+      "id": "oriella",
+      "name": "Oriella",
+      "form": {
+        "plugin": "HearthFires.esm",
+        "id": 103985
+      },
+      "region": "pale",
+      "venue": "Heljarchen Hall",
+      "instrument": "lute",
+      "gender": "female",
+      "traditions": [
+        "pale"
+      ]
+    },
+    {
+      "id": "lynly_star_sung",
+      "name": "Lynly Star-Sung",
+      "form": {
+        "plugin": "Skyrim.esm",
+        "id": 79548
+      },
+      "region": "rift",
+      "venue": "Vilemyr Inn",
+      "instrument": "lute",
+      "gender": "female",
+      "traditions": [
+        "rift"
+      ]
     }
   ]
 }

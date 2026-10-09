@@ -7,14 +7,21 @@ See [dated verification](../docs/game-package-verification.md) for evidence.
 
 ## Build
 
-Author on macOS; build only on halcyon under `C:\MGO\hm-scratch\t1`:
+Author on macOS; build only on halcyon under `C:\MGO\hm-scratch\t1b`:
+
+First create `C:\MGO\hm-scratch\t1b`, `hold_music` and `game_adapter\data`
+subdirectories there using the work order's encoded PowerShell SSH recipe.
+The builder imports T0's validator, so stage these read-only source copies as
+siblings of `game_package` (all remote writes remain inside T1b):
 
 ```sh
-scp -r -o BatchMode=yes game_package 'halcyon:C:/MGO/hm-scratch/t1/'
-ssh -o BatchMode=yes halcyon 'cd /d C:\MGO\hm-scratch\t1 && py -3 -B game_package\tools\build_game_package.py'
-scp -r -o BatchMode=yes 'halcyon:C:/MGO/hm-scratch/t1/game_package/build' game_package/
-/Users/pythagor/hold_music/.venv/bin/python -m unittest discover -s game_package/tests -v
-/Users/pythagor/hold_music/.venv/bin/python -m unittest discover -s tests -v
+scp -o BatchMode=yes hold_music/__init__.py hold_music/registry.py hold_music/repertoire.py 'halcyon:C:/MGO/hm-scratch/t1b/hold_music/'
+scp -o BatchMode=yes game_adapter/data/performers.json 'halcyon:C:/MGO/hm-scratch/t1b/game_adapter/data/'
+scp -r -o BatchMode=yes game_package 'halcyon:C:/MGO/hm-scratch/t1b/'
+ssh -o BatchMode=yes halcyon 'cd /d C:\MGO\hm-scratch\t1b && py -3 -B game_package\tools\build_game_package.py'
+scp -r -o BatchMode=yes 'halcyon:C:/MGO/hm-scratch/t1b/game_package/build' game_package/
+.venv/bin/python -m unittest discover -s game_package/tests -v
+.venv/bin/python -m unittest discover -s tests -v
 ```
 
 The script enforces its Windows scratch root, uses installed Caprica 0.3.0,
@@ -65,16 +72,17 @@ MCM Helper and SkyUI are runtime **script**
 dependencies, with no static record links requiring extra header masters.
 Skyrim VR also needs its installed ESL-support and PapyrusUtil/SKSE stack.
 
-## Registry and provisional helper contract
+## Registry and helper contract
 
-This worktree had no `game_adapter/data/performers.json` or
-`docs/library-format.md` when T1 began. The shipped registry is therefore the
-allowed minimal Mikael/Sven registry. Stable identities are Skyrim.esm base
-forms `0001A670` and `0001347F`, resolved from the supplied roster cache. Both
-venues have region `whiterun`. Every resolved audit form, including the lute,
-flute-reference and sound records inspected, is recorded with editor ID and
-provenance in `data/forms.json`. Actor names are used only for explicit JSON
-`"form": null`; missing, malformed or nonmatching identities do not fall back.
+`game_adapter/data/performers.json` is the only authored performer registry.
+Run `python -B game_package/tools/build_registry.py` after registry changes and
+review the generated `src/SKSE/Plugins/HoldMusic/registry.json`. The package
+builder first checks it against a fresh derivation and fails on drift without
+rewriting it. Schema version 2 retains all performers and authored plugin names,
+converts hex form IDs to integers for JsonUtil, and uses flat `region`/`venue`.
+Actor names are used only for explicit JSON `"form": null`; missing, malformed
+or nonmatching forms never fall back. Talsgar matches by identity but is skipped
+because his registry region is null. The nine hold IDs come from T0.
 
 The helper must supply a manifest at the exact JsonUtil base-relative filename
 `HoldMusic/library.json`, meaning:
@@ -90,42 +98,42 @@ must resolve to the intended profile data mod or overwrite. Their physical
 read/write locations have **not** been established. The helper must not place
 library.json beside the registry and assume JsonUtil will find it.
 
-Until T0's library-format document exists, the bridge contract is explicitly:
-
-```json
-{"schema_version": 1, "recordings": [
-  {"slot": 1, "performer_id": "mikael", "region": "whiterun",
-   "mode": "instrumental", "duration_seconds": 120.0,
-   "composition_id": "unique-composition-id"}
-]}
-```
+The manifest is T0's [library format](../docs/library-format.md):
+`{"version":1,"slots":24,"recordings":[...]}`. Each recording has top-level
+`slot`, `performer_id`, `region`, `mode`, `duration_seconds`, and `composition_id`
+plus the helper's asset/provenance metadata. A compiled-VM test selects a real
+`Library.add_recording` manifest built with a tiny standard-library WAV.
 
 Duration must describe the actual WAV; slot numbers are integers 1..24. The
 helper supplies mono PCM WAVs at the fixed sound paths. It may include lyrics
 hashes and generation receipts as additional metadata. Selection uses matching
 performer and registry-venue region, excludes locked slots, prefers compositions
 with no receipt, then the least recent receipt (append order). The requested
-vocal/instrumental mode breaks equally recent ties. Interrupted attempts also
+vocal/instrumental mode breaks equally recent ties; `wordless` is a sung mode
+and receives the same preference as `vocal`. Interrupted attempts also
 count as performed. The game never generates music or calls a provider.
 
 The game owns appending `receipts.json`; the helper reads it. Initial contents
-may be `{"schema_version":1,"receipts":[]}`. Each append contains:
+are `{"version":1,"performances":[]}`. Each append contains exactly:
 
 ```json
-{"slot":1,"performer_id":"mikael","region":"whiterun",
+{"id":"1:0","slot":1,"performer_id":"mikael","region":"whiterun",
  "composition_id":"unique-composition-id","save_id":"20:PlayerName:42.0",
- "world_id":"optional MCM value","time":42.0,
- "started_real_seconds":123.0,"outcome":"completed"}
+ "world_id":"","at_hours":1008.0,"outcome":"completed",
+ "started_real_seconds":123.0}
 ```
 
-`time` is game days from Utility.GetCurrentGameTime, not Unix time;
-`started_real_seconds` is the process-local real clock. Outcomes are completed
-or interrupted. No unavailable GetSaveName API is used. `save_id` combines the
-player reference FormID, actor-base name and game day of first receipt, then
-persists on HM_Library. It identifies a save lineage approximately, not an ESS
-filename or globally unique character. An MCM world ID disambiguates worlds;
-branched saves can share the fallback. Matching a future T0 format is a named
-integration dependency, not a claim that this provisional schema is final.
+`id` combines slot and zero-based append index. `at_hours` is game days from
+Utility.GetCurrentGameTime multiplied by 24; Papyrus has no wall clock.
+Outcomes are completed or interrupted. The helper accepts optional `written_at`
+provenance but locks receipts by index: `Library(root, session_receipt_index=N)`
+reserves every receipt slot at index >= N. Capture N as the receipt count when
+the game process starts, not when loading another save.
+
+`save_id` combines the player reference FormID, actor-base name and game day of
+first receipt, then persists on HM_Library. It approximates a save lineage,
+not an ESS filename or globally unique character. An optional MCM world ID
+may be empty; branched saves can share the fallback.
 JsonUtil.Save is called explicitly after each receipt; a failed save traces an
 error. Real JsonUtil serialization, concurrent helper reads and file failures
 still need integration validation.
@@ -158,11 +166,16 @@ or immediately schedule another. Existing cooldowns conservatively restart at
 1800 seconds because process real-clock timestamps are not portable across
 relaunches. Repeated loading can therefore extend a cooldown.
 
-Used-slot locks deliberately survive save/load: an ESS load is not proof of an
-empty engine audio cache. This is more restrictive than resetting the cap;
-24 distinct used slots exhaust that save lineage's pool. There is no automatic
-unlock or helper overwrite protocol in T1. A future cache-safe reset protocol
-needs explicit integration work; until then never replace/reuse locked audio.
+Used-slot locks survive save loads within the process because cached WAV
+buffers can survive an ESS load. On OnPlayerLoadGame, a real clock smaller than
+stored LastRealTime clears all locks: an engine-cached WAV buffer can only
+survive within one process. LastRealTime updates on every load and performance
+start. If a relaunched process clock has already overtaken the stored value,
+this comparison conservatively retains locks; it is not a unique process ID.
+The helper's session receipt boundary must likewise represent a process start.
+
+Tests skip with a build command when PEX/disassembly or ESP/SEQ artifacts are
+absent, so a fresh checkout is green; missing artifacts are not verification.
 
 ## Verification boundaries and later VFS probe
 
@@ -178,7 +191,7 @@ VR controls, sound cache or MO2 injection.
 configure a console Python executable in MO2 and launch it with:
 
 ```text
-C:\MGO\hm-scratch\t1\game_package\tools\probe_vfs.py --data-root <SkyrimVR-Data> --manifest C:\MGO\hm-scratch\t1\game_package\build\package-hashes.json
+C:\MGO\hm-scratch\t1b\game_package\tools\probe_vfs.py --data-root <SkyrimVR-Data> --manifest C:\MGO\hm-scratch\t1b\game_package\build\package-hashes.json
 ```
 
 The probe does not launch anything, install anything or write files. It reads

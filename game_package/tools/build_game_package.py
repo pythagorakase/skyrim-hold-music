@@ -1,4 +1,4 @@
-"""Offline build on halcyon. All writes stay below C:\\MGO\\hm-scratch\\t1."""
+"""Offline build on halcyon. All writes stay below C:\\MGO\\hm-scratch\\t1b."""
 import hashlib
 import json
 import os
@@ -7,8 +7,10 @@ import re
 import shutil
 import subprocess
 
+from build_registry import build_registry
+
 ROOT = Path(__file__).resolve().parents[1]
-SCRATCH = Path(r'C:\MGO\hm-scratch\t1')
+SCRATCH = Path(r'C:\MGO\hm-scratch\t1b')
 INSTALL = Path(r'C:\MGO\Skyrim MGO 4.0 RC4.1')
 PROFILE = INSTALL / 'profiles/MGO EXP - SkyrimNet b26 + SeverActions 4.2'
 AUDIT = Path(r'C:\MGO\codex-investigations\20261006-ostimnet-spouse-guard')
@@ -21,7 +23,9 @@ PACKAGE = BUILD / 'package'
 
 def main():
     if os.name != 'nt' or not ROOT.is_relative_to(SCRATCH):
-        raise SystemExit('Build only from C:\\MGO\\hm-scratch\\t1\\game_package on halcyon')
+        raise SystemExit('Build only from C:\\MGO\\hm-scratch\\t1b\\game_package on halcyon')
+    # Check the checked-in derivation before any build writes.
+    build_registry(check=True)
     BUILD.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
     for name, sub in {'TEMP':'tmp','TMP':'tmp','DOTNET_CLI_HOME':'dotnet-home','NUGET_PACKAGES':'nuget','NUGET_HTTP_CACHE_PATH':'nuget-http','NUGET_PLUGINS_CACHE_PATH':'nuget-plugins','MSBUILDUSEREXTENSIONSPATH':'msbuild','APPDATA':'appdata','LOCALAPPDATA':'localappdata'}.items():

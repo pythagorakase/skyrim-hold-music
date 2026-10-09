@@ -102,7 +102,7 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(v.run('hm_library','ChooseSlot','mikael','rift','instrumental'),0)
 
     def test_registry_null_fallback_and_malformed_form_rejection(self):
-        v=VM(); row=v.files['../HoldMusic/registry.json']['performers'][0]
+        v=VM(); row=next(r for r in v.files['../HoldMusic/registry.json']['performers'] if r['id']=='mikael')
         row['form']=None
         self.assertEqual(v.run('hm_library','FindPerformer','Mikael'),'mikael')
         for form in ({'plugin':'Skyrim.esm','id':123},'garbage',[],12,True):

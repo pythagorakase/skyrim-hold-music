@@ -65,7 +65,7 @@ Disassembled: HM_Library.pex
 Build ready: C:\MGO\hm-scratch\t1\game_package\build\package; 12 hashed files. Nothing installed or launched.
 ```
 
-`/Users/pythagor/hold_music/.venv/bin/python -m unittest discover -s game_package/tests -v`:
+`.venv/bin/python -m unittest discover -s game_package/tests -v`:
 
 ```text
 test_globals_and_seq (test_plugin.PluginTests.test_globals_and_seq) ... ok
@@ -79,7 +79,7 @@ Ran 20 tests in 0.047s
 OK
 ```
 
-`/Users/pythagor/hold_music/.venv/bin/python -m unittest discover -s tests -v`:
+`.venv/bin/python -m unittest discover -s tests -v`:
 
 ```text
 test_saved_takes_without_new_lyric_metadata_remain_readable (test_workshop_server.WorkshopHTTPTests.test_saved_takes_without_new_lyric_metadata_remain_readable) ... ok
@@ -185,5 +185,153 @@ Ignored artifacts: game_package/build/ contains PEX, PAS, ESP, SEQ, compile/
 disassembly/build/validation logs, dependency provenance, test logs and hashes.
 The remote scratch copy is retained for review; no install/profile operation
 was performed.
+
+## T1b reconciliation — 2026-10-09
+
+This section supersedes T1's provisional-contract and permanent-lock gates above.
+The full T0 registry is now derived through `hold_music.registry.load_registry`;
+all 21 identities, including HearthFires.esm performers, are preserved. The
+integer-ID projection has schema version 2 and flat region/venue fields.
+The build fails if the tracked projection differs from a fresh derivation.
+Talsgar matches by base form but is skipped because his region is null.
+
+The game and helper now share version 1 `performances` receipts: slot/index ID,
+game hours, completed/interrupted outcome, and process-local start time, without
+a wall-clock requirement. The helper accepts optional written_at provenance
+and empty MCM world IDs; session locks use original array indices >= N.
+Compiled ChooseSlot selects real helper-produced manifests (tiny wave-module
+WAVs), including wordless as sung preference. The same test reads compiled
+AppendReceipt output through the Python library and verifies the exact key set.
+Both load-clock branches are exercised: smaller clears all locks; equal/larger
+preserves locks. Loads and successful performance starts update LastRealTime.
+
+All remote writes were directed under `C:\MGO\hm-scratch\t1b\`.
+The staged validator, package initializer, repertoire module and authored
+performers file were unchanged copies needed by the new build-time import.
+The existing installation/toolchain was read only. Cached dependencies were
+copied into scratch with NuGet sources disabled. SSH/SCP used only `halcyon`;
+no internet/provider calls or dependency downloads/installations were made.
+No MO2, SkyrimVR, shortcut, VFS probe or profile installation was launched.
+Build artifacts were copied back to ignored `game_package/build/`.
+
+### Build log tail
+
+Caprica compiled all three sources; Mutagen's ESP round trip passed;
+Champollion disassembled the resulting PEX. The complete short build log is:
+
+```text
+Compiled: HM_Config
+Compiled: HM_Controller
+Compiled: HM_Library
+{
+  "path": "C:\\MGO\\hm-scratch\\t1b\\game_package\\build\\package\\HoldMusic.esp",
+  "bytes": 6259,
+  "esl": true,
+  "quests": 1,
+  "globals": 5,
+  "descriptors": 24,
+  "markers": 24,
+  "questFileId": "01000800",
+  "masters": [
+    "Skyrim.esm"
+  ],
+  "validation": "Mutagen serialize/read round-trip passed"
+}
+Disassembled: HM_Config.pex
+Disassembled: HM_Controller.pex
+Disassembled: HM_Library.pex
+Build ready: C:\MGO\hm-scratch\t1b\game_package\build\package; 12 hashed files. Nothing installed or launched.
+```
+
+### Unpiped unittest commands and tails
+
+`.venv/bin/python -m unittest discover -s tests -v`:
+
+```text
+test_saved_takes_without_new_lyric_metadata_remain_readable (test_workshop_server.WorkshopHTTPTests.test_saved_takes_without_new_lyric_metadata_remain_readable) ... ok
+test_status_is_read_only_and_does_not_expose_key (test_workshop_server.WorkshopHTTPTests.test_status_is_read_only_and_does_not_expose_key) ... ok
+test_success_hides_previous_failure_from_status_after_reload (test_workshop_server.WorkshopHTTPTests.test_success_hides_previous_failure_from_status_after_reload) ... ok
+test_sung_takes_without_saved_lyrics_work_without_reading_catalog (test_workshop_server.WorkshopHTTPTests.test_sung_takes_without_saved_lyrics_work_without_reading_catalog) ... ok
+
+----------------------------------------------------------------------
+Ran 207 tests in 18.427s
+
+OK (skipped=1)
+```
+
+`.venv/bin/python -m unittest discover -s game_package/tests -v`:
+
+```text
+test_globals_and_seq (test_plugin.PluginTests.test_globals_and_seq) ... ok
+test_hashes_and_compiled_sources_match (test_plugin.PluginTests.test_hashes_and_compiled_sources_match) ... ok
+test_quest_alias_scripts_and_every_property (test_plugin.PluginTests.test_quest_alias_scripts_and_every_property) ... ok
+test_sound_paths_markers_category_3d_and_no_loop (test_plugin.PluginTests.test_sound_paths_markers_category_3d_and_no_loop) ... ok
+
+----------------------------------------------------------------------
+Ran 24 tests in 0.071s
+
+OK
+```
+
+The full repository suite's single skip is the existing Windows embedded-interpreter
+regression. The rebuilt package suite has no skips. Separately, temporarily moving
+`build/` out of the way and restoring it in a finally block produced:
+
+```text
+Ran 15 tests in 0.002s
+
+OK (skipped=29)
+```
+
+Those are missing-artifact skips (including subtests and class setup), each with
+the build command and README staging/copy-back pointer. They establish clean
+fresh-checkout discovery, not compiled behavior. That log and the two final
+run tails are retained as `build/t1b-*-tests*.log`.
+
+### Adapted existing assertions and fixtures
+
+1. `test_resolved_form_ids`: replace the two-entry `forms.json` performer lookup with full T0 derivation equality, exact authored plugin/integer-ID checks, performer count, allowed regions, and byte-for-byte drift check. Existing audited form assertions remain.
+2. Recording-library receipt fixture: `id='1:0'`, `region` and `started_real_seconds` replace the arbitrary ID/required `written_at`; existing receipt-driven tests now run without wall time.
+3. `test_receipt_outcomes_scope_and_unknown_keys`: valid outcomes are completed/interrupted only; the old failed/playable case is replaced by a new malformed-outcome assertion rejecting failed.
+4. `test_session_locks_survive_other_scopes_and_failed_outcomes` becomes `...interrupted_outcomes`: interrupted foreign-save receipts lock at index 0, then boundary 1 unlocks the previous receipt. WAV-preservation and replacement assertions remain.
+5. `test_receipt_reserves_a_slot_even_when_manifest_entry_is_absent`: index 0 replaces its wall-clock boundary; the orphan-slot reservation assertions remain.
+6. `test_replacement_requires_boundary_and_removes_old_lyrics`: expect `session_receipt_index` in the missing-boundary error and supply index 0 for safe replacement; sidecar/planner assertions remain.
+7. `test_atomic_manifest_failure_restores_assets_and_cleans_temps`: supply index 0 instead of a timestamp; exact rollback assertions remain.
+8. Compiled `test_registry_null_fallback_and_malformed_form_rejection`: select Mikael by ID rather than row 0; all explicit-null/malformed/mismatched-form assertions remain.
+
+### Files changed
+
+- `game_package/tools/build_registry.py` — Validate T0 input and derive/check the integer-ID game registry.
+- `game_package/tools/build_game_package.py` — Check registry first and confine builds to T1b scratch.
+- `game_package/src/SKSE/Plugins/HoldMusic/registry.json` — Regenerate all 21 performers with flat region/venue and original plugin identities.
+- `game_package/src/Scripts/Source/HM_Library.psc` — Read flat regions, prefer wordless as sung, and write/read the unified receipts contract.
+- `game_package/src/Scripts/Source/HM_Controller.psc` — Skip regionless performers and reset locks when the process clock rolls back.
+- `hold_music/library.py` — Accept clockless game receipts and lock slots by original receipt-array index.
+- `game_package/tests/pex_vm.py` — Skip missing compiled artifacts, support multiplication, and model typed JsonUtil defaults.
+- `game_package/tests/test_controller.py` — Locate the Mikael fixture by stable ID in the complete registry.
+- `game_package/tests/test_plugin.py` — Skip absent build artifacts before binary parsing.
+- `game_package/tests/test_library_contract.py` — Exercise helper/compiled-VM interoperability, regionless skip and both clock branches.
+- `tests/test_game_package_sources.py` — Check full derivation, allowed regions, plugin identities and drift rejection.
+- `tests/test_recording_library.py` — Adapt session/receipt assertions and extend validation/boundary coverage.
+- `docs/library-format.md` — Document the single receipt contract and index boundary API.
+- `game_package/README.md` — Document T1b staging, derived data, unified contract and process-cache rationale.
+- `docs/performance-ownership-design.md` — Add one inline sentence to open question 2 about process-local cache locks.
+- `docs/game-package-verification.md` — Record this dated T1b evidence and remaining gates.
+
+### Still unverified
+
+Real JsonUtil null/path/array serialization, file writes and concurrent helper
+reads, MO2 VFS winners/write targets, native engine cache behavior, saved sound
+handles, animation attachment/stop, coexistence with other bard systems, audible
+positioning, long WAV memory behavior, menu/audio timing, VR interruption and
+MCM callbacks still need integration/headset verification. The specified clock
+comparison conservatively retains locks if a restarted process has already
+passed the saved LastRealTime. It does not identify a process uniquely.
+No in-game claims are made.
+
+The initial no-network/SSH conflict was explicitly resolved by the user's
+follow-up. No new stop-report items. No git commands or index/commit changes;
+the tree remains dirty, including the regenerated tracked registry for review.
+A filesystem hash inventory confirmed all source changes are on the allowlist.
 
 Authored by Codex, running GPT-6.

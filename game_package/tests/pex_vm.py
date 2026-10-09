@@ -4,14 +4,31 @@ Unknown instructions/calls fail. Native APIs are mocks, not engine validation.
 """
 import json
 import re
+import unittest
 from pathlib import Path
 BUILD = Path(__file__).resolve().parents[1] / 'build'
+
+BUILD_COMMAND = r"ssh -o BatchMode=yes halcyon 'cd /d C:\MGO\hm-scratch\t1b && py -3 -B game_package\tools\build_game_package.py' (see game_package/README.md for staging/copy-back)"
+
+
+def require_artifacts(*paths):
+    missing = [str(path.relative_to(BUILD)) for path in paths if not path.is_file()]
+    if missing:
+        raise unittest.SkipTest('Missing build artifacts: ' + ', '.join(missing) + '; build with ' + BUILD_COMMAND)
+
+
+def require_pex():
+    require_artifacts(*(BUILD / folder / (name + suffix)
+                        for name in ('HM_Config', 'HM_Controller', 'HM_Library')
+                        for folder, suffix in (('package/Scripts', '.pex'), ('disassembly', '.pas'))))
+
 
 def functions(text):
     return {m.group(1).lower():m.group() for m in re.finditer(r"\.function (\w+)\b.*?\.endFunction",text,re.S)}
 
 class VM:
     def __init__(self):
+        require_pex()
         self.scripts = {}
         self.state = {}
         for p in (BUILD/'disassembly').glob('*.pas'):
@@ -44,7 +61,7 @@ class VM:
         self.actors={x:dict(loaded=True,dead=False,combat=False,dialogue=False,follower=False,sit=0,sleep=0,cell='inn-cell',location='inn',base=f) for x,f in [('P',7),('Mikael',0x1A670),('Sven',0x1347F),('Other',999)]}
         self.candidates=['Mikael']
         root=Path(__file__).resolve().parents[1]
-        self.files={'../HoldMusic/registry.json':json.loads((root/'src/SKSE/Plugins/HoldMusic/registry.json').read_text()),'HoldMusic/library.json':{'recordings':[{'slot':1,'performer_id':'mikael','region':'whiterun','mode':'instrumental','duration_seconds':6.0,'composition_id':'c1'},{'slot':2,'performer_id':'sven','region':'whiterun','mode':'vocal','duration_seconds':6.0,'composition_id':'c2'}]},'HoldMusic/receipts.json':{'receipts':[]}}
+        self.files={'../HoldMusic/registry.json':json.loads((root/'src/SKSE/Plugins/HoldMusic/registry.json').read_text()),'HoldMusic/library.json':{'recordings':[{'slot':1,'performer_id':'mikael','region':'whiterun','mode':'instrumental','duration_seconds':6.0,'composition_id':'c1'},{'slot':2,'performer_id':'sven','region':'whiterun','mode':'vocal','duration_seconds':6.0,'composition_id':'c2'}]},'HoldMusic/receipts.json':{'version':1,'performances':[]}}
         self.modsettings={'bEnabled:General':True,'iInstrumentalPercent:General':50,'iSessionCap:General':3,'sWorldId:General':''}
         self.run('hm_controller','OnInit')
 
@@ -61,7 +78,7 @@ class VM:
 
     @property
     def receipts(self):
-        return self.files['HoldMusic/receipts.json']['receipts']
+        return self.files['HoldMusic/receipts.json']['performances']
 
     @staticmethod
     def default(typ):
@@ -119,6 +136,7 @@ class VM:
                 put(a[0],funcs[op]())
             elif op in ('iadd','fadd'): put(a[0],val(a[1])+val(a[2]))
             elif op in ('isub','fsub'): put(a[0],val(a[1])-val(a[2]))
+            elif op in ('imul','fmul'): put(a[0],val(a[1])*val(a[2]))
             elif op=='strcat': put(a[0],str(val(a[1]))+str(val(a[2])))
             elif op=='array_length': put(a[0],len(val(a[1]) or []))
             elif op=='array_create': put(a[0],[None]*val(a[1]))
@@ -212,7 +230,10 @@ class VM:
             if name=='pathmembers': return list(self.json_get(*a,default={}))
             if name.startswith('setpath'):
                 self.json_set(*a); return None
-            if name.startswith('getpath'): return self.json_get(*a)
+            if name.startswith('getpath'):
+                value = self.json_get(*a)
+                typ = {'getpathstringvalue': str, 'getpathintvalue': int, 'getpathfloatvalue': (int, float)}[name]
+                return value if isinstance(value, typ) and not isinstance(value, bool) else a[2]
             if name=='canresolvepath':
                 missing=object(); return self.json_get(*a,default=missing) is not missing
             if name.startswith('ispath'):

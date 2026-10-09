@@ -20,6 +20,7 @@ String PerformanceRegion
 Int Slot = 0
 Int Instance = -1
 Float Started = 0.0
+Float LastRealTime = 0.0
 Float Ends = 0.0
 Int SessionCount = 0
 Bool Busy = False
@@ -39,8 +40,13 @@ Event OnPlayerLoadGame()
     SessionCount = 0
     Busy = False
     Config.StopRequested = False
-    ; Preserve slot locks: an engine audio cache can survive loading an ESS.
-    ; Real clock restarts between processes. Conservatively restart cooldowns.
+    Float now = Utility.GetCurrentRealTime()
+    ; Cached WAV buffers survive save loads, but cannot survive a process restart.
+    If now < LastRealTime
+        Library.ResetSession()
+    EndIf
+    LastRealTime = now
+    ; Conservatively restart cooldowns on every load.
     Int i = 0
     While i < RecentCount
         RecentTimes[i] = Utility.GetCurrentRealTime()
@@ -144,7 +150,7 @@ Event OnUpdate()
             Actor candidate = candidates[i]
             If Eligible(candidate)
                 String id = Library.FindPerformer(candidate)
-                If id != "" && CooledDown(id)
+                If id != "" && Library.Region(id) != "" && CooledDown(id)
                     String region = Library.Region(id)
                     String mode = "vocal"
                     If Utility.RandomInt(1, 100) <= HM_InstrumentalPercent.GetValue()
@@ -173,6 +179,7 @@ Function StartPerformance(Actor candidate, String id, String region, Int chosen)
     Slot = chosen
     Library.LockSlot(chosen)
     Started = Utility.GetCurrentRealTime()
+    LastRealTime = Started
     Ends = Started + Library.Duration()
     SessionCount += 1
     Remember(id)

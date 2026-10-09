@@ -3,6 +3,10 @@ import json
 from pathlib import Path
 import re
 import unittest
+import tempfile
+
+from game_package.tools.build_registry import build_registry, derive_registry
+from hold_music.registry import REGIONS, load_registry
 
 ROOT=Path(__file__).resolve().parents[1]/'game_package'
 
@@ -33,8 +37,24 @@ class GamePackageSourceTests(unittest.TestCase):
         ids={f['edid']:f['id'] for f in forms}
         self.assertEqual(ids['LocTypeInn'],'0x0001CB87')
         registry=json.loads((ROOT/'src/SKSE/Plugins/HoldMusic/registry.json').read_text())
-        for performer in registry['performers']:
-            self.assertEqual(performer['form']['id'],int(ids[performer['name']],16))
+        self.assertEqual(registry, derive_registry())
+        authored = load_registry().performers
+        self.assertEqual(len(registry['performers']), len(authored))
+        for performer, source in zip(registry['performers'], authored):
+            self.assertTrue(performer['region'] is None or performer['region'] in REGIONS)
+            if source['form'] is not None:
+                self.assertEqual(performer['form'], dict(plugin=source['form']['plugin'], id=int(source['form']['id'], 16)))
+        build_registry(check=True)
+
+    def test_registry_check_rejects_drift_without_rewriting(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'registry.json'
+            build_registry(output=path)
+            build_registry(output=path, check=True)
+            path.write_text('{}')
+            with self.assertRaisesRegex(ValueError, 'stale'):
+                build_registry(output=path, check=True)
+            self.assertEqual(path.read_text(), '{}')
 
     def test_shared_slot_contract_and_builder_binding(self):
         slots=json.loads((ROOT/'data/slots.json').read_text())

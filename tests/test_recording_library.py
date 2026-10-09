@@ -44,9 +44,9 @@ class LibraryTests(unittest.TestCase):
         (self.root / 'library.json').write_text(json.dumps(data))
 
     def receipts(self, **changes):
-        row = dict(id='performance', slot=1, performer_id='mikael', composition_id='song',
+        row = dict(id='1:0', slot=1, performer_id='mikael', composition_id='song',
                    save_id='save', world_id='world', at_hours=98, outcome='completed',
-                   written_at='2026-10-09T12:00:00Z')
+                   region='whiterun', started_real_seconds=115.0)
         row.update(changes)
         (self.root / 'receipts.json').write_text(json.dumps({'version': 1, 'performances': [row], 'extra': 7}))
         return row
@@ -90,13 +90,41 @@ class LibraryTests(unittest.TestCase):
 
     def test_receipt_outcomes_scope_and_unknown_keys(self):
         self.add()
-        for outcome, action in [('completed', 'no_selection'), ('interrupted', 'no_selection'), ('failed', 'play_recording')]:
+        for outcome, action in [('completed', 'no_selection'), ('interrupted', 'no_selection')]:
             self.receipts(outcome=outcome, extra={'future': True})
             self.assertEqual(self.library.validate(), [])
             self.assertEqual(plan(self.snapshot())['action'], action)
         for scope in ({'save_id': 'other'}, {'world_id': 'other'}, {'performer_id': 'sven'}, {'at_hours': 101}):
             self.receipts(**scope)
             self.assertEqual(plan(self.snapshot())['action'], 'play_recording')
+
+    def test_receipt_clock_contract_and_optional_world(self):
+        self.add()
+        self.receipts(world_id='')
+        self.assertEqual(self.library.validate(), [])
+        self.receipts(written_at='2026-10-09T12:00:00Z')
+        self.assertEqual(self.library.validate(), [])
+        for changes in ({'written_at': 'bad'}, {'at_hours': None}, {'at_hours': -1},
+                        {'at_hours': float('nan')}, {'outcome': 'failed'}):
+            self.receipts(**changes)
+            self.assertTrue(self.library.validate())
+        row = self.receipts()
+        del row['at_hours']
+        (self.root / 'receipts.json').write_text(json.dumps({'version': 1, 'performances': [row]}))
+        self.assertTrue(self.library.validate())
+
+    def test_session_index_uses_original_array_positions(self):
+        self.add()
+        row = self.receipts(slot=2, written_at='2020-01-01T00:00:00Z')
+        (self.root / 'receipts.json').write_text(json.dumps({'version': 1, 'performances': [None, row]}))
+        library = Library(self.root, session_receipt_index=1).load()
+        self.assertEqual(library._locked_slots, {2})
+        self.assertTrue(library.problems)
+        for value in (-1, True, 1.5, '0'):
+            with self.assertRaises(ValueError):
+                Library(self.root, session_receipt_index=value)
+            with self.assertRaises(ValueError):
+                self.library.load(session_receipt_index=value)
 
     def test_partial_receipts_rejected_and_reported_without_helper_crash(self):
         self.add()
@@ -109,16 +137,16 @@ class LibraryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'invalid library'):
             self.add(composition_id='new')
 
-    def test_session_locks_survive_other_scopes_and_failed_outcomes(self):
+    def test_session_locks_survive_other_scopes_and_interrupted_outcomes(self):
         self.add()
-        self.receipts(outcome='failed', save_id='different')
-        self.library = Library(self.root, session_started_at='2026-10-09T11:00:00Z')
+        self.receipts(outcome='interrupted', save_id='different')
+        self.library = Library(self.root, session_receipt_index=0)
         self.assertTrue(self.library.load().recordings[0]['session_locked'])
         original = (self.root / 'hm_slot_01.wav').read_bytes()
         with self.assertRaisesRegex(ValueError, 'session locked'):
             self.add(slot=1)
         self.assertEqual((self.root / 'hm_slot_01.wav').read_bytes(), original)
-        self.library.load(session_started_at='2026-10-09T12:00:00Z')
+        self.library.load(session_receipt_index=1)
         self.assertFalse(self.library.recordings[0]['session_locked'])
         self.add(slot=1, composition_id='replacement')
         self.assertEqual(self.manifest()['recordings'][0]['composition_id'], 'replacement')
@@ -126,15 +154,15 @@ class LibraryTests(unittest.TestCase):
     def test_receipt_reserves_a_slot_even_when_manifest_entry_is_absent(self):
         self.add()
         self.receipts(slot=2)
-        cache = Library(self.root, '2026-10-09T11:00:00Z')
+        cache = Library(self.root, session_receipt_index=0)
         self.assertNotIn(2, cache.free_slots())
         self.assertEqual(cache.free_slots()[0], 3)
 
     def test_replacement_requires_boundary_and_removes_old_lyrics(self):
         self.add()
-        with self.assertRaisesRegex(ValueError, 'session_started_at'):
+        with self.assertRaisesRegex(ValueError, 'session_receipt_index'):
             self.add(slot=1)
-        self.library = Library(self.root, '2026-10-09T12:00:00Z')
+        self.library = Library(self.root, session_receipt_index=0)
         self.add(slot=1, mode='instrumental', lyrics=None, composition_id='instrumental', recipe_id='whiterun/instrumental')
         self.assertFalse((self.root / 'hm_slot_01.lyrics.txt').exists())
         snapshot = self.snapshot()
@@ -273,7 +301,7 @@ class LibraryTests(unittest.TestCase):
     def test_atomic_manifest_failure_restores_assets_and_cleans_temps(self):
         self.add()
         before = {p.name: p.read_bytes() for p in self.root.iterdir()}
-        self.library = Library(self.root, '2026-10-09T12:00:00Z')
+        self.library = Library(self.root, session_receipt_index=0)
         with patch('hold_music.library._atomic_json', side_effect=OSError('disk failure')):
             with self.assertRaises(OSError):
                 self.add(slot=1, composition_id='new', lyrics='new lyrics')

@@ -117,7 +117,7 @@ def _receipt_errors(row, slots, generation=False):
     if not isinstance(row, dict):
         return ['must be an object']
     errors = []
-    for key in ('id', 'performer_id', 'save_id', 'world_id') + (() if generation else ('composition_id',)):
+    for key in ('id', 'performer_id', 'save_id') + (('world_id',) if generation else ('composition_id',)):
         if not _text(row.get(key)):
             errors.append(f'{key} must be nonempty text')
     if not _number(row.get('at_hours')):
@@ -128,12 +128,15 @@ def _receipt_errors(row, slots, generation=False):
     else:
         if type(row.get('slot')) is not int or not 1 <= row['slot'] <= slots:
             errors.append('slot out of range')
-        if row.get('outcome') not in ('completed', 'interrupted', 'failed'):
+        if not isinstance(row.get('world_id'), str):
+            errors.append('world_id must be text (empty is allowed)')
+        if row.get('outcome') not in ('completed', 'interrupted'):
             errors.append('unknown outcome')
-        try:
-            _utc(row.get('written_at'))
-        except (ValueError, TypeError, OverflowError):
-            errors.append('written_at must be ISO UTC')
+        if 'written_at' in row:
+            try:
+                _utc(row['written_at'])
+            except (ValueError, TypeError, OverflowError):
+                errors.append('written_at must be ISO UTC')
     return errors
 
 
@@ -155,11 +158,12 @@ def _atomic_json(path, data):
 
 
 class Library:
-    def __init__(self, root, session_started_at=None):
+    def __init__(self, root, session_receipt_index=None):
         self.root = Path(root)
-        self.session_started_at = session_started_at
-        if session_started_at is not None:
-            _utc(session_started_at)
+        self.session_receipt_index = session_receipt_index
+        if session_receipt_index is not None:
+            if type(session_receipt_index) is not int or session_receipt_index < 0:
+                raise ValueError('session_receipt_index must be a nonnegative integer')
         self.manifest = {}
         self.recordings = []
         self.performances = []
@@ -199,13 +203,16 @@ class Library:
                 self._problem(f'{label}[{i}]: ' + '; '.join(errors))
             else:
                 valid.append(row)
+                if not generation and self.session_receipt_index is not None and i >= self.session_receipt_index:
+                    self._locked_slots.add(row['slot'])
         return valid
 
-    def load(self, session_started_at=None):
+    def load(self, session_receipt_index=None):
         """Refresh disk state. Bad content is reported, never silently repaired."""
-        if session_started_at is not None:
-            _utc(session_started_at)
-            self.session_started_at = session_started_at
+        if session_receipt_index is not None:
+            if type(session_receipt_index) is not int or session_receipt_index < 0:
+                raise ValueError('session_receipt_index must be a nonnegative integer')
+            self.session_receipt_index = session_receipt_index
         self.problems, self._write_errors = [], []
         self._locked_slots = set()
         self.recordings = []
@@ -230,9 +237,6 @@ class Library:
             receipts = {}
         self.performances = self._receipts(receipts.get('performances'))
         self.generation_receipts = self._receipts(data.get('generation_receipts', []), True)
-        if self.session_started_at is not None:
-            start = _utc(self.session_started_at)
-            self._locked_slots = {r['slot'] for r in self.performances if _utc(r['written_at']) > start}
         seen, compositions = set(), {}
         for i, raw in enumerate(rows):
             errors = _recording_errors(raw, self.slots)
@@ -322,8 +326,8 @@ class Library:
         existing = next((r for r in self.recordings if r['slot'] == slot), None)
         target = self.root / f'hm_slot_{slot:02d}.wav'
         sidecar = target.with_suffix('.lyrics.txt')
-        if (existing or target.exists() or sidecar.exists()) and self.session_started_at is None:
-            raise ValueError('slot replacement requires session_started_at')
+        if (existing or target.exists() or sidecar.exists()) and self.session_receipt_index is None:
+            raise ValueError('slot replacement requires session_receipt_index')
         if lyrics is not None and (mode != 'vocal' or not _text(lyrics)):
             raise ValueError('lyrics must be nonempty text for a vocal recording')
         info = wav_info(wav_path)
@@ -437,8 +441,6 @@ class Library:
                 performer_id=performer_id, request=recording_request, playable=row['playable'], created_at=created))
         result['compositions'] = list(compositions.values())
         for receipt in self.performances:
-            if receipt['outcome'] == 'failed':
-                continue
             result['recent_performances'].append({key: receipt[key] for key in
                 ('id', 'performer_id', 'composition_id', 'save_id', 'world_id')})
             result['recent_performances'][-1].update(at=receipt['at_hours'], recording_id=f"slot:{receipt['slot']:02d}")

@@ -37,6 +37,12 @@ a region label does not assert that Ogmund performs Reachfolk music.
 return None. Invalid registry structure, enums, IDs or forms raise ValueError;
 I/O and malformed JSON errors are explicit to the caller.
 
+The game registry is a generated projection: `python -B
+game_package/tools/build_registry.py` validates this source through `load_registry`
+and writes schema version 2 with integer form IDs and flat `region`/`venue`.
+Plugin identities (including HearthFires.esm) are preserved. The package build
+checks the tracked file against a fresh derivation and fails on drift.
+
 ## Library files
 
 `library.json` contains `version: 1`, `slots: 24`, and `recordings`. A recording is:
@@ -90,36 +96,44 @@ The game owns `receipts.json`; the library never rewrites it. Its shape is:
 {
   "version": 1,
   "performances": [{
-    "id": "performance-unique-id",
+    "id": "1:0",
     "slot": 1,
     "performer_id": "mikael",
+    "region": "whiterun",
     "composition_id": "example-composition",
     "save_id": "save-identity",
     "world_id": "continuity-identity",
     "at_hours": 123.5,
     "outcome": "completed",
-    "written_at": "2026-10-09T12:02:00Z"
+    "started_real_seconds": 115.0
   }]
 }
 ```
 
-Append entries to the array and publish a complete JSON document, preferably via
-a same-directory temporary file and atomic replace. Do not append bare JSON
-objects after the closing brace. IDs must be unique within save/world scope.
-`at_hours` is a finite nonnegative in-game hour; `written_at` is timezone-aware
-ISO UTC wall time. Outcomes are `completed`, `interrupted`, or `failed`. Unknown
-extra keys are tolerated. Missing receipts mean no history. Malformed JSON,
-including trailing partial-write garbage, rejects the entire document, reports
-problems, and blocks publication/reuse; the helper reader does not crash. Invalid
-individual receipt rows are reported and excluded, and also block writes.
-Callers must inspect `.problems` before acting on snapshots with incomplete history.
+The exact game path is `Data/SKSE/Plugins/StorageUtilData/HoldMusic/receipts.json`.
+Papyrus appends to `performances` and explicitly calls JsonUtil.Save; it emits
+only the fields above. `id` is `<slot>:<zero-based array index>`. `at_hours` is
+required, finite, nonnegative game time (`Utility.GetCurrentGameTime() * 24.0`).
+`started_real_seconds` is the process-local start clock. Papyrus has no wall
+clock and does not write `written_at`; the helper accepts that field optionally
+as ISO UTC provenance but never uses it for locks. `region` and
+`started_real_seconds` are tolerated metadata. Outcomes are exactly `completed`
+and `interrupted`. The optional MCM world ID may be an empty string.
 
-Construct `Library(root, session_started_at="...Z")` or pass that timestamp to
-`load()`. Every receipt with `written_at` strictly after this boundary reserves
-its slot, regardless of outcome or save/world (engine caching spans save loads).
-Loaded recording dictionaries carry the derived `session_locked: true` flag;
-it is not a durable timestamp-independent fact. Reserved slots remain reserved
-even when no manifest recording currently names them.
+Unknown extra keys are tolerated by the helper. Missing receipts mean no history.
+Malformed JSON, including trailing partial-write garbage, rejects the entire
+document, reports problems, and blocks publication/reuse without crashing the
+reader. Invalid individual rows are reported and excluded and also block writes.
+Callers must inspect `.problems` before acting on snapshots with incomplete history.
+Real JsonUtil serialization and concurrent reads remain runtime verification gates.
+
+Construct `Library(root, session_receipt_index=N)` or pass that index to `load()`.
+The helper records the full receipt-array length N when a game process session
+starts. Every receipt at original array index >= N reserves its slot, regardless
+of outcome, timestamp, save or world (engine caching spans save loads). The index
+is a nonnegative integer; it is not an index into filtered valid rows. Loaded
+recordings carry derived `session_locked` flags; slots remain reserved even when
+no manifest entry names them. Do not advance N on a save load within one process.
 
 `free_slots()` returns ascending unoccupied/unreserved slots, excluding orphan
 WAVs and sidecars. It never automatically evicts a recording. `add_recording()`
@@ -167,8 +181,7 @@ Future executors must supply these for material acquired during play. Foreign
 scopes and future recordings are excluded before assembling known compositions.
 
 Completed and interrupted performances map to `recent_performances` with their
-original performer/save/world/composition IDs and `at_hours` as `at`. Failed
-playback does not impose song rest, but still locks its slot. Receipts retain
+original performer/save/world/composition IDs and `at_hours` as `at`. Receipts retain
 their composition ID across slot reuse. The planner enforces scope and time.
 
 Optional top-level `library.json.generation_receipts` contains confirmed generation
