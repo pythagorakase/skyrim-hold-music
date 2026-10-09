@@ -100,8 +100,8 @@ The offline tests cover:
 Commands run unpiped:
 
 ```text
-/Users/pythagor/hold_music/.venv/bin/python tools/build_game_adapter.py
-/Users/pythagor/hold_music/.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python tools/build_game_adapter.py
+.venv/bin/python -m unittest discover -s tests -v
 node tests/test_workshop_prompts.js
 ```
 
@@ -173,8 +173,8 @@ helper process health/ready-log assertions now expect 0.2.2.
 Commands run unpiped from the worktree root:
 
 ```text
-/Users/pythagor/hold_music/.venv/bin/python tools/build_game_adapter.py
-/Users/pythagor/hold_music/.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python tools/build_game_adapter.py
+.venv/bin/python -m unittest discover -s tests -v
 ```
 
 ### 0.2.2 live relay check and deployment — 9 October 2026
