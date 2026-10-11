@@ -90,7 +90,7 @@ def main():
     output.mkdir(parents=True,exist_ok=True)
     for source in sorted((ROOT/'src/Scripts/Source').glob('*.psc')):
         resolved=set()
-        args=[COMPILER,source,'--game=skyrim','--ignorecwd','--allow-unknown-events=true','--skyrim-allow-unknown-events-on-non-native-class=true','-i',str(source.parent)+';'+str(imports),'-f',FLAGS,'-o',output,'--dump-asm']
+        args=[COMPILER,source,'--game=skyrim','--ignorecwd','--allow-unknown-events=true','--skyrim-allow-unknown-events-on-non-native-class=true','-i',str(source.parent)+';'+str(ROOT/'imports')+';'+str(imports),'-f',FLAGS,'-o',output,'--dump-asm']
         for attempt in range(70):
             result,content=run(args,f'compile-{source.stem}.log')
             if result.returncode==0:
@@ -114,6 +114,8 @@ def main():
         if result.returncode: raise RuntimeError(content)
         say('Disassembled: '+p.name)
     (BUILD/'dependencies.json').write_text(json.dumps(dependencies,indent=2)+'\n')
+    if any(p.stem.lower() == 'bardsongsscript' for p in PACKAGE.rglob('*') if p.is_file()):
+        raise RuntimeError('Compile-time BardSongsScript stub must never be packaged')
     hashes={p.relative_to(PACKAGE).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(PACKAGE.rglob('*')) if p.is_file()}
     (BUILD/'package-hashes.json').write_text(json.dumps(hashes,indent=2)+'\n')
     say(f'Build ready: {PACKAGE}; {len(hashes)} hashed files. Nothing installed or launched.')

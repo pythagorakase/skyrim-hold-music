@@ -4,6 +4,9 @@ Scriptname HM_Library extends Quest
 String Property LibraryFile = "HoldMusic/library.json" Auto
 String Property ReceiptsFile = "HoldMusic/receipts.json" Auto
 String Property RegistryFile = "../HoldMusic/registry.json" Auto
+String Property TraceFile = "HoldMusic/trace.json" Auto
+Int TraceSequence = 0
+Bool TraceSaveWarned = False
 Bool[] Locked
 String ActiveComposition = ""
 Float ActiveDuration
@@ -11,6 +14,7 @@ String SaveId = ""
 
 Function ResetSession()
     Locked = new Bool[24]
+    TraceSaveWarned = False
 EndFunction
 
 String Function FindPerformer(Actor candidate)
@@ -35,6 +39,18 @@ String Function FindPerformer(Actor candidate)
         EndIf
         If match
             Return JsonUtil.GetPathStringValue(RegistryFile, path + ".id", "")
+        EndIf
+        i += 1
+    EndWhile
+    Return ""
+EndFunction
+
+String Function Owner(String performerId)
+    Int i = 0
+    While i < JsonUtil.PathCount(RegistryFile, ".performers")
+        String path = ".performers[" + i + "]"
+        If JsonUtil.GetPathStringValue(RegistryFile, path + ".id", "") == performerId
+            Return JsonUtil.GetPathStringValue(RegistryFile, path + ".owner", "")
         EndIf
         i += 1
     EndWhile
@@ -134,6 +150,41 @@ Function AppendReceipt(Int slot, String performerId, String region, Float starte
     JsonUtil.SetPathFloatValue(ReceiptsFile, path + ".started_real_seconds", started)
     JsonUtil.SetPathStringValue(ReceiptsFile, path + ".outcome", outcome)
     If !JsonUtil.Save(ReceiptsFile, False)
-        Debug.Trace("HoldMusic: receipt save failed", 0)
+        Trace("receipt_failed", "id=" + performerId + " slot=" + slot)
+    EndIf
+EndFunction
+
+; eventName avoids Papyrus's reserved Event keyword.
+Function Trace(String eventName, String detail)
+    JsonUtil.Load(TraceFile)
+    Int count = JsonUtil.PathCount(TraceFile, ".entries")
+    ; Save loads can restore an older script counter than the external file.
+    If count > 0
+        Int previous = JsonUtil.GetPathIntValue(TraceFile, ".entries[" + (count - 1) + "].seq", 0)
+        If previous > TraceSequence
+            TraceSequence = previous
+        EndIf
+    EndIf
+    If count >= 300
+        JsonUtil.ClearPath(TraceFile, ".entries")
+        JsonUtil.SetRawPathValue(TraceFile, ".entries", "[]")
+        AppendTraceEntry("trace_rolled", "dropped=300")
+    EndIf
+    AppendTraceEntry(eventName, detail)
+EndFunction
+
+Function AppendTraceEntry(String eventName, String detail)
+    Int i = JsonUtil.PathCount(TraceFile, ".entries")
+    String path = ".entries[" + i + "]"
+    TraceSequence += 1
+    JsonUtil.SetPathIntValue(TraceFile, ".version", 1)
+    JsonUtil.SetPathIntValue(TraceFile, path + ".seq", TraceSequence)
+    JsonUtil.SetPathFloatValue(TraceFile, path + ".real_seconds", Utility.GetCurrentRealTime())
+    JsonUtil.SetPathFloatValue(TraceFile, path + ".game_hours", Utility.GetCurrentGameTime() * 24.0)
+    JsonUtil.SetPathStringValue(TraceFile, path + ".event", eventName)
+    JsonUtil.SetPathStringValue(TraceFile, path + ".detail", detail)
+    If !JsonUtil.Save(TraceFile, False) && !TraceSaveWarned
+        TraceSaveWarned = True
+        Debug.Trace("HoldMusic: trace save failed", 0)
     EndIf
 EndFunction

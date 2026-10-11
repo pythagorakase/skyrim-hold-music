@@ -49,6 +49,10 @@ class VM:
         self.now=100.0
         self.effects=[]
         self.scheduled=None
+        self.vanilla_available=True
+        self.scene_playing=[False]*16
+        self.idle_succeeds=True
+        self.save_failures=set()
         self.settings={'HM_Enabled':1.,'HM_InstrumentalPercent':50.,'HM_SessionCap':3.,'HM_MinDelaySeconds':15.,'HM_MaxDelaySeconds':60.}
         for owner in ('hm_controller','hm_config'):
             for key in self.settings:
@@ -57,11 +61,14 @@ class VM:
             self.prop('hm_controller',key,('self','hm_'+key.lower()))
         for key in ('LocTypeInn','CurrentFollowerFaction','IdleLuteStart','IdleStop'):
             self.prop('hm_controller',key,key)
+        self.prop('hm_controller','BardSongsQuest',('quest','BardSongs'))
+        self.prop('hm_controller','VanillaScenes',[('scene',i) for i in range(16)])
         self.prop('hm_controller','SlotSounds',[('sound',i) for i in range(1,25)])
         self.actors={x:dict(loaded=True,dead=False,combat=False,dialogue=False,follower=False,sit=0,sleep=0,cell='inn-cell',location='inn',base=f) for x,f in [('P',7),('Mikael',0x1A670),('Sven',0x1347F),('Other',999)]}
         self.candidates=['Mikael']
-        root=Path(__file__).resolve().parents[1]
-        self.files={'../HoldMusic/registry.json':json.loads((root/'src/SKSE/Plugins/HoldMusic/registry.json').read_text()),'HoldMusic/library.json':{'recordings':[{'slot':1,'performer_id':'mikael','region':'whiterun','mode':'instrumental','duration_seconds':6.0,'composition_id':'c1'},{'slot':2,'performer_id':'sven','region':'whiterun','mode':'vocal','duration_seconds':6.0,'composition_id':'c2'}]},'HoldMusic/receipts.json':{'version':1,'performances':[]}}
+        registry={'version':2,'performers':[{'id':pid,'name':name,'form':{'plugin':'Skyrim.esm','id':fid},'region':'whiterun','owner':'hold_music'} for pid,name,fid in [('mikael','Mikael',0x1A670),('sven','Sven',0x1347F)]]}
+        registry['performers'].append({'id':'talsgar','name':'Talsgar','form':{'plugin':'Skyrim.esm','id':0x83D99},'region':None,'owner':'hold_music'})
+        self.files={'../HoldMusic/registry.json':registry,'HoldMusic/library.json':{'recordings':[{'slot':1,'performer_id':'mikael','region':'whiterun','mode':'instrumental','duration_seconds':6.0,'composition_id':'c1'},{'slot':2,'performer_id':'sven','region':'whiterun','mode':'vocal','duration_seconds':6.0,'composition_id':'c2'}]},'HoldMusic/receipts.json':{'version':1,'performances':[]}}
         self.modsettings={'bEnabled:General':True,'iInstrumentalPercent:General':50,'iSessionCap:General':3,'sWorldId:General':''}
         self.run('hm_controller','OnInit')
 
@@ -128,6 +135,7 @@ class VM:
                     elif typ=='int': v=int(v or 0)
                     elif typ=='float': v=float(v or 0)
                     elif typ=='string': v=str(v)
+                    elif typ=='bardsongsscript': v=('vanilla','BardSongs') if v==('quest','BardSongs') and self.vanilla_available else None
                 put(a[0],v)
             elif op=='not': put(a[0],not val(a[1]))
             elif op.startswith('cmp_') or op=='comp_gte':
@@ -157,6 +165,10 @@ class VM:
     def method(self,obj,name,a):
         if isinstance(obj,tuple):
             kind,key=obj
+            if kind=='scene' and name=='isplaying':
+                self.effects.append(('scene_check',key)); return self.scene_playing[key]
+            if kind=='vanilla' and name=='stopallsongs':
+                self.effects.append(('stop_vanilla',)); self.scene_playing=[False]*16; return None
             if kind=='global':
                 if name=='getvalue': return self.settings[key]
                 if name=='setvalue': self.settings[key]=a[0]; return None
@@ -171,6 +183,7 @@ class VM:
                 if name=='registerforsingleupdate': self.scheduled=a[0]; self.effects.append(('schedule',a[0])); return None
                 if name=='unregisterforupdate': self.scheduled=None; return None
                 if name.startswith('getmodsetting'): return self.modsettings[a[0]]
+        if obj in ('inn','outside') and name=='getformid': return 0x1CB8C if obj=='inn' else 0x123
         if obj in ('inn','outside') and name=='haskeyword':
             assert a==['LocTypeInn']; return obj=='inn'
         if isinstance(obj,str) and obj in self.actors:
@@ -180,7 +193,7 @@ class VM:
             if name=='isinfaction': assert a==['CurrentFollowerFaction']; return actor['follower']
             if name=='getactorbase': return ('base',obj)
             if name=='getformid': assert obj=='P'; return 0x14
-            if name=='playidle': self.effects.append(('idle',obj,a[0])); return True
+            if name=='playidle': self.effects.append(('idle',obj,a[0])); return self.idle_succeeds
         raise AssertionError(('unmocked method',obj,name,a))
 
     @staticmethod
@@ -225,7 +238,16 @@ class VM:
         if owner=='debug' and name=='trace': self.effects.append(('trace',*a)); return None
         if owner=='jsonutil':
             if name in ('load','isgood'): return a[0] in self.files
-            if name=='save': self.effects.append(('save',a[0])); return True
+            if name=='save':
+                assert a[1] is False
+                self.effects.append(('save',a[0])); return a[0] not in self.save_failures
+            if name=='clearpath':
+                keys=self.parts(a[1]); obj=self.files[a[0]]
+                for key in keys[:-1]: obj=obj[key]
+                if keys[-1] in obj: del obj[keys[-1]]
+                self.effects.append(('clearpath',*a)); return None
+            if name=='setrawpathvalue':
+                self.json_set(a[0],a[1],json.loads(a[2])); return True
             if name=='pathcount': return len(self.json_get(*a,default=[]) or [])
             if name=='pathmembers': return list(self.json_get(*a,default={}))
             if name.startswith('setpath'):

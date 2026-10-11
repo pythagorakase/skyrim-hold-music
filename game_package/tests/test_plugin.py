@@ -78,6 +78,7 @@ class PluginTests(unittest.TestCase):
         from collections import Counter
         self.assertTrue(self.header['flags']&0x200)
         self.assertEqual([v for t,v in self.header['parts'] if t==b'MAST'],[b'Skyrim.esm\0'])
+        self.assertEqual(struct.unpack('<fII',self.header['values'][b'HEDR'])[2],0x858)
         self.assertEqual(Counter(r['tag'] for r in self.records),{b'TES4':1,b'QUST':1,b'GLOB':5,b'SNDR':24,b'SOUN':24})
         self.assertTrue(all(r['id']>>24==self.master_count and 0x800<=r['id']&0xffffff<=0xfff for r in self.records[1:]))
 
@@ -105,6 +106,14 @@ class PluginTests(unittest.TestCase):
         for key in ('LocTypeInn','CurrentFollowerFaction','IdleLuteStart','IdleStop'):
             form=next(x for x in forms if x['edid']==key)
             self.assertEqual(props[key],{'form':int(form['id'],16),'alias':-1})
+        quest_form=next(x for x in forms if x['edid']=='BardSongs')
+        self.assertEqual(props['BardSongsQuest'],{'form':int(quest_form['id'],16),'alias':-1})
+        scene_ids=[0x83DA2,0xCF8FB,0xCF8FA,0xCF8FC,0xD0843,0xD0845,0xD0842,0xD0844,
+                   0x6E5AE,0x106007,0x95889,0x1069C2,0x107511,0x107512,0x108ED2,0x108ED3]
+        self.assertEqual(props['VanillaScenes'],[{'form':fid,'alias':-1} for fid in scene_ids])
+        self.assertEqual(set(props),{'Library','Config','LocTypeInn','CurrentFollowerFaction',
+            'IdleLuteStart','IdleStop','SlotSounds','BardSongsQuest','VanillaScenes',
+            'HM_Enabled','HM_InstrumentalPercent','HM_SessionCap','HM_MinDelaySeconds','HM_MaxDelaySeconds'})
         for key in ('HM_Enabled','HM_InstrumentalPercent','HM_SessionCap','HM_MinDelaySeconds','HM_MaxDelaySeconds'):
             self.assertEqual(props[key]['form'],self.by_edid[key]['id'])
             if key in ('HM_Enabled','HM_InstrumentalPercent','HM_SessionCap'):
@@ -131,6 +140,8 @@ class PluginTests(unittest.TestCase):
 
     def test_hashes_and_compiled_sources_match(self):
         hashes=json.loads((BUILD/'package-hashes.json').read_text())
+        self.assertFalse(any('bardsongsscript' in name.lower() or name.startswith('imports/') for name in hashes))
+        self.assertEqual({p.name for p in (BUILD/'package/Scripts').glob('*.pex')},{'HM_Config.pex','HM_Controller.pex','HM_Library.pex'})
         actual={p.relative_to(BUILD/'package').as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in (BUILD/'package').rglob('*') if p.is_file()}
         self.assertEqual(actual,hashes)
         for p in (ROOT/'src').rglob('*'):

@@ -7,6 +7,8 @@ Faction Property CurrentFollowerFaction Auto
 Idle Property IdleLuteStart Auto
 Idle Property IdleStop Auto
 Sound[] Property SlotSounds Auto
+Quest Property BardSongsQuest Auto
+Scene[] Property VanillaScenes Auto
 GlobalVariable Property HM_Enabled Auto
 GlobalVariable Property HM_InstrumentalPercent Auto
 GlobalVariable Property HM_SessionCap Auto
@@ -56,6 +58,18 @@ EndEvent
 
 Event OnLocationChange(Location akOldLoc, Location akNewLoc)
     UnregisterForUpdate()
+    ; Trace only inn transitions: the ring holds 300 entries and ordinary
+    ; travel changes location constantly.
+    If akOldLoc && akOldLoc != akNewLoc && akOldLoc.HasKeyword(LocTypeInn)
+        Library.Trace("location_leave", "")
+    EndIf
+    Bool inn = akNewLoc && akNewLoc.HasKeyword(LocTypeInn)
+    If inn
+        Library.Trace("location_enter", "inn=true")
+        If HM_Enabled.GetValue() == 0.0
+            Library.Trace("disabled", "")
+        EndIf
+    EndIf
     If Performer && akNewLoc != Venue
         StopPerformance("interrupted")
     EndIf
@@ -73,7 +87,13 @@ Event OnLocationChange(Location akOldLoc, Location akNewLoc)
 EndEvent
 
 Function ScheduleCheck()
-    If HM_Enabled.GetValue() == 0.0 || SessionCount >= HM_SessionCap.GetValue() || Performer
+    If HM_Enabled.GetValue() == 0.0
+        Library.Trace("disabled", "")
+        Return
+    ElseIf SessionCount >= HM_SessionCap.GetValue()
+        Library.Trace("session_cap", "")
+        Return
+    ElseIf Performer
         Return
     EndIf
     Float low = HM_MinDelaySeconds.GetValue()
@@ -134,7 +154,13 @@ Event OnUpdate()
         Return
     EndIf
     Busy = True
+    If HM_Enabled.GetValue() == 0.0
+        Library.Trace("disabled", "")
+    ElseIf !Performer && SessionCount >= HM_SessionCap.GetValue()
+        Library.Trace("session_cap", "")
+    EndIf
     If Performer
+        CheckVanillaScenes()
         If HM_Enabled.GetValue() == 0.0 || Config.StopRequested || !Eligible(Performer) || Game.GetPlayer().GetCurrentLocation() != Venue || Performer.GetParentCell() != Game.GetPlayer().GetParentCell()
             StopPerformance("interrupted")
         ElseIf Utility.GetCurrentRealTime() >= Ends
@@ -144,33 +170,60 @@ Event OnUpdate()
             Poll()
         EndIf
     ElseIf HM_Enabled.GetValue() != 0.0 && SessionCount < HM_SessionCap.GetValue() && Venue && Game.GetPlayer().GetCurrentLocation() == Venue && Venue.HasKeyword(LocTypeInn) && !Config.StopRequested
+        Library.Trace("check_start", "venue=" + Venue.GetFormID())
         Actor[] candidates = MiscUtil.ScanCellNPCs(Game.GetPlayer(), 2000.0, None, True)
         Int i = 0
+        Int matched = 0
         While i < candidates.Length && !Performer
             Actor candidate = candidates[i]
-            If Eligible(candidate)
-                String id = Library.FindPerformer(candidate)
-                If id != "" && Library.Region(id) != "" && CooledDown(id)
-                    String region = Library.Region(id)
+            String id = Library.FindPerformer(candidate)
+            If id != ""
+                matched += 1
+                String owner = Library.Owner(id)
+                Bool ours = owner == "hold_music"
+                If !ours
+                    owner = "skyrimnet"
+                EndIf
+                Bool allowed = Eligible(candidate)
+                Bool cooled = CooledDown(id)
+                String region = Library.Region(id)
+                String traceRegion = region
+                If traceRegion == ""
+                    traceRegion = "none"
+                EndIf
+                Library.Trace("candidate", "id=" + id + " owner=" + owner + " eligible=" + BoolText(allowed) + " region=" + traceRegion + " cooled=" + BoolText(cooled))
+                If ours && allowed && region != "" && cooled
                     String mode = "vocal"
                     If Utility.RandomInt(1, 100) <= HM_InstrumentalPercent.GetValue()
                         mode = "instrumental"
                     EndIf
                     Int chosen = Library.ChooseSlot(id, region, mode)
                     If chosen > 0 && SlotSounds.Length == 24 && SlotSounds[chosen - 1]
+                        Library.Trace("slot_chosen", "id=" + id + " slot=" + chosen + " mode=" + mode)
                         StartPerformance(candidate, id, region, chosen)
                     EndIf
                 EndIf
             EndIf
             i += 1
         EndWhile
+        If !Performer
+            Library.Trace("no_performer", "scanned=" + i + " matched=" + matched)
+        EndIf
         ; No performer/recording: remain idle until the next location entry.
     EndIf
     Busy = False
 EndEvent
 
 Function StartPerformance(Actor candidate, String id, String region, Int chosen)
+    BardSongsScript vanilla = BardSongsQuest as BardSongsScript
+    If vanilla
+        vanilla.StopAllSongs()
+        Library.Trace("vanilla_stopped", "")
+    Else
+        Library.Trace("vanilla_unavailable", "")
+    EndIf
     If !candidate.PlayIdle(IdleLuteStart)
+        Library.Trace("idle_failed", "id=" + id + " slot=" + chosen)
         Return
     EndIf
     Performer = candidate
@@ -187,6 +240,7 @@ Function StartPerformance(Actor candidate, String id, String region, Int chosen)
     If Instance < 0
         StopPerformance("interrupted")
     Else
+        Library.Trace("performance_start", "id=" + id + " slot=" + chosen + " duration=" + Library.Duration())
         Poll()
     EndIf
 EndFunction
@@ -208,10 +262,35 @@ Function StopPerformance(String outcome)
             Sound.StopInstance(Instance)
         EndIf
         Performer.PlayIdle(IdleStop)
+        Library.Trace("performance_stop", "outcome=" + outcome + " id=" + PerformerId + " slot=" + Slot)
         Library.AppendReceipt(Slot, PerformerId, PerformanceRegion, Started, outcome, Config.WorldId)
     EndIf
     Performer = None
     Instance = -1
     Slot = 0
     Config.StopRequested = False
+EndFunction
+
+String Function BoolText(Bool value)
+    If value
+        Return "true"
+    EndIf
+    Return "false"
+EndFunction
+
+Function CheckVanillaScenes()
+    Int i = 0
+    While i < VanillaScenes.Length
+        If VanillaScenes[i] && VanillaScenes[i].IsPlaying()
+            BardSongsScript vanilla = BardSongsQuest as BardSongsScript
+            If vanilla
+                vanilla.StopAllSongs()
+                Performer.PlayIdle(IdleLuteStart)
+                Library.Trace("vanilla_restarted", "scene=" + i)
+            Else
+                Library.Trace("vanilla_unavailable", "")
+            EndIf
+        EndIf
+        i += 1
+    EndWhile
 EndFunction
