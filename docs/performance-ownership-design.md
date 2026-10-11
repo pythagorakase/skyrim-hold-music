@@ -137,6 +137,40 @@ T2b adds the [read-only actor knowledge bridge](knowledge-bridge.md), planner-dr
 T0 and T1 are independent of each other and can be built in parallel; T2
 depends on T0; T3 depends on T1 and T2 passing their headset gates.
 
+## Staged takeover (decided 11 October 2026)
+
+The first owned release does not replace SkyrimNet's bard system; it runs
+beside it and takes only the performers SkyrimNet's eligibility check rejects.
+Each registered performer carries an authored `owner` field (`hold_music` or
+`skyrimnet`); the game controller performs only for `hold_music` performers,
+and the adapter keeps regionalizing SkyrimNet's compositions for the rest.
+Sven (Sleeping Giant Inn) and Lynly Star-Sung (Vilemyr Inn) are the first
+`hold_music` performers because SkyrimNet never acts on them, so a headset
+test at either inn cannot collide with a SkyrimNet performance. The flip to
+full ownership (T3) happens only after this path is heard working.
+
+Two consequences shape T1d and T1e:
+
+- **Vanilla scene lock.** The controller does not depend on SkyrimNet to
+  silence the vanilla `BardSongs` scenes any more. It calls the vanilla
+  quest script's `StopAllSongs()` before its own lute idle and, while a
+  performance runs, re-stops any vanilla scene that restarts (bard AI
+  packages call `PlaySong(..., ChangeSettings=True)`, which bypasses the
+  vanilla stop flag). This is what caused the drum overlap heard on 9 October.
+- **Evidence without Papyrus logging.** The profile has Papyrus logging off,
+  so the controller writes a bounded `trace.json` through JsonUtil (schema in
+  [evidence.md](evidence.md)) and `tools/collect_evidence.py` assembles trace,
+  receipts and the relevant log lines into one report after a session. Both
+  JSON files are shipped by the installer so MO2's virtual file system keeps
+  the game's writes inside the mod folder; the collector also checks
+  `overwrite`.
+
+| Step | Deliverable | Offline proof | Needs the headset |
+|---|---|---|---|
+| T1d | `owner` field in the registry; runtime storage locator; evidence collector; installer ships `trace.json` | Unit tests, derived registry check | No |
+| T1e | Owner gate, vanilla scene lock and trace log in the controller; plugin wiring for the vanilla quest and scenes; Halcyon compile | PEX VM tests, Caprica compile, Mutagen round trip | One session: Sven performs at the Sleeping Giant Inn with no vanilla overlap; trace and receipts collected |
+| T2c | Consolidated seed library on Halcyon with instrumental recordings for Sven and Lynly (plus sung pieces when the planner selects a topic) | Library validation, bounded spend | No |
+
 ## Decisions recorded
 
 - **Papyrus plus sound descriptors, no DLL.** A native plugin would allow
@@ -149,6 +183,9 @@ depends on T0; T3 depends on T1 and T2 passing their headset gates.
   timing authoritative and avoids silencing work.
 - **Registry over predicate.** Who performs is authored data, so Sven and
   Lynly can perform and a Bards College historian need not.
+- **Coexistence before replacement.** Ownership is per performer, so the
+  owned path is tested on bards SkyrimNet ignores while SkyrimNet keeps the
+  rest; nothing regresses if the owned path fails its first headset test.
 - **Ahead-of-time generation.** A performance must never wait on a paid
   request; if no recording fits, the bard does not perform and the helper
   queues work for next time.
