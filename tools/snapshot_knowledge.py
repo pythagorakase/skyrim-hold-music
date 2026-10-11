@@ -16,6 +16,7 @@ from hold_music.knowledge_bridge import snapshot
 from hold_music.library import Library
 from hold_music.lyria_client import MODEL
 from hold_music.registry import load_registry
+from hold_music.runtime_paths import DEFAULT_MOD_NAME, resolve_receipts
 
 
 def main(argv=None):
@@ -30,15 +31,28 @@ def main(argv=None):
     parser.add_argument('--since-hours', type=float)
     parser.add_argument('--max-observations', type=int, default=40)
     parser.add_argument('--allow-name-match', action='store_true')
+    receipts_group = parser.add_mutually_exclusive_group()
+    receipts_group.add_argument('--receipts', type=Path, help='explicit performance receipts file')
+    receipts_group.add_argument('--mo2-root', type=Path, help='discover newest MO2 performance receipts')
+    parser.add_argument('--mod-name', default=None, help=f'MO2 mod (default: {DEFAULT_MOD_NAME})')
+    parser.add_argument('--data-mod', help='additional MO2 data mod to search')
     args = parser.parse_args(argv)
+    if args.mo2_root is None and (args.mod_name is not None or args.data_mod is not None):
+        parser.error('--mod-name and --data-mod require --mo2-root')
+    args.mod_name = args.mod_name or DEFAULT_MOD_NAME
     try:
+        receipts_path = (resolve_receipts(args.mo2_root, args.mod_name, args.data_mod)
+                         if args.mo2_root is not None else args.receipts)
+        print(f'Receipts: {receipts_path}' if receipts_path is not None else
+              f'Receipts: none found or selected; library default applies: {args.library / "receipts.json"}',
+              file=sys.stderr)
         performer = next((p for p in load_registry(args.registry).performers if p['id'] == args.performer), None)
         if performer is None:
             raise ValueError('Unknown performer')
         region = performer['region'] or 'nord'
         request = dict(tradition=region, arrangement='solo_lute_and_voice', mode='lyrical',
                        voice=performer['gender'], recipe_id=f'{region}/vocal', model_id=MODEL)
-        data, report = snapshot(performer, args.db, Library(args.library), args.now_hours,
+        data, report = snapshot(performer, args.db, Library(args.library, receipts_path=receipts_path), args.now_hours,
             request, max_observations=args.max_observations, since_hours=args.since_hours,
             allow_name_match=args.allow_name_match)
         if args.out.resolve() == args.db.resolve():

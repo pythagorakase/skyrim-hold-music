@@ -17,7 +17,8 @@
         "falkreath"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "Nordic ballads; cheering a gloomy town. Gender source: vanilla."
+      "notes": "Nordic ballads; cheering a gloomy town. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "luaffyn",
@@ -35,7 +36,8 @@
         "dunmer"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "Dunmer; Nordic, Imperial and Dunmeri training; also flute and drum. Gender source: vanilla."
+      "notes": "Dunmer; Nordic, Imperial and Dunmeri training; also flute and drum. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "talsgar",
@@ -52,7 +54,8 @@
         "nord"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "Traveling Nordic balladeer; no fixed venue. Gender source: vanilla."
+      "notes": "Traveling Nordic balladeer; no fixed venue. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "lurbuk",
@@ -69,7 +72,8 @@
         "hjaalmarch"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "Poor lute playing and discordant original songs; preserve his limitations. Gender source: vanilla."
+      "notes": "Poor lute playing and discordant original songs; preserve his limitations. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "mikael",
@@ -86,7 +90,8 @@
         "whiterun"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "Nordic lute and voice; travel and cross-cultural learning. Gender source: vanilla."
+      "notes": "Nordic lute and voice; travel and cross-cultural learning. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "karita",
@@ -103,7 +108,8 @@
         "pale"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "The Dawnstar bard, biography karita_6C7.prompt. Gender source: vanilla. venue ambiguous in locations.json; region authored."
+      "notes": "The Dawnstar bard, biography karita_6C7.prompt. Gender source: vanilla. venue ambiguous in locations.json; region authored.",
+      "owner": "skyrimnet"
     },
     {
       "id": "sven",
@@ -120,7 +126,8 @@
         "whiterun"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "Explicitly registered musician; SkyrimNet static bard check excludes him. Gender source: vanilla. venue ambiguous in locations.json; region authored."
+      "notes": "Explicitly registered musician; SkyrimNet static bard check excludes him. Gender source: vanilla. venue ambiguous in locations.json; region authored. Hold Music performs for this musician because SkyrimNet's static bard check excludes them.",
+      "owner": "hold_music"
     },
     {
       "id": "ogmund",
@@ -137,7 +144,8 @@
         "reach"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "Nordic warrior-poet; region is not a claim of Reachfolk repertoire. Gender source: vanilla."
+      "notes": "Nordic warrior-poet; region is not a claim of Reachfolk repertoire. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "lisette",
@@ -154,7 +162,8 @@
         "haafingar"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "College-trained lute and vocal performer. Gender source: vanilla."
+      "notes": "College-trained lute and vocal performer. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "viarmo",
@@ -171,7 +180,8 @@
         "haafingar"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "Altmer headmaster; ceremonial role, not a constant tavern singer. Gender source: vanilla."
+      "notes": "Altmer headmaster; ceremonial role, not a constant tavern singer. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "pantea_ateia",
@@ -188,7 +198,8 @@
         "haafingar"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "Master vocalist and expert flautist. Gender source: vanilla."
+      "notes": "Master vocalist and expert flautist. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "ataf",
@@ -205,7 +216,8 @@
         "haafingar"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "Redguard student of Nordic ballads; developing technique. Gender source: vanilla."
+      "notes": "Redguard student of Nordic ballads; developing technique. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "jorn",
@@ -222,7 +234,8 @@
         "haafingar"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "Martial drumming and Imperial military cadences. Gender source: vanilla."
+      "notes": "Martial drumming and Imperial military cadences. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "inge_six_fingers",
@@ -239,7 +252,8 @@
         "haafingar"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "Master lute teacher; Nord in biography, ElderRace in records. Gender source: vanilla."
+      "notes": "Master lute teacher; Nord in biography, ElderRace in records. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "illdi",
@@ -256,7 +270,8 @@
         "haafingar"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "Student and instrumental specialist. Gender source: vanilla."
+      "notes": "Student and instrumental specialist. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "giraud_gemane",
@@ -273,7 +288,8 @@
         "haafingar"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "Historian, poetry and teaching; voice denotes recitation, not an established singing role. Gender source: vanilla."
+      "notes": "Historian, poetry and teaching; voice denotes recitation, not an established singing role. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "aia_arria",
@@ -290,7 +306,8 @@
         "haafingar"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "Exceptional voice; also lute and flute. Gender source: vanilla."
+      "notes": "Exceptional voice; also lute and flute. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "llewellyn",
@@ -307,7 +324,8 @@
         "falkreath"
       ],
       "source": "Hearthfire; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "House bard when hired; also flute and drum. Gender source: vanilla."
+      "notes": "House bard when hired; also flute and drum. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "sonir",
@@ -324,7 +342,8 @@
         "hjaalmarch"
       ],
       "source": "Hearthfire; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "House bard when hired; also flute and drum. Gender source: vanilla."
+      "notes": "House bard when hired; also flute and drum. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "oriella",
@@ -341,7 +360,8 @@
         "pale"
       ],
       "source": "Hearthfire; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "House bard when hired; also flute and drum. Gender source: vanilla."
+      "notes": "House bard when hired; also flute and drum. Gender source: vanilla.",
+      "owner": "skyrimnet"
     },
     {
       "id": "lynly_star_sung",
@@ -358,7 +378,8 @@
         "rift"
       ],
       "source": "vanilla; roster audit; forms from 20261008-bard-roster/roster.json",
-      "notes": "Explicitly registered competent lute player; not accepted by SkyrimNet static bard check. Gender source: vanilla."
+      "notes": "Explicitly registered competent lute player; not accepted by SkyrimNet static bard check. Gender source: vanilla. Hold Music performs for this musician because SkyrimNet's static bard check excludes them.",
+      "owner": "hold_music"
     }
   ]
 }

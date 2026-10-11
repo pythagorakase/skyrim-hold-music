@@ -202,6 +202,7 @@ def run(root, profile, *, library=None, data_mod=DATA_MOD, mod_name=MOD_NAME,
         add(receipts, JSON_DATA + 'receipts.json')
     else:
         add(None, JSON_DATA + 'receipts.json', b'{"version": 1, "performances": []}\n')
+    add(None, JSON_DATA + 'trace.json', b'{"version": 1, "entries": []}\n')
     for row in lib.recordings:
         add(library / row['file'], 'Sound/fx/holdmusic/' + row['file'])
     add(None, 'meta.ini', ('[General]\nmodid=0\nversion=' + VERSION +

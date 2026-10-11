@@ -17,6 +17,7 @@ from hold_music.lyricist import MODEL as LYRIC_MODEL
 from hold_music.executor import execute, plan_work
 from hold_music.library import Library
 from hold_music.registry import load_registry
+from hold_music.runtime_paths import DEFAULT_MOD_NAME, resolve_receipts
 
 
 class _Client:
@@ -58,9 +59,22 @@ def main(argv=None):
     parser.add_argument('--ffmpeg', help='ffmpeg executable path (default: search PATH)')
     parser.add_argument('--bardsinging', type=Path, help='read-only YAML credential source')
     parser.add_argument('--spend', action='store_true', help='allow paid generation; never retry')
+    receipts_group = parser.add_mutually_exclusive_group()
+    receipts_group.add_argument('--receipts', type=Path, help='explicit performance receipts file')
+    receipts_group.add_argument('--mo2-root', type=Path, help='discover newest MO2 performance receipts')
+    parser.add_argument('--mod-name', default=None, help=f'MO2 mod (default: {DEFAULT_MOD_NAME})')
+    parser.add_argument('--data-mod', help='additional MO2 data mod to search')
     args = parser.parse_args(argv)
+    if args.mo2_root is None and (args.mod_name is not None or args.data_mod is not None):
+        parser.error('--mod-name and --data-mod require --mo2-root')
+    args.mod_name = args.mod_name or DEFAULT_MOD_NAME
     try:
-        library = Library(args.library)
+        receipts_path = (resolve_receipts(args.mo2_root, args.mod_name, args.data_mod)
+                         if args.mo2_root is not None else args.receipts)
+        print(f'Receipts: {receipts_path}' if receipts_path is not None else
+              f'Receipts: none found or selected; library default applies: {args.library / "receipts.json"}',
+              file=sys.stderr)
+        library = Library(args.library, receipts_path=receipts_path)
         jobs = plan_work(load_registry(args.registry), library,
                          performer_ids=args.performers, target_per_performer=args.target,
                          modes=args.modes, db_path=args.db, now_hours=args.now_hours,

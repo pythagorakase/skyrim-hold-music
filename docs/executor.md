@@ -16,6 +16,15 @@ other holds are skipped for that mode. The Winterhold prompt uses the shared
 vocal-choice mapping and explicitly requires vocables without words. Duplicate
 mode selections are collapsed; unknown performer IDs and modes are errors.
 
+Both `prepare_library.py` and `snapshot_knowledge.py` accept `--receipts <path>`
+to read separate game performance history, or the mutually exclusive
+`--mo2-root <path> --mod-name <name> [--data-mod <name>]` to discover the newest
+receipts in the mod, overwrite, or optional data mod. `--mod-name` defaults to
+`MGO Experimental - Hold Music Performances`; mod options require `--mo2-root`.
+Each command prints one receipts-source line to stderr, preserving JSON stdout;
+when discovery finds none, it names the library default that applies. Neither
+tool writes receipts; see [runtime evidence](evidence.md) for storage details.
+
 From the repository root, inspect a plan without credentials, ffmpeg or calls:
 
 ```sh

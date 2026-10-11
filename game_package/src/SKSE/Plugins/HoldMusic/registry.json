@@ -4,6 +4,7 @@
     {
       "id": "delacourt",
       "name": "Delacourt",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 468579
@@ -19,6 +20,7 @@
     {
       "id": "luaffyn",
       "name": "Luaffyn",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 294061
@@ -35,6 +37,7 @@
     {
       "id": "talsgar",
       "name": "Talsgar the Wanderer",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 540057
@@ -50,6 +53,7 @@
     {
       "id": "lurbuk",
       "name": "Lurbuk",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 109155
@@ -65,6 +69,7 @@
     {
       "id": "mikael",
       "name": "Mikael",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 108144
@@ -80,6 +85,7 @@
     {
       "id": "karita",
       "name": "Karita",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 79386
@@ -95,6 +101,7 @@
     {
       "id": "sven",
       "name": "Sven",
+      "owner": "hold_music",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 78975
@@ -110,6 +117,7 @@
     {
       "id": "ogmund",
       "name": "Ogmund",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 78765
@@ -125,6 +133,7 @@
     {
       "id": "lisette",
       "name": "Lisette",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 78487
@@ -140,6 +149,7 @@
     {
       "id": "viarmo",
       "name": "Viarmo",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 78509
@@ -155,6 +165,7 @@
     {
       "id": "pantea_ateia",
       "name": "Pantea Ateia",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 78495
@@ -170,6 +181,7 @@
     {
       "id": "ataf",
       "name": "Ataf",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 78485
@@ -185,6 +197,7 @@
     {
       "id": "jorn",
       "name": "Jorn",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 78479
@@ -200,6 +213,7 @@
     {
       "id": "inge_six_fingers",
       "name": "Inge Six Fingers",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 78474
@@ -215,6 +229,7 @@
     {
       "id": "illdi",
       "name": "Illdi",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 78473
@@ -230,6 +245,7 @@
     {
       "id": "giraud_gemane",
       "name": "Giraud Gemane",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 78465
@@ -245,6 +261,7 @@
     {
       "id": "aia_arria",
       "name": "Aia Arria",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 78428
@@ -260,6 +277,7 @@
     {
       "id": "llewellyn",
       "name": "Llewellyn the Nightingale",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "HearthFires.esm",
         "id": 101856
@@ -275,6 +293,7 @@
     {
       "id": "sonir",
       "name": "Sonir",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "HearthFires.esm",
         "id": 103984
@@ -290,6 +309,7 @@
     {
       "id": "oriella",
       "name": "Oriella",
+      "owner": "skyrimnet",
       "form": {
         "plugin": "HearthFires.esm",
         "id": 103985
@@ -305,6 +325,7 @@
     {
       "id": "lynly_star_sung",
       "name": "Lynly Star-Sung",
+      "owner": "hold_music",
       "form": {
         "plugin": "Skyrim.esm",
         "id": 79548

@@ -75,6 +75,42 @@ class LibraryTests(unittest.TestCase):
             self.assertEqual(self.library.recordings_for(**criteria), [])
         self.assertEqual(wav_info(self.root / row['file'])['frames'], 4410)
 
+    def test_external_receipts_override_reload_locks_and_no_writes(self):
+        self.add()
+        row = self.receipts(outcome='interrupted')
+        default = self.root / 'receipts.json'
+        external = Path(self.temp.name) / 'runtime-receipts.json'
+        external.write_bytes(default.read_bytes())
+        default.write_text('{invalid default must not be read')
+        before = external.read_bytes(), default.read_bytes()
+        library = Library(self.root, session_receipt_index=0, receipts_path=str(external)).load()
+        self.assertEqual(library.receipts_source, external)
+        self.assertEqual(library.problems, [])
+        self.assertEqual(library.performances, [row])
+        self.assertTrue(library.recordings[0]['session_locked'])
+        self.assertEqual(library.snapshot('mikael', 'save', 'world', 100, REQUEST)
+                         ['recent_performances'][0]['id'], row['id'])
+        library.add_recording(self.wav, performer_id='sven', region='whiterun',
+            mode='instrumental', gender='male', composition_id='new', recipe_id='fixture',
+            model_id='fixture', source={'kind': 'import', 'path_or_request_id': 'fixture'})
+        self.assertEqual((external.read_bytes(), default.read_bytes()), before)
+        external.write_text('{partial')
+        self.assertTrue(library.validate())
+        self.assertEqual(library.free_slots(), [])
+        external.unlink()
+        self.assertEqual(library.load().performances, [])
+        self.assertFalse(external.exists())
+        self.assertEqual(Library(self.root).receipts_source, default)
+
+    def test_relative_receipts_path_is_relative_to_working_directory(self):
+        # A relative override must not be prefixed with the library root.
+        library = Library(self.root, receipts_path=Path('runtime/receipts.json'))
+        with patch.object(Path, 'read_text', autospec=True,
+                          return_value='{"version": 1, "performances": []}') as read:
+            self.assertEqual(library._read('receipts.json', {}), {'version': 1, 'performances': []})
+        read.assert_called_once_with(Path('runtime/receipts.json'), encoding='utf-8-sig')
+        self.assertEqual(library.receipts_source, Path('runtime/receipts.json'))
+
     def test_planner_plays_own_rested_recording_not_another_performers(self):
         self.add()
         own = self.snapshot()

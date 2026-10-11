@@ -37,10 +37,12 @@ class GamePackageSourceTests(unittest.TestCase):
         ids={f['edid']:f['id'] for f in forms}
         self.assertEqual(ids['LocTypeInn'],'0x0001CB87')
         registry=json.loads((ROOT/'src/SKSE/Plugins/HoldMusic/registry.json').read_text())
+        self.assertEqual(registry['schema_version'], 2)
         self.assertEqual(registry, derive_registry())
         authored = load_registry().performers
         self.assertEqual(len(registry['performers']), len(authored))
         for performer, source in zip(registry['performers'], authored):
+            self.assertEqual(performer['owner'], source['owner'])
             self.assertTrue(performer['region'] is None or performer['region'] in REGIONS)
             if source['form'] is not None:
                 self.assertEqual(performer['form'], dict(plugin=source['form']['plugin'], id=int(source['form']['id'], 16)))

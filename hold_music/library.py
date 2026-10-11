@@ -158,8 +158,9 @@ def _atomic_json(path, data):
 
 
 class Library:
-    def __init__(self, root, session_receipt_index=None):
+    def __init__(self, root, session_receipt_index=None, receipts_path=None):
         self.root = Path(root)
+        self.receipts_source = Path(receipts_path) if receipts_path is not None else self.root / 'receipts.json'
         self.session_receipt_index = session_receipt_index
         if session_receipt_index is not None:
             if type(session_receipt_index) is not int or session_receipt_index < 0:
@@ -179,7 +180,8 @@ class Library:
 
     def _read(self, filename, default):
         try:
-            return json.loads((self.root / filename).read_text(encoding='utf-8-sig'))
+            path = self.receipts_source if filename == 'receipts.json' else self.root / filename
+            return json.loads(path.read_text(encoding='utf-8-sig'))
         except FileNotFoundError:
             return deepcopy(default)
         except (OSError, ValueError, UnicodeError) as exc:
