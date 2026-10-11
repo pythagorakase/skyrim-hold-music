@@ -50,6 +50,8 @@ class Registry:
                 raise ValueError('venue must be nonempty text or null')
             if row.get('gender') not in ('male', 'female'):
                 raise ValueError('gender must be male or female')
+            if not isinstance(row.get('owner'), str) or row['owner'] not in ('hold_music', 'skyrimnet'):
+                raise ValueError('owner is required and must be hold_music or skyrimnet')
             if row.get('instrument') not in ('lute', 'flute', 'drum', 'voice'):
                 raise ValueError('instrument must be lute, flute, drum, or voice')
             if not isinstance(row.get('notes'), str):

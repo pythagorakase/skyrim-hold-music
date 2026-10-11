@@ -115,6 +115,8 @@ class InstallGamePackage(unittest.TestCase):
         self.assertTrue(all(e['edits'] for e in plan['profile_edits']))
         self.assertEqual({Path(e['destination']).relative_to(self.mod).as_posix() for e in plan['files']},
                          set(plan['receipt']['files']))
+        trace = next(e for e in plan['files'] if Path(e['destination']).name == 'trace.json')
+        self.assertEqual(trace['content'], '{"version": 1, "entries": []}\n')
         json.dumps(plan)
 
     def test_install_files_backup_receipt_and_idempotence(self):
@@ -126,6 +128,7 @@ class InstallGamePackage(unittest.TestCase):
         self.assertEqual(receipt, json.loads((backup / 'game-package-install.json').read_text()))
         required = installer.REQUIRED | {'meta.ini', 'README.md', 'docs/game-package-verification.md',
             installer.JSON_DATA + 'library.json', installer.JSON_DATA + 'receipts.json',
+            installer.JSON_DATA + 'trace.json',
             'Sound/fx/holdmusic/hm_slot_01.wav', 'Sound/fx/holdmusic/hm_slot_03.wav'}
         self.assertTrue(required <= set(receipt['files']))
         self.assertEqual(set(receipt['files']), {p.relative_to(self.mod).as_posix() for p in self.mod.rglob('*') if p.is_file()})
@@ -142,6 +145,8 @@ class InstallGamePackage(unittest.TestCase):
         self.assertEqual(receipt['library_manifest_sha256'], installer.sha((self.library / 'library.json').read_bytes()))
         self.assertEqual(json.loads((self.mod / installer.JSON_DATA / 'receipts.json').read_text()),
                          {'version': 1, 'performances': []})
+        self.assertEqual((self.mod / installer.JSON_DATA / 'trace.json').read_bytes(),
+                         b'{"version": 1, "entries": []}\n')
         self.assertEqual(self.modlist.read_bytes(), codecs.BOM_UTF8 +
             ('# MO2\r\n+' + installer.MOD_NAME + '\r\n+Other\r\n').encode())
         self.assertEqual(self.plugins.read_bytes(), before['plugins.txt'] + b'*HoldMusic.esp\r\n')
@@ -248,6 +253,62 @@ class InstallGamePackage(unittest.TestCase):
         self.assertFalse(self.mod.exists())
         self.assertEqual(saved, snapshot(self.profile / 'saves'))
         self.assertEqual(backups, snapshot(self.base / 'backups'))
+
+
+class SyntheticRuntimeStorageTests(unittest.TestCase):
+    """Exercise installer storage on any OS without compiled game artifacts."""
+
+    def test_trace_plan_hash_receipt_install_and_purge(self):
+        with tempfile.TemporaryDirectory() as temp:
+            base = Path(temp).resolve()
+            repo = base / 'repo'
+            package = repo / 'game_package/build/package'
+            hashes = {}
+            for relative in installer.REQUIRED:
+                path = package / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                content = b'synthetic package fixture'
+                path.write_bytes(content)
+                hashes[relative] = installer.sha(content)
+            (package.parent / 'package-hashes.json').write_text(json.dumps(hashes))
+            (repo / 'docs').mkdir()
+            (repo / 'docs/game-package-verification.md').write_text('Synthetic verification')
+            (repo / 'game_package/README.md').write_text('Synthetic package')
+            mo2 = base / 'MO2'
+            profile = mo2 / 'profiles/Test'
+            saves = profile / 'saves'
+            saves.mkdir(parents=True)
+            for name, data in [('modlist.txt', '+Other\n'), ('plugins.txt', '*Skyrim.esm\n'),
+                               ('saves/fixture.ess', 'synthetic save'), ('saves/fixture.skse', 'synthetic cosave')]:
+                (profile / name).write_text(data)
+            library = base / 'library'
+            library.mkdir()
+            (library / 'library.json').write_text('{"version": 1, "slots": 24, "recordings": []}')
+            # Trace initialization is unconditional, never copied from a stale library trace.
+            (library / 'trace.json').write_text('{"version": 1, "entries": [{"event": "candidate"}]}')
+            expected = b'{"version": 1, "entries": []}\n'
+            with patch.object(installer, 'ROOT', repo), \
+                    patch.object(installer, 'BACKUP_ROOT', base / 'backups'), \
+                    patch.object(installer, 'require_closed'):
+                before = snapshot(base)
+                plan = installer.run(mo2, 'Test', library=library, dry_run=True)
+                self.assertEqual(snapshot(base), before)
+                relative = installer.JSON_DATA + 'trace.json'
+                target = mo2 / 'mods' / installer.MOD_NAME / relative
+                entry = next(item for item in plan['files'] if Path(item['destination']) == target)
+                self.assertEqual(entry['content'].encode(), expected)
+                self.assertEqual(entry['sha256'], installer.sha(expected))
+                self.assertEqual(plan['receipt']['files'][relative], installer.sha(expected))
+                installer.run(mo2, 'Test', library=library)
+                self.assertEqual(target.read_bytes(), expected)
+                receipt = json.loads((repo / 'local/game-package-install.json').read_text())
+                self.assertEqual(receipt['files'][relative], installer.sha(expected))
+                self.assertEqual((target.parent / 'receipts.json').read_bytes(),
+                                 b'{"version": 1, "performances": []}\n')
+                installer.run(mo2, 'Test', uninstall=True)
+                self.assertEqual(target.read_bytes(), expected)
+                installer.run(mo2, 'Test', uninstall=True, purge=True)
+                self.assertFalse(target.parent.exists())
 
 
 if __name__ == '__main__':

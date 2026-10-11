@@ -37,6 +37,25 @@ class PerformerRegistryTests(unittest.TestCase):
         self.assertIsNone(self.registry.find_by_name('Mika'))
         self.assertIsNone(self.registry.find_by_name(' Mikael'))
 
+    def test_authored_owners_and_required_enum(self):
+        owned = {row['id'] for row in self.registry.performers if row['owner'] == 'hold_music'}
+        self.assertEqual(owned, {'sven', 'lynly_star_sung'})
+        for row in self.registry.performers:
+            if row['id'] in owned:
+                self.assertIn('Hold Music performs', row['notes'])
+                self.assertIn('static bard check', row['notes'])
+            else:
+                self.assertEqual(row['owner'], 'skyrimnet')
+        for value in (None, '', 'Hold_Music', 'other', 1, True, [], {}):
+            with self.subTest(value=value):
+                data = copy.deepcopy(self.data)
+                data['performers'][0]['owner'] = value
+                with self.assertRaisesRegex(ValueError, 'owner.*hold_music.*skyrimnet'):
+                    Registry(data)
+        del self.data['performers'][0]['owner']
+        with self.assertRaisesRegex(ValueError, 'owner.*required'):
+            Registry(self.data)
+
     def test_authored_regions_and_location_cross_check(self):
         locations = json.loads((ROOT / 'game_adapter/data/locations.json').read_text())['locations']
         expected = {'Sven': 'whiterun', 'Karita': 'pale', 'Lynly Star-Sung': 'rift',

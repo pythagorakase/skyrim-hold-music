@@ -9,7 +9,7 @@ playback. The future installed library root is the profile's
 
 `game_adapter/data/performers.json` has `version: 1`, a descriptive `scope`, and
 `performers`. Each entry contains `id`, `name`, `form`, `venue`, `region`, `gender`,
-`instrument`, `traditions`, `source`, and `notes`. IDs are stable machine names;
+`instrument`, `traditions`, `owner`, `source`, and `notes`. IDs are stable machine names;
 display names are not game identities. `form` is either null (unresolved, explained
 in notes) or `{ "plugin": "Skyrim.esm", "id": "0x0001A670" }`: a plugin-local
 **base NPC form**, without a load-order prefix. Biography filename suffixes and
@@ -42,6 +42,15 @@ game_package/tools/build_registry.py` validates this source through `load_regist
 and writes schema version 2 with integer form IDs and flat `region`/`venue`.
 Plugin identities (including HearthFires.esm) are preserved. The package build
 checks the tracked file against a fresh derivation and fails on drift.
+
+## Ownership
+
+Every performer requires an authored `owner` string, exactly `hold_music` or
+`skyrimnet`; ownership is not derived from SkyrimNet's predicate. Sven and Lynly
+Star-Sung belong to `hold_music`; all other registered performers belong to
+`skyrimnet`. The game controller performs only for `hold_music` performers;
+`skyrimnet` performers stay with SkyrimNet's bard system until the T3 hand-off.
+The generated game registry carries the authored field unchanged.
 
 ## Library files
 
@@ -154,6 +163,12 @@ allocation preserves; multi-file crash recovery is not claimed.
 
 ## Python API and planner mapping
 
+- `Library(root, session_receipt_index=None, receipts_path=None)` optionally reads
+  performance receipts from a separate path; `.receipts_source` is the `Path`
+  used, defaulting to `<root>/receipts.json`. Relative overrides are relative to
+  the working directory. Missing overrides mean empty history, not fallback to
+  the root file. The library never writes either receipts file. MO2 discovery
+  and runtime evidence collection are described in [evidence](evidence.md).
 - `Library(root).load()` refreshes state and returns the instance. `validate()`
   refreshes and returns a list of problems; file-content problems do not raise.
 - `recordings_for(performer_id=None, region=None, mode=None, gender=None)` refreshes

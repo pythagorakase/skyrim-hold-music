@@ -16,7 +16,7 @@ def derive_registry(source=DEFAULT_PATH):
     for row in load_registry(source).performers:
         form = row['form']
         performers.append(dict(
-            id=row['id'], name=row['name'],
+            id=row['id'], name=row['name'], owner=row['owner'],
             form=None if form is None else dict(plugin=form['plugin'], id=int(form['id'], 16)),
             region=row['region'], venue=row['venue'], instrument=row['instrument'],
             gender=row['gender'], traditions=list(row['traditions'])))

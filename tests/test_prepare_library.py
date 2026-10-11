@@ -8,6 +8,8 @@ from unittest.mock import patch
 
 from hold_music.registry import DEFAULT_PATH
 from tools.prepare_library import main
+from hold_music.library import Library
+from hold_music.runtime_paths import DEFAULT_MOD_NAME, storage_dirs
 
 
 class PrepareLibraryTests(unittest.TestCase):
@@ -51,6 +53,53 @@ class PrepareLibraryTests(unittest.TestCase):
     def test_required_paths(self):
         with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             main([])
+
+    def test_receipt_options_for_both_tools(self):
+        from tools.snapshot_knowledge import main as snapshot_main
+        root = Path(self.temp.name)
+        dirs = storage_dirs(root / 'MO2', DEFAULT_MOD_NAME, 'Profile Data')
+        dirs[2].mkdir(parents=True)
+        discovered = dirs[2] / 'receipts.json'
+        discovered.write_text('{"version": 1, "performances": []}')
+        for tool, entrypoint in [('prepare_library', main), ('snapshot_knowledge', snapshot_main)]:
+            for index, (extra, expected) in enumerate([
+                ([], None), (['--receipts', str(discovered)], discovered),
+                (['--mo2-root', str(root / 'MO2'), '--data-mod', 'Profile Data'], discovered),
+                (['--mo2-root', str(root / 'missing')], None),
+                (['--mo2-root', str(root / 'MO2'), '--mod-name', 'Profile Data'], discovered),
+            ]):
+                args = (self.args if tool == 'prepare_library' else
+                        ['--db', str(root / 'unused.db'), '--registry', str(DEFAULT_PATH),
+                         '--performer', 'sven', '--library', str(self.library),
+                         '--out', str(root / f'snapshot-{index}.json')])
+                with self.subTest(tool=tool, extra=extra), \
+                        patch(f'tools.{tool}.Library', wraps=Library) as constructor, \
+                        patch('tools.prepare_library.plan_work', return_value=[]), \
+                        patch('tools.prepare_library.execute', return_value={'status': 'complete'}), \
+                        patch('tools.snapshot_knowledge.snapshot', return_value=({}, {})), \
+                        redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as diagnostic:
+                    self.assertEqual(entrypoint(args + extra), 0)
+                    constructor.assert_called_once_with(self.library, receipts_path=expected)
+                    self.assertEqual(len(diagnostic.getvalue().splitlines()), 1)
+                    self.assertIn(str(expected) if expected else 'library default applies', diagnostic.getvalue())
+
+    def test_receipt_argument_conflicts_for_both_tools(self):
+        from tools.snapshot_knowledge import main as snapshot_main
+        for tool, entrypoint, args in [
+            ('prepare_library', main, self.args),
+            ('snapshot_knowledge', snapshot_main, ['--db', 'unused.db', '--registry', str(DEFAULT_PATH),
+             '--performer', 'sven', '--library', str(self.library), '--out', 'unused.json']),
+        ]:
+            for extra in (['--receipts', 'a.json', '--mo2-root', 'MO2'],
+                          ['--receipts', 'a.json', '--data-mod', 'Data'],
+                          ['--receipts', 'a.json', '--mod-name', 'Music'],
+                          ['--data-mod', 'Data'], ['--mod-name', 'Music']):
+                with self.subTest(tool=tool, extra=extra), \
+                        patch(f'tools.{tool}.Library') as library, redirect_stderr(io.StringIO()), \
+                        self.assertRaises(SystemExit) as error:
+                    entrypoint(args + extra)
+                self.assertEqual(error.exception.code, 2)
+                library.assert_not_called()
 
     def test_spend_passes_caps_ffmpeg_and_credentials_to_executor(self):
         report = dict(status='complete', recordings=[], cost_usd=.08)
