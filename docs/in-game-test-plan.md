@@ -122,3 +122,56 @@ is added on top.
 Nothing needs to be collected by hand. The two logs, SkyrimNet's `bard_songs`
 row and audio file, and the save are enough to reconstruct what happened; a
 short note on what it sounded like is the one thing only you can provide.
+
+# Second test: Sven at the Sleeping Giant Inn (Hold Music owned path)
+
+Prepared 11 October 2026. This is the first headset test of the owned
+performance path (T1 gate in the design doc). Nothing is installed yet.
+
+## Before the session (Claude, once MO2 is closed)
+
+1. You close MO2 and Skyrim and say so. The installer refuses to run while
+   either is open, and `--dry-run` has already been proven against the real
+   profile with the seed library at `C:\MGO\hm-scratch\library`.
+2. Claude runs `game_package/tools/install_game_package.py` for real: it backs
+   up `modlist.txt`, `plugins.txt` and the newest save pair to
+   `C:\MGO\codex-backups\<timestamp>-hold-music-performances\`, creates the
+   mod `MGO Experimental - Hold Music Performances` (ESP, scripts, MCM, registry,
+   four slot WAVs, `library.json`, empty `receipts.json` and `trace.json`),
+   enables it at the top of the mod list and appends `*HoldMusic.esp`.
+3. Rollback is `--uninstall` (disables the mod and plugin, keeps the folder);
+   `--purge` removes the folder too. A save made with the plugin enabled will
+   warn about a missing plugin after rollback, as with any removed mod.
+
+## What to do
+
+1. Launch as usual and load your latest save (Save279, College of Winterhold).
+   The SkyrimNet adapter stays on; Mikael and the other SkyrimNet bards behave
+   exactly as before. Only Sven and Lynly are owned by Hold Music.
+2. Travel to Riverwood and enter the Sleeping Giant Inn while Sven is inside
+   (he is there most of the day and evening). The controller waits a random 15
+   to 60 seconds after you enter, then checks the room.
+3. Expect: the vanilla lute song stops if it was playing, Sven raises his lute,
+   and a solo lute piece in the Whiterun recipe plays from his position for
+   about 2.5 minutes (slot 3, 158 s). Talking to him, leaving the inn or combat
+   stops it. If a vanilla song tries to restart mid-performance it is stopped
+   again within two seconds.
+4. If nothing happens within two minutes: step outside and back in once. Then
+   note the game time and move on; the trace will say why.
+5. Optional second venue: Lynly at the Vilemyr Inn in Ivarstead (slot 4, Rift
+   recipe, 183 s). The per-session cap is three performances.
+
+## Afterwards
+
+Nothing to collect by hand. When the game is closed, Claude runs
+`tools/collect_evidence.py` on Halcyon; it gathers `trace.json`, `receipts.json`,
+the Hold Music logs and the bard-related SkyrimNet log lines into one redacted
+report. The trace records every inn entry, every registry match with its owner
+and eligibility, the chosen slot, the vanilla stop, the start, and the stop
+outcome, so a silent inn is diagnosable without Papyrus logging.
+
+## What it does not test
+
+Sung material: neither bard has SkyrimNet memories yet, so both seed
+recordings are instrumental. Once you have talked to Sven, the lyrical
+executor can write him a song for the following session.

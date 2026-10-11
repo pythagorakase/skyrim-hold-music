@@ -171,6 +171,17 @@ Two consequences shape T1d and T1e:
 | T1e | Owner gate, vanilla scene lock and trace log in the controller; plugin wiring for the vanilla quest and scenes; Halcyon compile | PEX VM tests, Caprica compile, Mutagen round trip | One session: Sven performs at the Sleeping Giant Inn with no vanilla overlap; trace and receipts collected |
 | T2c | Consolidated seed library on Halcyon with instrumental recordings for Sven and Lynly (plus sung pieces when the planner selects a topic) | Library validation, bounded spend | No |
 
+Status on 11 October 2026: T1d and T1e are merged (commits bed7648 and cbc6140);
+the Halcyon build of the merged tree passed Caprica, the Mutagen round trip and
+48 package tests. T2c produced `C:\MGO\hm-scratch\library` on Halcyon with
+four validated slots (Mikael vocal and Karita instrumental imported, Sven and
+Lynly instrumentals generated for $0.16 together). The planner declined sung
+pieces for both: Sven resolves in SkyrimNet's database by name but has no
+memories yet, and Lynly has never been met, so there is nothing to write about.
+The installer dry run against the real profile planned 22 files and two
+profile edits with nothing written. The install itself waits for MO2 to be
+closed; see [in-game-test-plan.md](in-game-test-plan.md).
+
 ## Decisions recorded
 
 - **Papyrus plus sound descriptors, no DLL.** A native plugin would allow
