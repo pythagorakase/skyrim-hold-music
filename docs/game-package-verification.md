@@ -682,3 +682,229 @@ The VFS/game-side probes must settle where the helper reads receipts. No
 headset, audio, native JsonUtil or VFS acceptance is claimed.
 
 Authored by Codex, running GPT-6.
+
+
+## T1e — owner gate, vanilla scene lock and trace — 2026-10-11
+
+Implemented in the supplied `t1e-scene-lock` worktree. No git commands or git
+state changes; all source edits are limited to the eleven authorized paths
+listed below, and the tree is left dirty. The retrieved `game_package/build/`
+is ignored build output. No dependencies were installed on macOS, no paid
+requests were made, and neither MO2 nor SkyrimVR nor any windowed application
+was launched. No files in mods/profiles were changed. Remote writes were
+confined to `C:\MGO\hm-scratch\t1b\` and `C:\MGO\hm-scratch\t1e\`.
+
+### Read-only form lookup proof
+
+Inspected `C:\MGO\codex-investigations\20261008-bard-roster\records.py` and
+`records.pickle`. The pickle is a dictionary containing `records` keyed by
+(origin-plugin-lowercase, local FormID), `histories`, `order`, `mods`, paths,
+plugin SHA256 metadata and raw subrecords. No missing plugins were recorded.
+All cached plugin hashes matched the current files. The cached profile lists
+differed in order, so the cache was not accepted alone: the audit's raw-record
+parser was imported with `py -3 -B` and used to read the current active plugins
+in current `plugins.txt`/`loadorder.txt` order, resolving file winners through
+current enabled mod order plus overwrite. The active plugin set was unchanged.
+The audit cache and its source were not modified.
+
+All IDs below originate in `Skyrim.esm`. The scene order below is the exact
+zero-based `VanillaScenes` order, after the quest row.
+
+| Exact editor ID | FormID | Current winning plugin |
+|---|---|---|
+| BardSongs | `0x00074A55` | Unofficial Skyrim Special Edition Patch.esp |
+| BardSongsBallad01Scene | `0x00083DA2` | Skyrim.esm |
+| BardSongsBallad01WithIntroScene | `0x000CF8FB` | Skyrim.esm |
+| BardSongsDrinkingSong01Scene | `0x000CF8FA` | Skyrim.esm |
+| BardSongsDrinkingSong01WithIntroScene | `0x000CF8FC` | Skyrim.esm |
+| BardSongsDrinkingSong02Scene | `0x000D0843` | Skyrim.esm |
+| BardSongsDrinkingSong02WithIntroScene | `0x000D0845` | Skyrim.esm |
+| BardSongsDrinkingSong03Scene | `0x000D0842` | Skyrim.esm |
+| BardSongsDrinkingSong03WithIntroScene | `0x000D0844` | Skyrim.esm |
+| BardSongsInstrumentalFlute01 | `0x0006E5AE` | Skyrim.esm |
+| BardSongsInstrumentalFlute02 | `0x00106007` | Skyrim.esm |
+| BardSongsInstrumentalLute01 | `0x00095889` | Skyrim.esm |
+| BardSongsInstrumentalLute02 | `0x001069C2` | Skyrim.esm |
+| BardSongsInstrumentalDrum01 | `0x00107511` | Skyrim.esm |
+| BardSongsInstrumentalDrum02 | `0x00107512` | Skyrim.esm |
+| BardSongsInstrumentalFluteOnly01 | `0x00108ED2` | Skyrim.esm |
+| BardSongsInstrumentalFluteonly02 | `0x00108ED3` | Skyrim.esm |
+| RiverwoodSleepingGiantInnLocation | `0x0001CB8C` | 3DNPC.esp |
+| IvarsteadVilemyrInnLocation | `0x000226AA` | Skyrim.esm |
+
+`BardSongs` has exactly the Skyrim.esm and USSEP records in its override chain.
+The winning record retains the same attached script types as vanilla:
+`BardSongsScript` and `QF_BardSongsBallad01_00074A55` (their serialization order
+changes). None of the 16 scenes has an active override; their fragment scripts
+remain vanilla. Note the actual capitalization `BardSongsInstrumentalFluteOnly01`
+versus the script property's `BardSongsInstrumentalFluteonly01`.
+
+Both winning inn locations have `LocTypeDwelling` and `LocTypeInn`; the latter
+is `Skyrim.esm:0001CB87`. Sleeping Giant's only override is 3DNPC; Vilemyr has
+none. The quest and 16 scene forms were added to `forms.json` in its existing
+plugin/id/edid/type shape. Location records were inspected, not added to the ESP.
+
+Read the decompiled vanilla script at
+`C:\MGO\codex-investigations\20261007-bard-instrument-state\vanilla-source\bardsongsscript.psc`
+without copying it into the repository. `StopAllSongs` sets `StopSong`, stops
+the 16 scenes, and clears `Playing`; `PlaySong` with `ChangeSettings=True`
+bypasses the stop check, explaining the continuing poll requirement.
+
+### JsonUtil and trace contract
+
+Verified the installed source at
+`C:\MGO\Skyrim MGO 4.0 RC4.1\mods\PapyrusUtil VR - Scripting Utility Functions\Scripts\Source\JsonUtil.psc`.
+The exact clear API used is:
+
+```papyrus
+function ClearPath(string FileName, string Path) global native
+```
+
+The same source declares
+`bool function SetRawPathValue(string FileName, string Path, string RawJSON) global native`.
+Rollover calls `ClearPath(TraceFile, ".entries")`, initializes `[]` using
+`SetRawPathValue`, saves the `trace_rolled` entry with `dropped=300`, and then
+saves the triggering event. Every entry uses `JsonUtil.Save(TraceFile, False)`.
+The VM proves the boundary at exactly 300, preserved increasing sequence
+numbers (including when the restored script counter trails the file), version
+1, timestamps, exact entry keys, and one Debug.Trace fallback per session reset.
+Debug.Trace is not evidence with profile logging disabled.
+
+The frozen 16 event names are tested as a set. Every matched candidate is
+traced once, including failed eligibility and non-owned candidates. Missing or
+unknown owners fail closed and use the required `owner=skyrimnet` diagnostic;
+missing regions use `none`. No `load` event was added. OnPlayerLoadGame's body
+is unchanged. No performer names, dialogue or lyric text enter trace details.
+The trace file's physical MO2 write target remains a game-side verification gate.
+
+### Halcyon compile and plugin build
+
+Replaced `C:\MGO\hm-scratch\t1b\game_package\` with this worktree's package,
+staged read-only copies of the documented validator dependencies under T1b,
+and ran `py -3 -B game_package\tools\build_game_package.py` from T1b.
+Exit code 0. Retrieved the entire `build/` into this worktree.
+
+Caprica's final output for the changed scripts (no warnings or errors):
+
+```text
+Adding import directory: C:\MGO\hm-scratch\t1b\game_package\src\Scripts\Source
+Adding import directory: C:\MGO\hm-scratch\t1b\game_package\imports
+Adding import directory: C:\MGO\hm-scratch\t1b\game_package\build\imports
+Importing files...
+Imported 56 files.
+Adding file 'HM_Controller.psc' to namespace ''.
+Compiling HM_Controller.psc
+```
+```text
+Adding import directory: C:\MGO\hm-scratch\t1b\game_package\src\Scripts\Source
+Adding import directory: C:\MGO\hm-scratch\t1b\game_package\imports
+Adding import directory: C:\MGO\hm-scratch\t1b\game_package\build\imports
+Importing files...
+Imported 59 files.
+Adding file 'HM_Library.psc' to namespace ''.
+Compiling HM_Library.psc
+```
+
+The controller disassembly contains the `BardSongsScript` cast and
+`callmethod StopAllSongs`; the VM executes them and verifies stop-before-idle
+ordering. The compiler accepted the imported hand-written type without
+compiling it as an output script. Exactly HM_Config, HM_Controller and
+HM_Library PEX files exist in the package; no stub source or PEX is shipped or
+hashed. The builder rejects any packaged BardSongsScript file before hashing.
+
+Plugin builder output:
+
+```json
+{
+  "path": "C:\\MGO\\hm-scratch\\t1b\\game_package\\build\\package\\HoldMusic.esp",
+  "bytes": 6434,
+  "esl": true,
+  "quests": 1,
+  "globals": 5,
+  "descriptors": 24,
+  "markers": 24,
+  "questFileId": "01000800",
+  "masters": [
+    "Skyrim.esm"
+  ],
+  "bardSongsQuest": "074A55:Skyrim.esm",
+  "vanillaScenes": 16,
+  "nextFormId": "00000858",
+  "validation": "Mutagen serialize/read round-trip passed; BardSongs quest and 16 ordered scenes verified"
+}
+```
+
+Post-write checks cover ESL, one quest, five globals, 24 descriptors, 24 markers,
+the player alias, `NextFormID=0x858`, the exact `BardSongsQuest` target, all 16
+ordered scene targets, all sound bindings and global values. New properties
+reference existing records; no additional records are allocated. The independent
+binary parser checks these bindings as well. ESP SHA256:
+`72ab4cea09e3cf208395b824cdbc55e12d9a55bc52b4259b25b97b8afa33272f`.
+
+`package-hashes.json` contains exactly these twelve files:
+
+```text
+HoldMusic.esp
+mcm/config/HoldMusic/config.json
+mcm/config/HoldMusic/settings.ini
+Scripts/HM_Config.pex
+Scripts/HM_Controller.pex
+Scripts/HM_Library.pex
+Scripts/Source/HM_Config.psc
+Scripts/Source/HM_Controller.psc
+Scripts/Source/HM_Library.psc
+SEQ/HoldMusic.seq
+SKSE/Plugins/HoldMusic/registry.json
+Sound/fx/holdmusic/README.txt
+```
+
+### Offline test proof
+
+Commands used `PYTHONDONTWRITEBYTECODE=1` and the existing interpreter. Package
+VM tests add ownership rejection/continuation, missing ownership, vanilla cast
+failure, stop-before-idle, each of the 16 scenes restarting independently,
+unchanged sound instance, two-second polls, scan/match counts, every trace point,
+rollover, save-failure fallback and the frozen event-name set. Existing assertions
+were retained; independent plugin assertions were extended.
+
+```text
+/Users/pythagor/hold_music/.venv/bin/python -m unittest discover -s game_package/tests -v
+Ran 47 tests in 0.423s
+OK
+
+/Users/pythagor/hold_music/.venv/bin/python -m unittest discover -s tests -v
+Ran 262 tests in 27.641s
+OK (skipped=1)
+```
+
+All artifact-dependent tests ran. The repository suite's skip is the existing
+Windows embedded-interpreter regression. Provider calls are mocked; the existing
+repository HTTP tests use local loopback fixture servers. An initial package run
+started before copy-back finished and skipped missing artifacts; its new event
+set test also counted the Debug.Trace fallback text. The regex now distinguishes
+Debug.Trace from file-trace events, and the complete rerun above passes.
+
+### Files changed
+
+- `game_package/src/Scripts/Source/HM_Controller.psc` — Owner gate, candidate diagnostics, vanilla quest/scene polling and lifecycle traces.
+- `game_package/src/Scripts/Source/HM_Library.psc` — Owner lookup, persisted trace ring, sequence handling and receipt-failure trace.
+- `game_package/imports/BardSongsScript.psc` — Minimal hand-written compile-time type stub, never shipped.
+- `game_package/tools/build_game_package.py` — Stub import path and package exclusion guard only.
+- `game_package/tools/PluginBuilder/Program.cs` — Vanilla quest/scene properties and post-write assertions.
+- `game_package/data/forms.json` — Verified quest and 16 scene identities.
+- `game_package/tests/pex_vm.py` — Owner-bearing fixtures, quest cast/scene/JSON native stubs and failure controls.
+- `game_package/tests/test_controller.py` — Ownership, vanilla lock and full trace contract tests.
+- `game_package/tests/test_plugin.py` — Exact quest/scene targets, property set, NextFormID and stub exclusion assertions.
+- `game_package/README.md` — Owner prerequisite, scene lock, compile-time stub and trace documentation.
+- `docs/game-package-verification.md` — This dated T1e evidence.
+
+### Stop-report items and remaining gates
+
+No implementation stop-report items. The sibling's owner-bearing derived
+registry is still an integration prerequisite: T1e leaves the current packaged
+registry unchanged, so entries without `owner` correctly cannot perform. Tests
+use explicit owner-bearing fixtures. No claim of in-game scene arbitration,
+JsonUtil native serialization/write destination, audio, animation, SkyrimNet
+coexistence or installation acceptance is made. No installer or VFS probe was run.
+
+Authored by Codex, running GPT-6.

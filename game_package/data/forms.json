@@ -668,6 +668,108 @@
       "id": "0x0007E5DC",
       "edid": "SOMMono01800",
       "type": "SOPM"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00074A55",
+      "edid": "BardSongs",
+      "type": "QUST"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00083DA2",
+      "edid": "BardSongsBallad01Scene",
+      "type": "SCEN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000CF8FB",
+      "edid": "BardSongsBallad01WithIntroScene",
+      "type": "SCEN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000CF8FA",
+      "edid": "BardSongsDrinkingSong01Scene",
+      "type": "SCEN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000CF8FC",
+      "edid": "BardSongsDrinkingSong01WithIntroScene",
+      "type": "SCEN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000D0843",
+      "edid": "BardSongsDrinkingSong02Scene",
+      "type": "SCEN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000D0845",
+      "edid": "BardSongsDrinkingSong02WithIntroScene",
+      "type": "SCEN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000D0842",
+      "edid": "BardSongsDrinkingSong03Scene",
+      "type": "SCEN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x000D0844",
+      "edid": "BardSongsDrinkingSong03WithIntroScene",
+      "type": "SCEN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x0006E5AE",
+      "edid": "BardSongsInstrumentalFlute01",
+      "type": "SCEN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00106007",
+      "edid": "BardSongsInstrumentalFlute02",
+      "type": "SCEN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00095889",
+      "edid": "BardSongsInstrumentalLute01",
+      "type": "SCEN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x001069C2",
+      "edid": "BardSongsInstrumentalLute02",
+      "type": "SCEN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00107511",
+      "edid": "BardSongsInstrumentalDrum01",
+      "type": "SCEN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00107512",
+      "edid": "BardSongsInstrumentalDrum02",
+      "type": "SCEN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00108ED2",
+      "edid": "BardSongsInstrumentalFluteOnly01",
+      "type": "SCEN"
+    },
+    {
+      "plugin": "Skyrim.esm",
+      "id": "0x00108ED3",
+      "edid": "BardSongsInstrumentalFluteonly02",
+      "type": "SCEN"
     }
   ]
 }

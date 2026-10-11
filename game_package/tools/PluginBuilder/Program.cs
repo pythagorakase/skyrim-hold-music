@@ -51,6 +51,31 @@ controller.Properties.Add(Obj("Library", quest.FormKey));
 controller.Properties.Add(Obj("Config", quest.FormKey));
 foreach (var name in new[] { "LocTypeInn", "CurrentFollowerFaction", "IdleLuteStart", "IdleStop" })
     controller.Properties.Add(Obj(name, Vanilla(name)));
+controller.Properties.Add(Obj("BardSongsQuest", Vanilla("BardSongs")));
+var sceneNames = new[] {
+    "BardSongsBallad01Scene",
+    "BardSongsBallad01WithIntroScene",
+    "BardSongsDrinkingSong01Scene",
+    "BardSongsDrinkingSong01WithIntroScene",
+    "BardSongsDrinkingSong02Scene",
+    "BardSongsDrinkingSong02WithIntroScene",
+    "BardSongsDrinkingSong03Scene",
+    "BardSongsDrinkingSong03WithIntroScene",
+    "BardSongsInstrumentalFlute01",
+    "BardSongsInstrumentalFlute02",
+    "BardSongsInstrumentalLute01",
+    "BardSongsInstrumentalLute02",
+    "BardSongsInstrumentalDrum01",
+    "BardSongsInstrumentalDrum02",
+    "BardSongsInstrumentalFluteOnly01",
+    "BardSongsInstrumentalFluteonly02",
+};
+var scenes = new ScriptObjectListProperty { Name = "VanillaScenes", Flags = ScriptProperty.Flag.Edited };
+foreach (var name in sceneNames) {
+    var value = new ScriptObjectProperty(); value.Object.SetTo(Vanilla(name));
+    scenes.Objects.Add(value);
+}
+controller.Properties.Add(scenes);
 var defaults = new (uint Id, string Name, float Value)[] {
     (0x801,"HM_Enabled",1), (0x802,"HM_InstrumentalPercent",50),
     (0x803,"HM_SessionCap",3), (0x804,"HM_MinDelaySeconds",15), (0x805,"HM_MaxDelaySeconds",60)
@@ -90,6 +115,12 @@ if (!loaded.IsSmallMaster || loaded.Quests.Count!=1 || loaded.Globals.Count!=5 |
 var q=loaded.Quests.Single();
 if (q.Aliases.Single().ForcedReference.FormKey.ID != 0x14 || q.VirtualMachineAdapter!.Aliases.Single().Property.Object.FormKey != q.FormKey) throw new Exception("Alias binding failed");
 var ctrl=q.VirtualMachineAdapter.Aliases.Single().Scripts.Single(x=>x.Name=="HM_Controller");
+if (loaded.ModHeader.Stats.NextFormID != 0x858) throw new Exception("NextFormID failed");
+if (((IScriptObjectPropertyGetter)ctrl.Properties.Single(x=>x.Name=="BardSongsQuest")).Object.FormKey != Vanilla("BardSongs")) throw new Exception("BardSongs quest binding failed");
+var sceneBindings=(IScriptObjectListPropertyGetter)ctrl.Properties.Single(x=>x.Name=="VanillaScenes");
+if (sceneBindings.Objects.Count != 16) throw new Exception("Vanilla scene count failed");
+for (int i=0;i<sceneNames.Length;i++)
+    if (sceneBindings.Objects[i].Object.FormKey != Vanilla(sceneNames[i])) throw new Exception("Vanilla scene binding failed");
 var bound=(IScriptObjectListPropertyGetter)ctrl.Properties.Single(x=>x.Name=="SlotSounds");
 if (bound.Objects.Count!=24) throw new Exception("Sound array binding failed");
 for(int i=0;i<24;i++) {
@@ -102,4 +133,4 @@ foreach(var (id,name,value) in defaults)
 Directory.CreateDirectory(Path.Combine(output,"SEQ"));
 uint questFileId=((uint)loaded.ModHeader.MasterReferences.Count<<24)|0x800;
 File.WriteAllBytes(Path.Combine(output,"SEQ","HoldMusic.seq"),BitConverter.GetBytes(questFileId));
-Console.WriteLine(JsonSerializer.Serialize(new { path, bytes=new FileInfo(path).Length, esl=loaded.IsSmallMaster, quests=1, globals=5, descriptors=24, markers=24, questFileId=$"{questFileId:X8}", masters=loaded.ModHeader.MasterReferences.Select(x=>x.Master.ToString()), validation="Mutagen serialize/read round-trip passed" },new JsonSerializerOptions { WriteIndented=true }));
+Console.WriteLine(JsonSerializer.Serialize(new { path, bytes=new FileInfo(path).Length, esl=loaded.IsSmallMaster, quests=1, globals=5, descriptors=24, markers=24, questFileId=$"{questFileId:X8}", masters=loaded.ModHeader.MasterReferences.Select(x=>x.Master.ToString()), bardSongsQuest=Vanilla("BardSongs").ToString(), vanillaScenes=sceneBindings.Objects.Count, nextFormId=$"{loaded.ModHeader.Stats.NextFormID:X8}", validation="Mutagen serialize/read round-trip passed; BardSongs quest and 16 ordered scenes verified" },new JsonSerializerOptions { WriteIndented=true }));

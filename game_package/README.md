@@ -117,8 +117,9 @@ Output model `SOMMono02000_verb` (`Skyrim.esm:000E324B`) supplies mono 3D
 positioning (its SOPM NAM1 positioning flag is set). Category
 `AudioCategoryPausedDuringMenuFade` (`0009F254`) matches the vanilla bard lute
 category: SFX routing, menu pause, and dialogue fade. SNDR looping is explicitly
-None. These records do not replace the game's soundtrack or suppress other
-bard systems. They contain no custom idles or animation objects.
+None. These records do not replace the game's soundtrack. The controller
+stops vanilla bard scenes as described below; SkyrimNet playback is separate.
+They contain no custom idles or animation objects.
 
 The quest is `HM_Quest`, local ID `00000800`, start-game enabled and run once.
 Its forced player alias (`00000014`) has HM_Controller and
@@ -139,6 +140,10 @@ review the generated `src/SKSE/Plugins/HoldMusic/registry.json`. The package
 builder first checks it against a fresh derivation and fails on drift without
 rewriting it. Schema version 2 retains all performers and authored plugin names,
 converts hex form IDs to integers for JsonUtil, and uses flat `region`/`venue`.
+The sibling registry derivation must also supply `owner` on every performer.
+Only `owner="hold_music"` is allowed to perform; absent, unknown, or
+`"skyrimnet"` owners are skipped. Tests supply explicit owner-bearing fixtures;
+T1e does not regenerate or edit the shipped registry.
 Actor names are used only for explicit JSON `"form": null`; missing, malformed
 or nonmatching forms never fall back. Talsgar matches by identity but is skipped
 because his registry region is null. The nine hold IDs come from T0.
@@ -196,6 +201,47 @@ may be empty; branched saves can share the fallback.
 JsonUtil.Save is called explicitly after each receipt; a failed save traces an
 error. Real JsonUtil serialization, concurrent helper reads and file failures
 still need integration validation.
+
+## Vanilla scene lock and trace (T1e)
+
+The alias binds `BardSongsQuest` to Skyrim.esm:00074A55 and `VanillaScenes`
+to the 16 single-bard scenes in the frozen order recorded in the dated proof.
+Before starting the lute idle it casts the quest to `BardSongsScript` and calls
+`StopAllSongs()`. Every performance poll checks all 16 scenes; a playing scene
+causes another stop and lute-start idle, without changing our sound instance.
+A failed cast emits `vanilla_unavailable` and permits our performance to proceed.
+Poll timing stays at most two seconds. This does not stop SkyrimNet audio.
+
+`imports/BardSongsScript.psc` is a hand-written compile-time type stub only.
+Caprica imports it to compile the cast and call; the builder compiles only
+`src/Scripts/Source/*.psc`, copies only `src/` into the package, and rejects any
+BardSongsScript file in the resulting package before hashing. Never ship the stub.
+
+`HM_Library.Trace` saves `HoldMusic/trace.json` after every entry using
+`JsonUtil.Save(TraceFile, False)`. Its virtual path is
+`Data/SKSE/Plugins/StorageUtilData/HoldMusic/trace.json`; the physical MO2 write
+target still requires game-side verification. It does not require Papyrus logging.
+The shape is `{"version":1,"entries":[{"seq":1,"real_seconds":100.0,
+"game_hours":1008.0,"event":"disabled","detail":""}]}`. Sequence numbers are
+kept in the script and reconciled with the final on-disk entry after save loads.
+At 300 entries, `JsonUtil.ClearPath(TraceFile, ".entries")` clears the path,
+`SetRawPathValue(..., "[]")` initializes the empty array, and `trace_rolled`
+with `dropped=300` is saved before the triggering entry. Save failure falls
+back to one `Debug.Trace` warning per library session reset; that warning is
+not evidence when Papyrus logging is disabled.
+
+Events are frozen: `location_enter`, `location_leave`, `check_start`,
+`candidate`, `no_performer`, `slot_chosen`, `vanilla_stopped`,
+`vanilla_unavailable`, `vanilla_restarted`, `idle_failed`, `performance_start`,
+`performance_stop`, `receipt_failed`, `session_cap`, `disabled`, `trace_rolled`.
+There is no load event. `location_enter` and `location_leave` fire only for
+locations with `LocTypeInn`, so ordinary travel cannot fill the ring. Details contain only field names, ids, numeric values,
+booleans and outcome/mode words; actor names and dialogue are not logged.
+Each matched candidate gets one line, even when ineligible or unowned; unknown
+owners are reported as `owner=skyrimnet`, and absent regions as `region=none`.
+`scanned` counts actors visited and `matched` counts registry matches when a
+check ends without a performance. `slot_chosen` reports the requested mode,
+which can differ from the selected recording's fallback mode.
 
 ## Lifecycle and persistence
 
