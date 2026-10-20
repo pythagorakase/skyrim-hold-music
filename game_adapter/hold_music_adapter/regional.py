@@ -6,12 +6,17 @@ This module does not choose an actor, change game state, or make provider calls.
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 from pathlib import Path
 
 REGIONS = ('haafingar', 'eastmarch', 'whiterun', 'reach', 'falkreath',
            'rift', 'winterhold', 'pale', 'hjaalmarch')
 PALETTE = Path(__file__).resolve().parents[1] / 'dashboard' / 'palette-data.json'
+# This module is also copied into the standalone MO2 adapter. Production
+# execution passes its transport's model explicitly; prompt-only callers use
+# this default without importing the Hold Music package.
+DEFAULT_MODEL = 'google/lyria-3-pro-preview'
 HOLD_NAMES = {**{region: region for region in REGIONS},
               'whiterun hold': 'whiterun', 'falkreath hold': 'falkreath',
               'winterhold hold': 'winterhold',
@@ -23,10 +28,14 @@ HOLD_NAMES = {**{region: region for region in REGIONS},
 
 def load_profiles(path=PALETTE):
     palette = json.loads(Path(path).read_text(encoding='utf-8'))
+    return palette['auditionContext'], _profiles(palette)
+
+
+def _profiles(palette):
     profiles = {p['id']: p for p in palette['existing'] if p['id'] in (*REGIONS, 'nord')}
     if set(profiles) != set(REGIONS) | {'nord'}:
         raise ValueError('The regional game palette must contain Nord and all nine holds')
-    return palette['auditionContext'], profiles
+    return profiles
 
 
 def resolve_location(location, registry):
@@ -81,17 +90,27 @@ def performance_mode(region, choice):
     return choice
 
 
-def music_prompt(region, choice, gender, lyrics='', palette_path=PALETTE):
-    _, profiles = load_profiles(palette_path)
+def freeze_recipe(region, choice, gender, palette_path=PALETTE, *, model_id=DEFAULT_MODEL):
+    """Freeze one exact direction and its sound-source identity from one read.
+
+    The revision hashes the actual lyrics-independent prompt plus identity.
+    It does not change when unrelated notes, recipes, or lyric content change.
+    Arrangement names refer to the existing visible animation family.
+    """
+    palette = json.loads(Path(palette_path).read_text(encoding='utf-8'))
+    profiles = _profiles(palette)
     if region not in profiles:
         raise ValueError('Unknown regional recipe')
     if gender.casefold() not in ('male', 'female'):
         raise ValueError('Unsupported SkyrimNet vocal gender')
     profile = profiles[region]
     mode = performance_mode(region, choice)
-    palette = json.loads(Path(palette_path).read_text(encoding='utf-8'))
     region_label = 'Skyrim, unnamed venue' if region == 'nord' else palette['auditionRegions'][region]
     instrument = profile.get('workshop', {}).get('plucked') or 'lute'
+    if not isinstance(instrument, str) or not instrument.strip():
+        raise ValueError('Regional recipe requires a named plucked instrument')
+    if not isinstance(model_id, str) or not model_id.strip():
+        raise ValueError('Regional recipe requires a model ID')
     if mode == 'instrumental':
         adaptation = 'instrumental reduction'
         role = f'solo {instrument} instrumental; plucked strings'
@@ -119,8 +138,35 @@ def music_prompt(region, choice, gender, lyrics='', palette_path=PALETTE):
         sections.append(voice)
     sections.append(instrument.capitalize() + ': ' + lute.rstrip('.') + '.')
     if mode == 'vocal':
-        if not isinstance(lyrics, str) or not lyrics.strip():
-            raise ValueError('A lyrical performance needs lyrics')
         sections.append('Sing the supplied lyrics as written, preserving their words and order.')
-        sections.append('\nLyrics:\n' + lyrics)
-    return '\n'.join(sections)
+    prefix = '\n'.join(sections)
+    identity = dict(region=region, mode=mode, gender=gender.casefold(),
+        recipe_id=f'{region}/{mode}', model_id=model_id,
+        arrangement='solo_lute' if mode == 'instrumental' else 'solo_lute_and_voice',
+        voice='none' if mode == 'instrumental' else gender.casefold(),
+        instrument_family='plucked_string', instrument_name=instrument)
+    frozen = dict(identity, prompt_prefix=prefix, region_label=region_label)
+    return dict(frozen, recipe_revision=recipe_fingerprint(frozen))
+
+
+def recipe_fingerprint(recipe):
+    """Hash a retained production direction without consulting today's palette."""
+    identity = {key: recipe[key] for key in
+        ('region', 'mode', 'gender', 'recipe_id', 'model_id', 'arrangement', 'voice',
+         'instrument_family', 'instrument_name')}
+    fingerprint = json.dumps(dict(version=1, identity=identity, prompt_prefix=recipe['prompt_prefix']),
+                             sort_keys=True, ensure_ascii=False, separators=(',', ':'))
+    return 'sha256:' + hashlib.sha256(fingerprint.encode('utf-8')).hexdigest()
+
+
+def prompt_from_recipe(recipe, lyrics=''):
+    """Append exact lyrics to an already frozen direction without rereading it."""
+    if recipe['mode'] != 'vocal':
+        return recipe['prompt_prefix']
+    if not isinstance(lyrics, str) or not lyrics.strip():
+        raise ValueError('A lyrical performance needs lyrics')
+    return recipe['prompt_prefix'] + '\n\nLyrics:\n' + lyrics
+
+
+def music_prompt(region, choice, gender, lyrics='', palette_path=PALETTE):
+    return prompt_from_recipe(freeze_recipe(region, choice, gender, palette_path), lyrics)

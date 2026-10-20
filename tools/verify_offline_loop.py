@@ -21,9 +21,8 @@ from hold_music.knowledge_bridge import snapshot as knowledge_snapshot
 from hold_music.library import Library, _atomic_json, _receipt_errors, wav_info
 from hold_music.registry import load_registry
 from hold_music.repertoire import Snapshot, plan
+from hold_music.recording_identity import CONTRACT_FIELDS
 
-CONTRACT_FIELDS = ("recipe_id", "recipe_revision", "model_id", "instrument_family",
-                   "instrument_name", "arrangement", "mode", "voice")
 SCOPE = {"save_id": "offline-loop-fixture", "world_id": "offline-loop-fixture"}
 NOW = 100.0
 
@@ -51,8 +50,7 @@ def contract_for(performer):
 
 
 def request_for(performer, contract):
-    return dict(tradition=performer["region"], **{key: contract[key] for key in
-                ("recipe_id", "model_id", "arrangement", "mode", "voice")})
+    return dict(tradition=performer["region"], **{key: contract[key] for key in CONTRACT_FIELDS})
 
 
 def compatible_recording(row, contract):
@@ -70,7 +68,10 @@ def compatible_recording(row, contract):
         errors.append("this staging pilot only supports the plucked_string animation family")
     if contract.get("arrangement") not in {"solo_lute", "solo_lute_and_voice"}:
         errors.append("this staging pilot only supports one visible plucked-string performer")
-    if not isinstance(row.get("provenance"), dict) or not row["provenance"].get("kind"):
+    # Synthetic fixtures carry an explicit annotation; real published rows
+    # already carry validated import/provider provenance in source.
+    provenance = row.get("provenance", row.get("source"))
+    if not isinstance(provenance, dict) or not provenance.get("kind"):
         errors.append("recording provenance is missing")
     return errors
 
@@ -96,8 +97,7 @@ def stage_selection(library, decision, contract, destination):
     if "save_id" in row and (row["save_id"], row["world_id"]) != (
             decision.get("save_id"), decision.get("world_id")):
         raise ValueError("Selected recording belongs to another save/world")
-    expected_request = dict(tradition=row["region"], **{key: contract.get(key) for key in
-                            ("recipe_id", "model_id", "arrangement", "mode", "voice")})
+    expected_request = dict(tradition=row["region"], **{key: contract.get(key) for key in CONTRACT_FIELDS})
     if decision.get("request") != expected_request:
         raise ValueError("Decision request differs from the publication contract")
     errors = compatible_recording(row, contract)
@@ -141,7 +141,7 @@ def stage_selection(library, decision, contract, destination):
                    world_id=decision["world_id"], recording_id=decision["recording_id"],
                    composition_id=decision["composition_id"], request=decision["request"],
                    contract=deepcopy(contract), source=deepcopy(row["source"]),
-                   provenance=deepcopy(row["provenance"]),
+                   provenance=deepcopy(row.get("provenance", row["source"])),
                    source_files_sha256=before, files=files,
                    wav=wav_info(staging_library.root / staged_row["file"]))
     write_json(destination / "staging-receipt.json", receipt)
@@ -321,7 +321,7 @@ def run(output, performer_id="sven", registry_path=None):
         source_code_sha256={str(path.relative_to(ROOT)).replace("\\", "/"): sha(path) for path in
                             [Path(__file__), ROOT / "hold_music/library.py",
                              ROOT / "hold_music/knowledge_bridge.py", ROOT / "hold_music/registry.py",
-                             ROOT / "hold_music/repertoire.py"]},
+                             ROOT / "hold_music/repertoire.py", ROOT / "hold_music/recording_identity.py"]},
         limitations=["Fixture UUID mapping does not verify the actor identity in a real save.",
                      "Library asset staging does not install an ESP, scripts, or controller ownership.",
                      "No Papyrus runtime, sound playback, paid provider, or musical confidence is tested."])

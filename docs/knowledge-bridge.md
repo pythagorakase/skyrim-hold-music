@@ -136,6 +136,11 @@ python tools/snapshot_knowledge.py --db /private/SkyrimNet-save.db \
 ```
 
 The named output is a JSON object containing `snapshot` and `bridge_report`.
+Its request uses the same frozen production recipe identity as preparation,
+including the actual named instrument and revision. The regional vocal-choice
+policy still yields wordless mode for Winterhold and instrumental mode for
+Hjaalmarch. This export does not establish an actor's animation capability or
+authorize generation.
 The output is created exclusively, never overwriting an existing file; stdout
 contains only the report. Use the library root or an explicitly chosen private
 path. Never commit, paste, log, or put real memory/dialogue text in tests, docs,

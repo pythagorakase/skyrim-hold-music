@@ -89,6 +89,19 @@ class OfflineLoopTests(unittest.TestCase):
                     stage_selection(self.library, decision, self.contract, destination)
                 self.assertFalse(destination.exists())
 
+    def test_stage_accepts_validated_source_without_a_synthetic_annotation(self):
+        manifest = self.library.load().manifest
+        row = manifest["recordings"][0]
+        row.pop("provenance")
+        # This is still silent test PCM, never a claimed provider result.
+        source = row["source"]
+        (self.library.root / "library.json").write_text(json.dumps(manifest), encoding="utf-8")
+        before = (self.library.root / "library.json").read_bytes()
+        receipt = stage_selection(self.library, self.decision, self.contract, self.root / "source-provenance")
+        self.assertEqual(receipt["source"], source)
+        self.assertEqual(receipt["provenance"], source)
+        self.assertEqual((self.library.root / "library.json").read_bytes(), before)
+
     def test_truncated_audio_fails_before_staging(self):
         (self.library.root / "hm_slot_01.wav").write_bytes(b"RIFF")
         with self.assertRaisesRegex(ValueError, "invalid library"):

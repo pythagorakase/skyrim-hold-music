@@ -14,7 +14,8 @@ if str(ROOT) not in sys.path:
 
 from hold_music.knowledge_bridge import snapshot
 from hold_music.library import Library
-from hold_music.lyria_client import MODEL
+from hold_music.recording_identity import recording_request
+from hold_music.regional import freeze_recipe
 from hold_music.registry import load_registry
 from hold_music.runtime_paths import DEFAULT_MOD_NAME, resolve_receipts
 
@@ -50,8 +51,7 @@ def main(argv=None):
         if performer is None:
             raise ValueError('Unknown performer')
         region = performer['region'] or 'nord'
-        request = dict(tradition=region, arrangement='solo_lute_and_voice', mode='lyrical',
-                       voice=performer['gender'], recipe_id=f'{region}/vocal', model_id=MODEL)
+        request = recording_request(freeze_recipe(region, 'vocal', performer['gender']))
         data, report = snapshot(performer, args.db, Library(args.library, receipts_path=receipts_path), args.now_hours,
             request, max_observations=args.max_observations, since_hours=args.since_hours,
             allow_name_match=args.allow_name_match)

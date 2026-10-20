@@ -1,5 +1,6 @@
 """Offline repertoire contracts: knowledge, provenance, reuse and job planning."""
 from copy import deepcopy
+from dataclasses import replace
 import json
 import unittest
 
@@ -11,6 +12,11 @@ def request(**changes):
                  voice="bard-voice-v1", recipe_id="recipe-v1", model_id="model-v1")
     value.update(changes)
     return value
+
+
+def versioned_request(**changes):
+    return request(**{"recipe_revision": "baseline-v1", "instrument_family": "plucked_string",
+                      "instrument_name": "cittern", **changes})
 
 
 def scoped(**fields):
@@ -173,6 +179,36 @@ class RepertoireTests(unittest.TestCase):
                 result = plan(snapshot(compositions=[composition()], recordings=[recording(request=incompatible)]))
                 self.assertEqual(result["action"], "generate_recording")
 
+    def test_versioned_recording_matches_every_requested_identity_field(self):
+        requested = versioned_request()
+        source = snapshot(request=requested, compositions=[composition()],
+                          recordings=[recording(request=requested)])
+        self.assertEqual(plan(source)["action"], "play_recording")
+        alternatives = {"arrangement": "flute_voice", "voice": "voice-two", "recipe_id": "recipe-two",
+                        "model_id": "model-two", "tradition": "different-tradition", "mode": "wordless",
+                        "recipe_revision": "baseline-v2", "instrument_family": "reedless_woodwind",
+                        "instrument_name": "oud"}
+        for field, value in alternatives.items():
+            with self.subTest(field=field):
+                source["recordings"] = [recording(request={**requested, field: value})]
+                result = plan(source)
+                self.assertEqual(result["action"], "generate_recording")
+                self.assertIsNone(result["recording_id"])
+                self.assertEqual(result["recording_brief"]["request"], requested)
+
+    def test_legacy_and_versioned_recordings_do_not_match_each_other(self):
+        legacy, versioned = request(), versioned_request()
+        for desired, cached in ((legacy, versioned), (versioned, legacy)):
+            with self.subTest(request=desired):
+                result = plan(snapshot(request=desired, compositions=[composition()],
+                                       recordings=[recording(request=cached)]))
+                self.assertEqual(result["action"], "generate_recording")
+                self.assertTrue(result["recording_brief"]["reuse_existing_lyrics"])
+        result = plan(snapshot(compositions=[composition()], recordings=[recording()]))
+        self.assertEqual(result["action"], "play_recording")
+        for field in ("recipe_revision", "instrument_family", "instrument_name"):
+            self.assertIsNone(result["request"][field])
+
     def test_unplayable_or_future_recordings_are_not_cache_hits(self):
         for changes in [{"playable": False}, {"created_at": 101}, {"created_at": 19}]:
             with self.subTest(changes=changes):
@@ -255,6 +291,40 @@ class RepertoireTests(unittest.TestCase):
         self.assertEqual(result["action"], "wait")
         self.assertEqual(result["pending_job_id"], "job-one")
 
+    def test_pending_recording_requires_the_same_versioned_identity(self):
+        desired = versioned_request()
+        source = snapshot(request=desired, compositions=[composition()],
+                          pending_jobs=[pending(action="generate_recording", request=desired,
+                                                composition_id="song-market", topic_id=None)],
+                          policy={"max_pending_jobs": 2, "recording_cooldown_hours": 0})
+        exact = plan(source)
+        self.assertEqual(exact["action"], "wait")
+        self.assertIn("Equivalent work", " ".join(exact["reasons"]))
+        self.assertEqual(exact["pending_job_id"], "job-one")
+        alternatives = [
+            request(),
+            versioned_request(recipe_revision="baseline-v2"),
+            versioned_request(instrument_family="reedless_woodwind"),
+            versioned_request(instrument_name="oud"),
+        ]
+        for queued in alternatives:
+            with self.subTest(queued=queued):
+                source["pending_jobs"][0]["request"] = queued
+                result = plan(source)
+                self.assertEqual(result["action"], "generate_recording")
+                self.assertIsNone(result["pending_job_id"])
+
+    def test_pending_lyrics_deduplicate_across_recording_versions(self):
+        desired = versioned_request()
+        queued = versioned_request(recipe_revision="baseline-v2", instrument_family="reedless_woodwind",
+                                    instrument_name="bansuri", arrangement="flute_voice", voice="voice-two")
+        result = plan(snapshot(request=desired, observations=[observation()],
+                               pending_jobs=[pending(request=queued)]))
+        self.assertEqual(result["action"], "wait")
+        self.assertIn("Equivalent work", " ".join(result["reasons"]))
+        self.assertEqual(result["pending_job_id"], "job-one")
+        self.assertIsNone(result["work_key"])
+
     def test_inactive_foreign_and_future_jobs_do_not_block(self):
         for changes in ({"status": "failed"}, {"status": "cancelled"}, {"status": "completed"},
                         {"save_id": "other-save"}, {"world_id": "other-world"},
@@ -304,6 +374,43 @@ class RepertoireTests(unittest.TestCase):
         source["request"]["recipe_id"] = "revised-recipe"
         self.assertNotEqual(first["work_key"], plan(source)["work_key"])
 
+    def test_legacy_recording_work_key_is_preserved(self):
+        result = plan(snapshot(compositions=[composition()]))
+        self.assertEqual(result["action"], "generate_recording")
+        self.assertEqual(result["work_key"],
+                         "31e3a9a15c08150413f533c1bbc8589e79ea631e889dfea60921a3a30bf386d4")
+        explicit_nulls = request(recipe_revision=None, instrument_family=None, instrument_name=None)
+        self.assertEqual(plan(snapshot(request=explicit_nulls, compositions=[composition()]))["work_key"],
+                         result["work_key"])
+
+    def test_recording_work_keys_distinguish_every_identity_field(self):
+        source = snapshot(request=versioned_request(), compositions=[composition()])
+        expected = plan(source)["work_key"]
+        alternatives = {"arrangement": "flute_voice", "voice": "voice-two", "recipe_id": "recipe-two",
+                        "model_id": "model-two", "tradition": "different-tradition", "mode": "wordless",
+                        "recipe_revision": "baseline-v2", "instrument_family": "reedless_woodwind",
+                        "instrument_name": "oud"}
+        for field, value in alternatives.items():
+            with self.subTest(field=field):
+                changed = deepcopy(source)
+                changed["request"][field] = value
+                changed["compositions"][0]["tradition"] = changed["request"]["tradition"]
+                result = plan(changed)
+                self.assertEqual(result["action"], "generate_recording")
+                self.assertNotEqual(result["work_key"], expected)
+        self.assertNotEqual(plan(snapshot(compositions=[composition()]))["work_key"], expected)
+
+    def test_lyrics_work_key_does_not_depend_on_recording_identity(self):
+        legacy = plan(snapshot(observations=[observation()]))
+        strict = plan(snapshot(request=versioned_request(), observations=[observation()]))
+        revised = plan(snapshot(request=versioned_request(
+            recipe_revision="baseline-v2", instrument_family="reedless_woodwind",
+            instrument_name="bansuri", arrangement="flute_voice", voice="voice-two", model_id="model-two"),
+            observations=[observation()]))
+        self.assertEqual(strict["action"], "compose_lyrics")
+        self.assertEqual(legacy["work_key"], strict["work_key"])
+        self.assertEqual(strict["work_key"], revised["work_key"])
+
     def test_plan_is_pure_serializable_and_accepts_dataclass_snapshot(self):
         source = snapshot(observations=[observation()])
         before = deepcopy(source)
@@ -322,6 +429,49 @@ class RepertoireTests(unittest.TestCase):
             plan(snapshot(observations=[observation(kind="sounds like a heroic success")]))
         with self.assertRaises(ValueError):
             plan(snapshot(observations=[observation(happened_at=99, learned_at=95)]))
+
+    def test_versioned_identity_requires_a_complete_nonempty_trio(self):
+        trio = ("recipe_revision", "instrument_family", "instrument_name")
+        for field in trio:
+            malformed = [versioned_request(**{field: value}) for value in (None, "", " ", 1, False, [])]
+            missing = versioned_request()
+            del missing[field]
+            malformed.extend([missing, request(**{field: "only-one-field"})])
+            for invalid in malformed:
+                for location in ("request", "recording", "pending"):
+                    with self.subTest(field=field, invalid=invalid, location=location):
+                        source = snapshot()
+                        if location == "request":
+                            source["request"] = invalid
+                        elif location == "recording":
+                            source["recordings"] = [recording(request=invalid)]
+                        else:
+                            source["pending_jobs"] = [pending(request=invalid)]
+                        with self.assertRaises(ValueError):
+                            plan(source)
+
+    def test_versioned_requests_retain_required_legacy_fields(self):
+        for field in ("arrangement", "mode", "voice", "recipe_id", "model_id"):
+            for value in (None, "", " "):
+                with self.subTest(field=field, value=value), self.assertRaises(ValueError):
+                    plan(snapshot(request=versioned_request(**{field: value})))
+            invalid = versioned_request()
+            del invalid[field]
+            with self.subTest(field=field, missing=True), self.assertRaises(ValueError):
+                plan(snapshot(request=invalid))
+
+    def test_direct_dataclass_snapshots_cannot_bypass_identity_validation(self):
+        valid = Snapshot.from_dict(snapshot(request=versioned_request(), compositions=[composition()],
+                                            recordings=[recording(request=versioned_request())],
+                                            pending_jobs=[pending(request=versioned_request())]))
+        malformed = replace(valid.request, instrument_name=None)
+        for bad in (
+            replace(valid, request=malformed),
+            replace(valid, recordings=(replace(valid.recordings[0], request=malformed),)),
+            replace(valid, pending_jobs=(replace(valid.pending_jobs[0], request=malformed),)),
+        ):
+            with self.subTest(snapshot=bad), self.assertRaises(ValueError):
+                plan(bad)
 
 
 if __name__ == "__main__":

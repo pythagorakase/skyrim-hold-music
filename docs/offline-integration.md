@@ -59,11 +59,16 @@ named instrument, arrangement, mode and voice. A missing legacy metadata field
 is unverified and fails this strict boundary. Changes to any field are rejected;
 the tool does not silently relabel an old recording to satisfy a new request.
 The current pilot only accepts one visible plucked-string performer.
+Production recordings can use their validated `source` import/provider metadata
+as provenance; the proof's extra synthetic annotation is not required for real
+recordings. This does not certify that their audible content matches the prompt.
 
-The existing core planner's request does not yet carry separate instrument and
-recipe-revision fields. This tool enforces those additional fields at its
-publication boundary and preserves them in recording metadata. Integrating this
-same contract into production selection and execution remains work to do.
+The same fields now travel through the production planner request, pending-work
+identity, executor journal/publication and library snapshot. This proof uses
+that production request shape before checking the stricter plucked-string
+staging boundary; it no longer supplies missing identity only at publication.
+The installed Papyrus controller still needs separate integration of these
+selection fields.
 
 Both completed and interrupted performance receipts count as a heard start for
 the current planner's repeat policy. Re-ingesting the identical receipt is a

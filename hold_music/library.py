@@ -16,6 +16,8 @@ import shutil
 import tempfile
 import wave
 
+from hold_music.recording_identity import identity_errors, recording_request
+
 REGIONS = ('haafingar', 'eastmarch', 'whiterun', 'reach', 'falkreath',
            'rift', 'winterhold', 'pale', 'hjaalmarch')
 MODES = ('vocal', 'wordless', 'instrumental')
@@ -103,6 +105,7 @@ def _recording_errors(row, slots):
     for key in ('arrangement', 'voice'):
         if key in row and not _text(row[key]):
             errors.append(f'{key} must be nonempty text')
+    errors.extend(identity_errors(row))
     if row.get('mode') == 'instrumental' and row.get('voice', 'none') != 'none':
         errors.append('instrumental voice must be none')
     if 'created_at_hours' in row and not _number(row['created_at_hours']):
@@ -435,12 +438,9 @@ class Library:
                 compositions[cid]['created_at'] = min(created, compositions[cid]['created_at'])
                 if mode == 'lyrical':
                     compositions[cid].update(mode=mode, lyrics=lyrics)
-            recording_request = dict(tradition=row['region'], mode=mode,
-                arrangement=row.get('arrangement', 'solo_lute' if mode == 'instrumental' else 'solo_lute_and_voice'),
-                voice=row.get('voice', 'none' if mode == 'instrumental' else row['gender']),
-                recipe_id=row['recipe_id'], model_id=row['model_id'])
             result['recordings'].append(dict(scope, id=f"slot:{row['slot']:02d}", composition_id=cid,
-                performer_id=performer_id, request=recording_request, playable=row['playable'], created_at=created))
+                performer_id=performer_id, request=recording_request(row),
+                playable=row['playable'], created_at=created))
         result['compositions'] = list(compositions.values())
         for receipt in self.performances:
             result['recent_performances'].append({key: receipt[key] for key in

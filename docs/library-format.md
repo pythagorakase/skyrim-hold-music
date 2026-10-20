@@ -84,6 +84,29 @@ adds `source.sha256`, the SHA256 of the original MP3 bytes. `source.kind` may al
 be `generated`, with the provider request ID in `path_or_request_id`.
 Unknown extra keys are preserved in the manifest when adding recordings.
 
+Production preparation now writes `recipe_revision`, `instrument_family`,
+`instrument_name`, `arrangement` and `voice` alongside the recipe/model IDs.
+The revision identifies the frozen production prompt direction and identity,
+excluding the particular lyrics. `instrument_name` is the actual requested
+sound source, such as `cittern`; `solo_lute` and `solo_lute_and_voice` name
+the visible plucked-string animation arrangement. They do not require a
+literal lute timbre. The current executor emits `plucked_string`; the library
+accepts other nonempty family identifiers for future explicitly supported
+arrangements without asserting their game compatibility.
+
+The revision/family/name extension is all-or-nothing: all three may be absent
+or null for legacy data, or all three must be nonempty strings with explicit
+arrangement and voice. Partial metadata blocks publication. Legacy rows remain
+readable, are not rewritten, and cannot satisfy a versioned production request.
+Matching an old six-field request is only legacy compatibility, not proof of
+recipe revision or instrument identity. No old recording is automatically
+upgraded using today's palette.
+
+These checks apply to Python planning, preparation and strict offline staging.
+The installed Papyrus pilot still selects by performer/region/mode; it does not
+yet enforce this full contract. A structurally valid library is not automatically
+a compatible deployment for that controller.
+
 Slot files are exactly `hm_slot_01.wav` through `hm_slot_24.wav`: mono, 16-bit PCM,
 44100 Hz. `wav_info()` uses `wave` to inspect the format, calculate frame duration,
 and reject truncated audio. Duration must match the manifest within one sample.
@@ -182,11 +205,13 @@ allocation preserves; multi-file crash recovery is not claimed.
 Snapshots contain this performer's recordings and one composition per distinct
 eligible composition ID, with `known_by: [performer_id]`, the sidecar words, and
 no inferred observations. Planner recording IDs are `slot:01`, etc. Library
-`vocal` becomes planner `lyrical`; region becomes tradition; gender becomes voice
-(or `none` for instrumentals). Arrangement defaults to `solo_lute_and_voice`, or
-`solo_lute` for instrumentals. Optional manifest `arrangement` and `voice` override
-those defaults. Recipe/model IDs are copied exactly; they are not taken from the
-caller's request. The request argument itself uses the planner's Request shape.
+`vocal` becomes planner `lyrical`; region becomes tradition. Arrangement and
+voice are copied when explicit. Missing arrangement becomes `unknown`; missing
+voice becomes `none` for instrumental mode and `unknown` otherwise. Gender alone
+does not establish a recording's voice identity. Recipe/model IDs and the
+revision/family/name extension are copied exactly (null when legacy), never
+taken from the caller's request. The request argument uses the planner's Request
+shape.
 
 Offline prepared material is baseline knowledge at game hour zero in the requested
 save/world. UTC `created_at` is provenance, never converted into an in-game time.

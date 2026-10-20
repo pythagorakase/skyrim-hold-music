@@ -47,7 +47,8 @@ class ExecutorTests(unittest.TestCase):
 
     def test_plan_counts_and_null_region(self):
         jobs = plan_work(self.registry, self.library, target_per_performer=2)
-        expected = [p for p in self.registry.performers if p['region'] is not None]
+        expected = [p for p in self.registry.performers
+                    if p['region'] is not None and p['instrument'] == 'lute']
         self.assertEqual(len(jobs), 2 * len(expected))
         self.assertNotIn('talsgar', {job['performer_id'] for job in jobs})
         self.assertEqual(len(self.jobs), 3)

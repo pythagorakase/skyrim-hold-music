@@ -127,6 +127,16 @@ The rímur-only Eastmarch and iorram-inspired Pale candidates were adopted into 
 
 **Status: offline components implemented; independent controller installed, successful owned playback still unverified after the 15 October fix.** Hold Music is intended to own repertoire selection, scheduling, its song library, conditional lyric composition, music generation and performance lifecycle. SkyrimNet remains a source of character context. The [ownership design](performance-ownership-design.md), [library contract](library-format.md), [executor](executor.md) and [game-package verification](game-package-verification.md) describe the implemented pieces and remaining integration gates. Installation and offline tests do not establish synchronized playback.
 
+**20 October production identity checkpoint:** Python preparation and selection
+carry a frozen recipe revision, model, actual named instrument, instrument family,
+arrangement and voice through each request, durable job and saved recording.
+Matching the region alone is insufficient. Existing unversioned recordings stay
+readable and unchanged; their missing identity remains unknown. A lute animation
+may request the recipe's named plucked instrument, without changing the current
+musical prompts. The installed Papyrus pilot still requires separate integration
+of this full selection contract. This engineering checkpoint neither admits
+additional styles nor requires listening validation.
+
 - Choose the performer, repertoire and actual arrangement, then check for an eligible cached recording before requesting new content. An instrumental or wordless-vocal piece needs no lyric-writing call. A repeat performance can reuse its recording; a new arrangement can reuse a suitable existing lyric. Generate new words for a requested/upcoming lyrical performance that needs a new composition or topic.
 - Build the lyric brief from knowledge available to that bard. The shipped lyric template uses identity, location, voice, memories, witnessed events, recent dialogue and previous song titles. A generic call to the template does not populate these values automatically.
 - Keep compositions and recordings distinct: title/lyrics/context provenance belong to a composition; performer, repertoire, instrument, vocal mode, arrangement and recipe/model version belong to its recording. Hold Music should own its metadata rather than extending SkyrimNet's live song table ad hoc.

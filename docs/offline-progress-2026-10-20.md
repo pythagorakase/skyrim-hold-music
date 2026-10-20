@@ -47,18 +47,67 @@ hashes. No Skyrim/MO2 launch, active configuration change, audio purchase or
 style admission was part of this checkpoint. Candidate builds and proof audio
 remain in ignored local workspaces.
 
+## Second checkpoint: production recording identity
+
+- Production requests now carry recipe revision, actual named instrument,
+  instrument family, arrangement, voice and model through cache counts,
+  repertoire selection, pending recording identity, durable jobs, publication
+  and library snapshots. Legacy metadata stays explicitly unknown, readable and
+  unmodified; partial new metadata is rejected.
+- The revision fingerprints the exact production prompt direction and identity
+  from one palette read. New dispatch rejects stale plans. Vocal direction is
+  frozen before lyric generation and retained through recovery, so a palette
+  edit cannot relabel an already dispatched request. Known lyrics and topic
+  deduplication remain independent of the recording's sound source.
+- Explicit non-lute registry instruments are reported as unsupported by the
+  current preparation executor. The active recipes and prompt output are
+  unchanged; a named plucked sound source can still use the lute animation.
+- Knowledge-export requests now use the same versioned recipe and regional
+  mode policy. The staging helper accepts validated source provenance from
+  ordinary prepared recordings, without requiring a synthetic annotation.
+- Added a complete production-plan → fake provider → journal/publication →
+  library/planner → strict staging check for Sven and Lynly, plus metadata,
+  stale-plan, recovery and standalone-adapter regression coverage.
+
+This is an offline production contract. The installed Papyrus pilot still
+selects by performer/region/mode and needs separate integration before those
+runtime choices enforce every field. No installed files or configuration were
+changed. Historical auditions and style admission are unaffected.
+
+Second-checkpoint validation:
+
+- **461 general tests on Windows and 461 on macOS:** 460 passed and one expected
+  platform-specific skip on each host. The new standalone adapter test runs
+  Python in isolated mode outside the repository.
+- **1,274 workshop prompt contracts** passed on both hosts. Existing golden
+  regional prompts passed, and regenerated dashboard HTML retained SHA256
+  `baf0aaf094f70f3cf79c8ea6115cbfba724d47c9c00d7e30a70df86268679133`.
+- All **13 offline-loop checks** passed using the expanded production request.
+  The additional production preparation/staging regression covers both owned
+  pilot performers using fake provider responses and silent PCM conversion.
+- Windows log: `local/identity-checkpoint-20261020-tests-final.log`.
+  Proof: `local/offline-loop-identity-sven-20261020/report.json`.
+  Echo tests used an isolated source export under
+  `/tmp/holdmusic-identity-20261020.O1phcg`; synchronization does not copy its test
+  libraries or journal fixtures into the real checkout.
+- Installed controller PEX/source hashes still match the 15 October workaround.
+  No compiled game-controller code changed in this checkpoint; the first
+  checkpoint's separately tested portable build remains a candidate only.
+
 ## Next bounded work
 
-1. Move recipe revision, actual named instrument and instrument-family matching
-   from the integration proof's staging boundary into the production
-   planner/executor/library contract. Preserve legacy metadata explicitly as
-   unknown; do not silently relabel old recordings or change existing recipes.
-2. Add explicit reviewed continuation for retained lyrics and reconciliation
+1. Add explicit reviewed continuation for retained lyrics and reconciliation
    of unknown provider outcomes. Keep paid dispatch separate, explicitly
    authorized and bounded; test with fake providers only. Do not delete journal
-   records to bypass a pending result.
-3. Extend portable deployment/promotion plans without changing installed game
-   files. Preserve runtime JSON, receipts, saves and existing audio.
+   records to bypass a pending result. Preserve the frozen production identity
+   and prompt while continuing an already reviewed job.
+2. Extend portable deployment/promotion plans without changing installed game
+   files. Preserve runtime JSON, receipts, saves and existing audio. Inspect how
+   a candidate Papyrus controller should enforce the versioned selection fields;
+   accepting arbitrary library metadata is not runtime compatibility.
+3. Add explicit reviewed import metadata where needed. The old importer model
+   label is only a placeholder; it must not be used to infer a current recipe
+   revision or sound source for historical audio.
 4. Keep real actor identity and controller playback evidence separate. Actual
    MO2-injected ownership observation and the Sven runtime retest still need
    the relevant local/game session; they do not stop offline engineering.

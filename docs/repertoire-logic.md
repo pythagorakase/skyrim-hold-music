@@ -22,7 +22,7 @@ Three separate records matter:
 
 1. **Observation:** something this bard witnessed or heard, with occurrence time, acquisition time and source. A rumor is a valid musical subject; it retains its uncertainty.
 2. **Composition:** a song's title, words, tradition and topic, plus which performers explicitly know it. Knowing a rumor does not mean knowing a song about it. A bard can learn an existing song without receiving its composer's private memories.
-3. **Recording:** a rendition of a composition for a particular performer, tradition, arrangement, vocal mode, voice, recipe and generation model. Another singer's recording is not automatically suitable.
+3. **Recording:** a rendition of a composition for a particular performer, tradition, arrangement, vocal mode, voice, recipe revision, named instrument, instrument family and generation model. Another singer's recording is not automatically suitable.
 
 Scope includes both `save_id` and `world_id`, plus the performer where appropriate. A future adapter must supply stable identities; display names alone are insufficient. `world_id` is Hold Music's explicit continuity namespace, not a claimed SkyrimNet API field. The planner's times are in-game hours on one timeline. Raw SkyrimNet timestamp fields must be normalized deliberately; a load of an earlier save must not import future observations, learned songs or generation history.
 
@@ -47,6 +47,20 @@ The planner can return these actions:
 Decisions explain their reasons and may carry a `fallback`, so a future asynchronous executor can let an existing song play while new material is prepared. `work_key` identifies equivalent proposed work. Returning a plan does not claim a request was queued, a recording succeeded or a bard learned anything. In topical mode, the same subject can advance from new lyrics to a rendition of the completed composition and then to playback; a familiar fallback must not prevent the new song from finishing that sequence.
 
 Instrumental and wordless modes never request lyrics. Re-recording a known lyrical composition reuses its words. The caller chooses the actual arrangement and mode before planning; this module does not replace Solo Lute's existing 50/50 policy, choose the cultural profile, or validate animation capability. `arrangement` and `recipe_id` must distinguish the actual roster, instrument roles, techniques and relevant regional/moon conditions when the future resolver supplies them. Matching arbitrary labels is not proof that the physical performance is possible.
+
+`Request` additionally accepts `recipe_revision`, `instrument_family` and
+`instrument_name` as an optional all-or-nothing group. Production preparation
+supplies all three. Recording reuse and pending recording work require exact
+equality across every request field. A different revision or sound source
+requires a different rendition, but can reuse known lyrics. Lyrics-only work
+remains deduplicated by topic rather than by instrument; a changed recording
+recipe does not warrant composing the same topical words again.
+
+Legacy requests without this group remain readable with null values and retain
+their prior recording work-key hashes. They cannot match a versioned recording
+request. This compatibility path makes no claim about an old take's unknown
+recipe revision or actual instrument. The library does not fill missing metadata
+from current recipes.
 
 ## Gossip and artistic license
 

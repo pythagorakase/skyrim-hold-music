@@ -14,6 +14,8 @@ import json
 import math
 from typing import Any
 
+from hold_music.recording_identity import identity_errors
+
 MODES = {"lyrical", "wordless", "instrumental"}
 ACTIONS = {"compose_lyrics", "generate_recording"}
 KINDS = {"quest_success", "scandal", "gossip", "everyday_news", "other"}
@@ -27,6 +29,9 @@ class Request:
     voice: str
     recipe_id: str
     model_id: str
+    recipe_revision: str | None = None
+    instrument_family: str | None = None
+    instrument_name: str | None = None
 
 
 @dataclass(frozen=True)
@@ -164,6 +169,10 @@ def _read(cls: type, source: dict) -> Any:
             _number(getattr(obj, name), name, name in ("happened_at", "learned_at"))
     if hasattr(obj, "mode") and obj.mode not in MODES:
         raise ValueError("mode must be lyrical, wordless, or instrumental")
+    if cls is Request:
+        errors = identity_errors(asdict(obj))
+        if errors:
+            raise ValueError("; ".join(errors))
     if cls is Request and obj.mode == "instrumental" and obj.voice != "none":
         raise ValueError("Instrumental requests must set voice to 'none'")
     if cls is Observation:
@@ -363,7 +372,14 @@ class _Planner:
             identity.update(tradition=self.r.tradition, recipe_id=self.r.recipe_id,
                             topic_id=topic)
         else:
-            identity["request"] = asdict(self.r)
+            recording_request = asdict(self.r)
+            if self.r.recipe_revision is None:
+                # All three optional fields are null for a validated legacy
+                # request. Preserve its existing work key rather than making
+                # an old pending rendition appear to be new work.
+                for field in ("recipe_revision", "instrument_family", "instrument_name"):
+                    recording_request.pop(field)
+            identity["request"] = recording_request
         key = hashlib.sha256(json.dumps(identity, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         if action == "compose_lyrics":
             brief = {**subject, "performer_id": self.s.performer_id, "tradition": self.r.tradition,

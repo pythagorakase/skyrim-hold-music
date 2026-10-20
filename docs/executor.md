@@ -9,12 +9,36 @@ compositions through the [knowledge bridge](knowledge-bridge.md); use `lyrical`
 on the CLI (`vocal` is the library mode name). Instrumental and wordless jobs
 request no lyrics.
 
-The plan contains one job per missing playable recording of each requested mode,
-up to `--target` per performer. Counts match performer, region, mode and gender.
+The plan contains one job per missing compatible playable recording of each
+requested mode, up to `--target` per performer. Counts match performer, region,
+mode, gender, recipe ID/revision, model, named instrument, instrument family,
+arrangement and voice. A legacy or differently versioned take remains in the
+library but does not satisfy a current production request.
 Performers with null regions are skipped. `wordless` applies only to Winterhold;
 other holds are skipped for that mode. The Winterhold prompt uses the shared
 vocal-choice mapping and explicitly requires vocables without words. Duplicate
 mode selections are collapsed; unknown performer IDs and modes are errors.
+The current executor supports performers registered with the lute animation
+family. Explicit flute, drum and voice-only registrations produce a reasoned
+`no_selection`; the executor does not silently assign them a plucked instrument.
+Missing instrument fields in legacy in-memory callers retain the old lute
+fallback; the validated authored registry requires an explicit instrument.
+
+Each production plan freezes the exact regional prompt direction from one palette
+read and records its SHA256 revision. The fingerprint includes the sound-source
+identity and model, but excludes the particular lyrics and unrelated palette
+notes. `instrument_name` identifies the actual requested plucked sound source;
+the arrangement labels still name the visible lute animation. Existing prompt
+wording and recipes are unchanged.
+
+Before dispatch, the executor checks the frozen fields against the current
+recipe. A stale or edited versioned plan is rejected before spending. Once a
+job starts, its vocal direction stays frozen while lyrics are prepared; a palette
+edit during that call cannot change the ensuing music prompt. Journal recovery
+uses that retained identity instead of relabeling the result with current data.
+Legacy manually supplied jobs remain explicitly unversioned; they are not
+upgraded automatically. A matching metadata contract describes what was
+requested, not confirmation that generated audio obeyed it.
 
 Both `prepare_library.py` and `snapshot_knowledge.py` accept `--receipts <path>`
 to read separate game performance history, or the mutually exclusive
@@ -92,7 +116,8 @@ must still be paused: this is the library's single-writer API, not a concurrent
 scheduler.
 
 Each published entry records a prompt-hash/request-ID composition identity,
-`region/mode` recipe, model, and generated MP3 SHA256 provenance. Successful
+`region/mode` recipe, frozen production revision, actual named instrument and
+family, arrangement, voice, model, and generated MP3 SHA256 provenance. Successful
 generation receipts are written atomically with the manifest, using game hour
 zero and the API's `receipt_scope` (default `offline`, `offline`). The recordings
 remain baseline offline material; this scope is for receipts, not a claimed

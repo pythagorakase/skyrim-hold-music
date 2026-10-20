@@ -61,9 +61,12 @@ no requirement for an approved regional palette.
 now exercises that sequence with explicitly synthetic knowledge and silent PCM
 fixtures for the existing pilot performers. It produces a linked staging receipt
 and demonstrates duplicate suppression, generation cooldown fallback and
-completed/interrupted performance history. Strict instrument and recipe-revision
-matching is implemented at its staging boundary; carrying that contract through
-the production planner and executor remains the next integration step.
+completed/interrupted performance history. The second checkpoint carries exact
+recipe revision, named instrument, family, arrangement and voice through
+production planning, job journaling, publication, cache counts and selection.
+Legacy metadata remains unknown and is never inferred from current recipes.
+The installed Papyrus pilot still needs the corresponding selection integration;
+offline compatibility is not evidence that runtime selection enforces it.
 
 The VFS probe now observes the winning Bard Singing configuration path, hash and
 enabled flag. A separate dry-run-first handoff tool can prepare guarded changes

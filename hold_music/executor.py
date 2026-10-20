@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation
+from copy import deepcopy
 import hashlib
 import json
 import math
@@ -13,7 +14,9 @@ import tempfile
 from hold_music.lyria_client import MODEL
 from hold_music.job_store import JobStore, inspect_jobs
 from hold_music import knowledge_bridge, lyricist, repertoire
-from hold_music.regional import PALETTE, REGIONS, music_prompt, performance_mode
+from hold_music.regional import (PALETTE, REGIONS, freeze_recipe, prompt_from_recipe,
+                                 recipe_fingerprint, performance_mode)
+from hold_music.recording_identity import VERSION_FIELDS, CONTRACT_FIELDS, identity_errors, recording_request
 from tools.import_recording import ffmpeg_arguments
 
 ESTIMATED_JOB_USD = Decimal('0.08')
@@ -65,6 +68,11 @@ def plan_work(registry, library, *, performer_ids=None, target_per_performer=1,
         pid, region, gender = (performer[key] for key in ('id', 'region', 'gender'))
         if selected is not None and pid not in selected:
             continue
+        if performer.get('instrument', 'lute') != 'lute':
+            jobs.decisions.append(dict(performer_id=pid, action='no_selection', topic_id=None,
+                reasons=['The production executor supports the lute animation family only; '
+                         f"registered instrument {performer.get('instrument')!r} is unsupported."]))
+            continue
         if region is None:
             if 'lyrical' in modes:
                 jobs.decisions.append(dict(performer_id=pid, action='no_selection',
@@ -72,8 +80,12 @@ def plan_work(registry, library, *, performer_ids=None, target_per_performer=1,
             continue
         for requested in modes:
             if requested == 'lyrical':
-                request = dict(tradition=region, arrangement='solo_lute_and_voice',
-                    mode='lyrical', voice=gender, recipe_id=f'{region}/vocal', model_id=MODEL)
+                if performance_mode(region, 'vocal') != 'vocal':
+                    jobs.decisions.append(dict(performer_id=pid, action='no_selection', topic_id=None,
+                        reasons=['The regional recipe does not support lyrics; lyrical dispatch is unsupported.']))
+                    continue
+                recipe = freeze_recipe(region, 'vocal', gender, palette_path, model_id=MODEL)
+                request = recording_request(recipe)
                 snap, bridge_report = knowledge_bridge.snapshot(performer, db_path, library,
                     now_hours, request, allow_name_match=allow_name_match)
                 jobs.bridge_reports.append(bridge_report)
@@ -85,13 +97,8 @@ def plan_work(registry, library, *, performer_ids=None, target_per_performer=1,
                 jobs.decisions.append(decision)
                 if target_per_performer == 0 or decision['action'] not in ('compose_lyrics', 'generate_recording'):
                     continue
-                if performance_mode(region, 'vocal') != 'vocal':
-                    decision['reasons'].append('The regional recipe does not support lyrics; lyrical dispatch is unsupported.')
-                    decision['action'] = 'no_selection'
-                    continue
                 subject = decision.get('subject') or {}
-                job = dict(performer_id=pid, performer=performer, region=region, mode='vocal',
-                    gender=gender, recipe_id=f'{region}/vocal', topic_id=subject.get('topic_id'),
+                job = dict(recipe, performer_id=pid, performer=performer, topic_id=subject.get('topic_id'),
                     save_id=snap['save_id'], world_id=snap['world_id'], now_hours=snap['now_hours'],
                     palette_path=str(palette_path))
                 if decision['action'] == 'compose_lyrics':
@@ -106,16 +113,17 @@ def plan_work(registry, library, *, performer_ids=None, target_per_performer=1,
             if requested == 'wordless' and region != 'winterhold':
                 continue
             choice = 'instrumental' if requested == 'instrumental' else 'vocal'
-            mode = performance_mode(region, choice)
+            recipe = freeze_recipe(region, choice, gender, palette_path, model_id=MODEL)
+            mode = recipe['mode']
+            request = recording_request(recipe)
             ready = sum(row['playable'] for row in library.recordings
                         if (row['performer_id'], row['region'], row['mode'], row['gender']) ==
-                        (pid, region, mode, gender))
+                        (pid, region, mode, gender) and recording_request(row) == request)
             if ready >= target_per_performer:
                 continue
-            prompt = music_prompt(region, choice, gender, palette_path=palette_path)
+            prompt = prompt_from_recipe(recipe)
             for _ in range(target_per_performer - ready):
-                jobs.append(dict(performer_id=pid, region=region, mode=mode, gender=gender,
-                                 recipe_id=f'{region}/{mode}', prompt=prompt))
+                jobs.append(dict(recipe, performer_id=pid, prompt=prompt, palette_path=str(palette_path)))
     return jobs
 
 
@@ -137,6 +145,25 @@ def _validate_job(job):
         raise ValueError('Invalid job performer')
     if job['recipe_id'] != f"{job['region']}/{job['mode']}":
         raise ValueError('Invalid job recipe')
+    for key in ('arrangement', 'voice'):
+        if key in job and (not isinstance(job[key], str) or not job[key].strip()):
+            raise ValueError(f'Explicit {key} must be nonempty text')
+    if job['mode'] == 'instrumental' and job.get('voice', 'none') != 'none':
+        raise ValueError('Instrumental jobs must set voice to none')
+    problems = identity_errors(job)
+    if problems:
+        raise ValueError('; '.join(problems))
+    recipe = None
+    if any(job.get(key) is not None for key in VERSION_FIELDS):
+        recipe = freeze_recipe(job['region'], job['mode'], job['gender'],
+                               job.get('palette_path', PALETTE), model_id=MODEL)
+        if any(job.get(key) != recipe[key] for key in CONTRACT_FIELDS) or (
+                job.get('prompt_prefix') != recipe['prompt_prefix']):
+            raise ValueError('Stale or invalid production recording identity; create a new plan')
+        if job['mode'] != 'vocal' and job.get('prompt') != prompt_from_recipe(recipe):
+            raise ValueError('Production prompt does not match its frozen recipe')
+    elif job.get('model_id', MODEL) != MODEL:
+        raise ValueError('Unsupported generation model')
     if job['mode'] == 'vocal':
         if performance_mode(job['region'], 'vocal') != 'vocal':
             raise ValueError('Regional recipe does not support lyrics')
@@ -146,7 +173,10 @@ def _validate_job(job):
             if not isinstance(job.get(key), str) or not job[key].strip():
                 raise ValueError('Vocal jobs require a resolved timeline')
         _usd(job.get('now_hours'))
-        return
+        # Freeze even explicitly unversioned vocal work before a lyric call,
+        # while leaving the legacy job and published identity unversioned.
+        return recipe or freeze_recipe(job['region'], 'vocal', job['gender'],
+                                       job.get('palette_path', PALETTE), model_id=MODEL)
     prompt = job['prompt']
     if not isinstance(prompt, str) or not prompt.strip() or 'lyrics:' in prompt.casefold():
         raise ValueError('Jobs require a music prompt without a Lyrics: block')
@@ -155,6 +185,7 @@ def _validate_job(job):
         raise ValueError('Wordless jobs require the vocables sentence')
     if job['recipe_id'] != f"{job['region']}/{job['mode']}":
         raise ValueError('Invalid job recipe')
+    return recipe
 
 
 def _public_plan(jobs, decisions, bridge_reports, show_briefs):
@@ -163,7 +194,8 @@ def _public_plan(jobs, decisions, bridge_reports, show_briefs):
     if show_briefs:
         return dict(jobs=jobs, decisions=decisions, bridge_reports=bridge_reports)
     public_jobs = [{key: job.get(key) for key in
-        ('performer_id', 'region', 'mode', 'gender', 'recipe_id', 'topic_id')} for job in jobs]
+        ('performer_id', 'region', 'mode', 'gender', 'recipe_id', 'topic_id',
+         *VERSION_FIELDS, 'arrangement', 'voice', 'model_id')} for job in jobs]
     public_decisions = [dict(performer_id=decision['performer_id'], action=decision['action'],
         topic_id=(decision.get('subject') or {}).get('topic_id', decision.get('topic_id')),
         reasons=decision['reasons']) for decision in decisions]
@@ -214,15 +246,24 @@ def _publish_saved(store, job_id, library, executable):
     source = dict(kind='generated', path_or_request_id=response['request_id'],
                   sha256=hashlib.sha256(audio).hexdigest())
     job, scope = context['job'], context['scope']
+    problems = identity_errors(job)
+    if problems:
+        raise ValueError('; '.join(problems))
+    if any(job.get(key) is not None for key in VERSION_FIELDS) and (
+            job['recipe_revision'] != recipe_fingerprint(job) or job['model_id'] != music[0]['model']
+            or context.get('prompt') != prompt_from_recipe(job, context.get('lyrics'))):
+        raise ValueError('Retained production recording identity is inconsistent')
     lyrics, title, prompt = (context.get(key) for key in ('lyrics', 'title', 'prompt'))
     region, mode = job['region'], job['mode']
     digest = hashlib.sha256((lyrics if lyrics is not None else prompt).encode('utf-8')).hexdigest()[:16]
     composition_id = (job.get('composition_id') or f"lyric:{job['topic_id']}:{digest}"
                       if mode == 'vocal' else f"gen:{region}:{mode}:{digest}:{response['request_id']}")
     receipts = context['receipts'] + [dict(scope, id=response['request_id'], action='generate_recording')]
-    extra = {}
+    # Replay the retained identity verbatim. Recovery must never consult today's
+    # palette or fill absent legacy metadata from current defaults.
+    extra = {key: job[key] for key in (*VERSION_FIELDS, 'arrangement', 'voice') if key in job}
     if mode == 'vocal':
-        extra = dict(save_id=scope['save_id'], world_id=scope['world_id'],
+        extra.update(save_id=scope['save_id'], world_id=scope['world_id'],
             created_at_hours=scope['at_hours'], title=title, topic_id=job.get('topic_id'),
             source_observation_ids=job.get('lyric_brief', {}).get('source_observation_ids',
                 job.get('source_observation_ids', [])))
@@ -234,6 +275,7 @@ def _publish_saved(store, job_id, library, executable):
                         recipe_id=job['recipe_id'], model_id=music[0]['model'],
                         lyrics_sha256=hashlib.sha256(lyrics.encode('utf-8')).hexdigest()
                             if lyrics is not None else None)
+        expected.update({key: job.get(key) for key in (*VERSION_FIELDS, 'arrangement', 'voice')})
         if (len(matches) != 1 or not matches[0]['playable'] or library.validate()
                 or any(matches[0].get(key) != value for key, value in expected.items())
                 or any(receipt not in library.generation_receipts for receipt in receipts)
@@ -298,7 +340,7 @@ def execute(jobs, *, client, library, ffmpeg, max_jobs, max_usd, dry_run=True,
     budget = _usd(max_usd)
     decisions = getattr(jobs, 'decisions', [])
     bridge_reports = getattr(jobs, 'bridge_reports', [])
-    jobs = list(jobs)
+    jobs = deepcopy(list(jobs))
     for job in jobs:
         _validate_job(job)
     if (len(receipt_scope) != 2 or
@@ -335,6 +377,10 @@ def execute(jobs, *, client, library, ffmpeg, max_jobs, max_usd, dry_run=True,
                 break
             job_id = None
             try:
+                # Validate again immediately before this job; a previous call
+                # may have overlapped a recipe edit. The returned direction is
+                # immutable input to this job's subsequent music request.
+                recipe = _validate_job(job)
                 executable = shutil.which(str(ffmpeg or 'ffmpeg'))
                 if executable is None:
                     raise ValueError('ffmpeg was not found; supply --ffmpeg')
@@ -348,6 +394,9 @@ def execute(jobs, *, client, library, ffmpeg, max_jobs, max_usd, dry_run=True,
                     world_id=job.get('world_id', receipt_scope[1]), at_hours=job.get('now_hours', 0))
                 context = dict(job=job, scope=scope, lyrics=job.get('lyrics'),
                                title=job.get('title'), receipts=[])
+                if job['mode'] == 'vocal':
+                    context['prompt_prefix'] = recipe['prompt_prefix']
+                    context['region_label'] = recipe['region_label']
                 job_id = store.begin_job(context)
                 report['jobs'].append(job_id)
                 report['attempted'] += 1
@@ -370,19 +419,18 @@ def execute(jobs, *, client, library, ffmpeg, max_jobs, max_usd, dry_run=True,
                         return result
 
                 if job.get('lyric_brief'):
-                    palette_path = job.get('palette_path', PALETTE)
-                    music_prompt(job['region'], 'vocal', job['gender'], 'preflight', palette_path=palette_path)
-                    region_label = json.loads(Path(palette_path).read_text(encoding='utf-8'))['auditionRegions'][job['region']]
                     composed = lyricist.write_lyrics(job['lyric_brief'], performer=job['performer'],
-                        region_label=region_label, gender=job['gender'], client=LyricClient(), model=lyric_model)
+                        region_label=context['region_label'], gender=job['gender'],
+                        client=LyricClient(), model=lyric_model)
                     context.update(lyrics=composed['lyrics'], title=composed['title'])
                     context['receipts'].append(dict(scope, id=composed['request_id'], action='compose_lyrics'))
                     store.update(job_id, state='lyrics_ready', context=context)
                     if total + ESTIMATED_JOB_USD > budget:
                         report['status'] = 'budget_exceeded' if total > budget else 'budget'
                         break
-                context['prompt'] = (music_prompt(job['region'], 'vocal', job['gender'], context['lyrics'],
-                    palette_path=job.get('palette_path', PALETTE)) if job['mode'] == 'vocal' else job['prompt'])
+                context['prompt'] = (prompt_from_recipe(
+                    dict(mode='vocal', prompt_prefix=context['prompt_prefix']), context['lyrics'])
+                    if job['mode'] == 'vocal' else job['prompt'])
                 store.update(job_id, context=context)
                 call_id = store.begin_call(job_id, 'generate_recording', MODEL, ESTIMATED_JOB_USD)
                 result = client.generate(context['prompt'])

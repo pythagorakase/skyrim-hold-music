@@ -9,6 +9,7 @@ import wave
 
 from hold_music.library import Library, wav_info
 from hold_music.repertoire import Snapshot, plan
+from hold_music.recording_identity import VERSION_FIELDS
 
 WORDS = 'The lantern warms the winding road.\nWe share the light and lift the load.\n'
 REQUEST = dict(tradition='whiterun', arrangement='solo_lute_and_voice', mode='lyrical',
@@ -35,6 +36,10 @@ class LibraryTests(unittest.TestCase):
                     composition_id='song', recipe_id='whiterun/vocal', model_id='test-model',
                     source={'kind': 'import', 'path_or_request_id': 'fixture.mp3'}, lyrics=WORDS)
         args.update(changes)
+        # This fixture explicitly knows its arrangement; production readers must
+        # not infer these fields from an old recording's gender or mode.
+        args.setdefault('arrangement', 'solo_lute' if args['mode'] == 'instrumental' else 'solo_lute_and_voice')
+        args.setdefault('voice', 'none' if args['mode'] == 'instrumental' else 'male')
         return self.library.add_recording(self.wav, **args)
 
     def manifest(self):
@@ -218,6 +223,79 @@ class LibraryTests(unittest.TestCase):
         self.assertEqual(request['voice'], 'mikael-v1')
         snapshot['request'] = request
         self.assertEqual(plan(snapshot)['action'], 'play_recording')
+
+    def test_versioned_identity_survives_publication_and_snapshot(self):
+        identity = dict(recipe_revision='fixture-r1', instrument_family='plucked_string',
+                        instrument_name='cittern')
+        self.add(**identity)
+        request = dict(REQUEST, **identity)
+        snapshot = self.snapshot(request=request)
+        self.assertEqual(snapshot['recordings'][0]['request'], request)
+        self.assertEqual(plan(snapshot)['action'], 'play_recording')
+        original = (self.root / 'library.json').read_bytes()
+        for key, alternate in [('recipe_revision', 'fixture-r2'),
+                               ('instrument_family', 'reedless_woodwind'),
+                               ('instrument_name', 'vihuela'),
+                               ('arrangement', 'solo_flute_and_voice'),
+                               ('voice', 'female'), ('model_id', 'other-model'),
+                               ('recipe_id', 'other-recipe')]:
+            with self.subTest(key=key):
+                self.assertNotEqual(plan(self.snapshot(request=dict(request, **{key: alternate})))
+                                    ['action'], 'play_recording')
+        self.assertEqual((self.root / 'library.json').read_bytes(), original)
+
+    def test_legacy_recording_is_readable_but_unknown_identity_is_not_inferred(self):
+        self.add()
+        manifest = self.manifest()
+        for key in ('arrangement', 'voice'):
+            manifest['recordings'][0].pop(key)
+        self.write_manifest(manifest)
+        original = (self.root / 'library.json').read_bytes()
+        snapshot = self.snapshot()
+        old_request = snapshot['recordings'][0]['request']
+        self.assertEqual(old_request['arrangement'], 'unknown')
+        self.assertEqual(old_request['voice'], 'unknown')
+        for key in VERSION_FIELDS:
+            self.assertIsNone(old_request[key])
+        self.assertEqual(self.library.validate(), [])
+        strict = dict(REQUEST, recipe_revision='fixture-r1',
+                      instrument_family='plucked_string', instrument_name='cittern')
+        self.assertNotEqual(plan(self.snapshot(request=strict))['action'], 'play_recording')
+        self.assertEqual((self.root / 'library.json').read_bytes(), original)
+        self.assertEqual(self.manifest(), manifest)
+
+    def test_legacy_instrumental_does_not_guess_a_plucked_arrangement(self):
+        self.add(mode='instrumental', lyrics=None)
+        manifest = self.manifest()
+        for key in ('arrangement', 'voice'):
+            manifest['recordings'][0].pop(key)
+        self.write_manifest(manifest)
+        request = self.snapshot()['recordings'][0]['request']
+        self.assertEqual(request['voice'], 'none')
+        self.assertEqual(request['arrangement'], 'unknown')
+
+    def test_partial_identity_is_rejected_without_publishing(self):
+        complete = dict(recipe_revision='fixture-r1', instrument_family='plucked_string',
+                        instrument_name='cittern')
+        for key in (*VERSION_FIELDS, 'arrangement', 'voice'):
+            with self.subTest(key=key):
+                incomplete = dict(complete, **{key: None})
+                with self.assertRaisesRegex(ValueError, 'identity'):
+                    self.add(**incomplete)
+                self.assertFalse(self.root.exists())
+
+    def test_incomplete_versioned_manifest_blocks_writes(self):
+        self.add(recipe_revision='fixture-r1', instrument_family='plucked_string',
+                 instrument_name='cittern')
+        manifest = self.manifest()
+        del manifest['recordings'][0]['instrument_name']
+        self.write_manifest(manifest)
+        before = (self.root / 'library.json').read_bytes()
+        self.assertTrue(any('instrument_name' in error for error in self.library.validate()))
+        self.assertEqual(self.library.free_slots(), [])
+        with self.assertRaisesRegex(ValueError, 'invalid library'):
+            self.add(composition_id='new')
+        self.assertEqual((self.root / 'library.json').read_bytes(), before)
 
     def test_vocal_without_lyrics_can_be_imported_but_cannot_supply_planner_composition(self):
         self.add(lyrics=None)

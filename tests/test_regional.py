@@ -2,8 +2,15 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+from copy import deepcopy
+import shutil
+import subprocess
+import sys
 
-from hold_music.regional import REGIONS, load_profiles, music_prompt, resolve_location, resolve_location_detail, performance_mode
+from hold_music.regional import (REGIONS, PALETTE, load_profiles, music_prompt, resolve_location,
+                                 resolve_location_detail, performance_mode, freeze_recipe,
+                                 prompt_from_recipe, recipe_fingerprint)
 
 
 class RegionalRecipes(unittest.TestCase):
@@ -113,6 +120,84 @@ class CompactPrompts(unittest.TestCase):
         self.assertIn('Lute: ' + profile['lute'] + '.', prompt)
         self.assertIn('One adult female performer; solo lute instrumental; plucked strings.', prompt)
         self.assertIn('No bowed strings.', prompt)
+
+
+class FrozenRecipes(unittest.TestCase):
+    def test_regional_module_remains_standalone_for_the_mo2_adapter(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            module = root / 'regional.py'
+            palette = root / 'palette-data.json'
+            shutil.copyfile(PALETTE.parent.parent / 'hold_music' / 'regional.py', module)
+            shutil.copyfile(PALETTE, palette)
+            code = """
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location('standalone_regional', sys.argv[1])
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+print(module.music_prompt('falkreath', 'vocal', 'female', 'Fixture words.', palette_path=sys.argv[2]))
+"""
+            result = subprocess.run([sys.executable, '-I', '-X', 'utf8', '-c', code,
+                                     str(module), str(palette)], cwd=root, capture_output=True, text=True,
+                                    encoding='utf-8')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.strip(), music_prompt('falkreath', 'vocal', 'female', 'Fixture words.'))
+
+    def test_freeze_uses_one_palette_read_and_preserves_exact_lyrics_independent_direction(self):
+        with patch.object(Path, 'read_text', autospec=True, side_effect=Path.read_text) as read:
+            recipe = freeze_recipe('falkreath', 'vocal', 'female')
+        self.assertEqual(read.call_count, 1)
+        self.assertEqual(recipe['instrument_name'], 'plucked kantele')
+        self.assertEqual(recipe['instrument_family'], 'plucked_string')
+        self.assertEqual(recipe['arrangement'], 'solo_lute_and_voice')
+        self.assertEqual(recipe['voice'], 'female')
+        for lyrics in ('First exact verse.', 'Another verse.\n'):
+            self.assertEqual(prompt_from_recipe(recipe, lyrics),
+                             music_prompt('falkreath', 'vocal', 'female', lyrics))
+        self.assertNotIn('Lyrics:', recipe['prompt_prefix'])
+        self.assertEqual(recipe['recipe_revision'], recipe_fingerprint(recipe))
+
+    def test_fingerprint_changes_for_actual_direction_and_identity_not_unrelated_notes(self):
+        original = json.loads(PALETTE.read_text(encoding='utf-8'))
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / 'palette.json'
+            path.write_text(json.dumps(original), encoding='utf-8')
+            before = freeze_recipe('pale', 'instrumental', 'female', path)
+            unrelated = deepcopy(original)
+            unrelated['unrelated_note'] = 'No prompt change.'
+            next(p for p in unrelated['existing'] if p['id'] == 'rift')['core'] += ' Unrelated recipe.'
+            path.write_text(json.dumps(unrelated), encoding='utf-8')
+            self.assertEqual(freeze_recipe('pale', 'instrumental', 'female', path), before)
+            for field in ('instrument', 'direction', 'region_label'):
+                changed = deepcopy(original)
+                profile = next(p for p in changed['existing'] if p['id'] == 'pale')
+                if field == 'instrument':
+                    profile['workshop']['plucked'] = 'cittern'
+                elif field == 'direction':
+                    key = 'core_instrumental' if profile.get('core_instrumental') else 'core'
+                    profile[key] += ' Distinct synthetic direction.'
+                else:
+                    changed['auditionRegions']['pale'] += ' synthetic venue'
+                path.write_text(json.dumps(changed), encoding='utf-8')
+                with self.subTest(field=field):
+                    self.assertNotEqual(freeze_recipe('pale', 'instrumental', 'female', path)['recipe_revision'],
+                                        before['recipe_revision'])
+            path.write_text(json.dumps(original), encoding='utf-8')
+            for options in (dict(gender='male'), dict(choice='vocal'), dict(model_id='fixture/other-model')):
+                args = dict(region='pale', choice='instrumental', gender='female', palette_path=path)
+                args.update(options)
+                self.assertNotEqual(freeze_recipe(**args)['recipe_revision'], before['recipe_revision'])
+
+    def test_instrumental_and_wordless_identities_describe_actual_voice(self):
+        instrumental = freeze_recipe('hjaalmarch', 'vocal', 'male')
+        self.assertEqual(instrumental['mode'], 'instrumental')
+        self.assertEqual(instrumental['voice'], 'none')
+        self.assertEqual(instrumental['arrangement'], 'solo_lute')
+        self.assertEqual(instrumental['instrument_name'], 'plucked kanklės')
+        wordless = freeze_recipe('winterhold', 'vocal', 'male')
+        self.assertEqual(wordless['mode'], 'wordless')
+        self.assertEqual(wordless['voice'], 'male')
+        self.assertEqual(wordless['arrangement'], 'solo_lute_and_voice')
 
 
 if __name__ == '__main__':
