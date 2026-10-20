@@ -146,19 +146,79 @@ Third-checkpoint validation:
   audition data were changed. Paid provider calls: zero. The candidate build
   and three proposed PEX replacements remain unapplied.
 
+## Fourth checkpoint: candidate runtime recording identity
+
+- Added explicit runtime contracts projected from frozen planner requests into
+  new staged payloads. Each recording receives an independently derived SHA-256
+  identity key. Strict metadata validation rejects missing/null fields, duplicate
+  performers, unsupported arrangements and stale readable-field/key pairs.
+  Source libraries and historical audio remain unchanged.
+- Added candidate Papyrus selection for that projection, retaining current
+  ranking, cooldowns and locks. A versioned performer cannot fall back to legacy
+  rows. Unaffected legacy performers keep their existing behavior. Receipts
+  capture selected identity before subsequent manifest changes. The controller
+  still uses the supported plucked-string animation family.
+- Added 24 independent compiled-script regressions and an artifact-bound
+  verification report. The builder requires every named fixture to pass without
+  skips, then binds results to package, source, disassembly, fixtures and helpers.
+  Promotion revalidates the evidence; a receipt flag alone cannot claim support.
+- Documented native limitations: Papyrus string interning cannot reliably
+  preserve raw text casing, so the runtime uses the validated SHA-256 projection.
+  Python verifies exact readable metadata. Native numeric predicates cannot
+  distinguish schema version `1` from `1.0`; the projection writes integer `1`.
+  Corrected the VM's missing-array `PathCount` result to `-1` and fixed candidate
+  receipt/trace initialization to start at zero.
+- Read-only promotion now separates candidate verification from installed
+  runtime support. Two real plans observed the same 708-path snapshot and 634
+  preservation entries. A valid synthetic projected library clears the identity
+  blocker but retains the unsupported-library-merge blocker. Nothing was applied.
+
+Fourth-checkpoint validation:
+
+- **557 general tests on Windows:** 554 passed, three expected platform skips.
+- **557 general tests on macOS:** 556 passed, one expected platform skip.
+  The final suite includes the independent review's regression: a legacy-only or
+  empty library with an explicit runtime contract still requires candidate
+  capability. The planner cannot silently let an old selector ignore it.
+- **76 compiled game-package tests on each host:** all passed against
+  `local/runtime-identity-build-20261020-02/build`; its required 24-test subset
+  also passed inside the builder before the capability receipt was written.
+- **1,274 workshop prompt contracts on each host** passed; dashboard SHA256 remains
+  `baf0aaf094f70f3cf79c8ea6115cbfba724d47c9c00d7e30a70df86268679133`.
+- All **14 offline-loop checks** passed in
+  `local/offline-loop-runtime-identity-20261020/`, including independent contract
+  projection and unchanged source library/database.
+- Echo validated the exact copied candidate and its report in
+  `/tmp/holdmusic-runtime-identity-20261020.d0S6Jf/`, with the source exported from
+  `120f031` plus the reviewed two-file promotion fix. Build verification SHA256:
+  `f9e5a94742927917a9ee0cfc267024740e58418fea0291285504cf9fa146d0de`.
+  The 14-check synthetic proof also passed there. Cross-host test logs and the
+  final synchronization receipt are retained in
+  `local/runtime-identity-publish-20261020/`.
+- Logs: `local/runtime-identity-checkpoint-20261020-tests-final.log`,
+  `local/runtime-identity-game-tests-20261020.log` and
+  `local/runtime-identity-build-20261020-02.log`. The first fresh compile exposed
+  Caprica's unsupported carriage-return escape; the successful candidate uses
+  `StringUtil.AsChar(13)`. The failed workspace is retained separately.
+- Promotion reports: `local/runtime-identity-promotion-review-20261020.json` and
+  `local/runtime-identity-promotion-staged-20261020.json`. Unchanged observed
+  snapshot: `595c3f8abd73b3e1f756736ed8e13eb4fd20e672b4b23aa51fc2eda5badb9488`.
+- Installed controller PEX/source hashes still match the 15 October workaround.
+  Candidate artifacts remain local and unapplied. Paid provider calls: zero.
+  No installed files, active configuration, recipes or auditions were changed.
+  The source checkpoint is ready for synchronization; the synchronization
+  receipt records final GitHub, Halcyon and Echo commit/tree identities.
+
 ## Next bounded work
 
-1. Implement the [candidate Papyrus selection contract](candidate-runtime-identity.md)
-   and build capability receipt for the versioned fields. Verify it with isolated compilation and synthetic
-   fixtures before permitting a versioned library promotion. Keep the installed
-   controller and existing audio unchanged.
-2. Extend the read-only promotion plan toward a reviewed apply/rollback design
+1. Extend the read-only promotion plan toward a reviewed apply/rollback design
    that rechecks hashes and preserves runtime JSON, receipts, saves and audio.
-   The existing complete-mod installer is not an incremental promotion path.
-3. Add explicit reviewed import metadata where needed. The old importer model
+   Test against synthetic installations only. The existing complete-mod installer
+   is not an incremental promotion path, and the new candidate remains unapplied.
+2. Add explicit reviewed import metadata where needed. The old importer model
    label is only a placeholder; it must not be used to infer a current recipe
    revision or sound source for historical audio.
-4. Keep real actor identity and controller playback evidence separate. Actual
+3. Keep real actor identity and controller playback evidence separate. Actual
    MO2-injected ownership observation and the Sven runtime retest still need
    the relevant local/game session; they do not stop offline engineering.
 

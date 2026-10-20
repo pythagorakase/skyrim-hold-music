@@ -13,6 +13,8 @@ import re
 
 from hold_music.library import _recording_errors
 from hold_music.recording_identity import VERSION_FIELDS
+from hold_music.runtime_capability import validate_capability
+from hold_music.runtime_contract import manifest_runtime_selection_errors
 
 DEFAULT_MOD = "MGO Experimental - Hold Music Performances"
 DEFAULT_DATA_MOD = "MGO Experimental - Profile Data"
@@ -225,6 +227,14 @@ def plan_promotion(build_dir, source_root, mo2_root, profile, *,
         if current.get("sha256") is None or current["sha256"] != declared.get("sha256"):
             raise ValueError("Recorded build input differs from the source root: " + label)
 
+    def read_capability_input(path):
+        _, raw = observed.read(_no_alias(path), content=True)
+        if raw is None:
+            raise ValueError("Missing candidate capability input: " + str(path))
+        return raw
+
+    candidate_capability = validate_capability(
+        receipt, build, source, read_bytes=read_capability_input)
     blockers, files, preserved = [], [], []
 
     def block(code, detail):
@@ -248,6 +258,15 @@ def plan_promotion(build_dir, source_root, mo2_root, profile, *,
                     or data["version"] != 1 or data.get("slots") != 24
                     or not isinstance(data.get("recordings"), list)):
                 raise ValueError("invalid library shape")
+            has_projected = any(isinstance(row, dict) and any(
+                key in row for key in (*VERSION_FIELDS, "identity_key"))
+                for row in data["recordings"])
+            if has_projected or "runtime_selection" in data:
+                for problem in manifest_runtime_selection_errors(data, required=has_projected):
+                    block("invalid_runtime_selection", origin + ": " + problem)
+            if "runtime_selection" in data and candidate_capability is None:
+                block("versioned_library_unsupported",
+                      origin + ": explicit runtime contract requires verified candidate selection capability")
             seen_slots = set()
             for index, row in enumerate(data["recordings"]):
                 if _recording_errors(row, 24):
@@ -256,9 +275,11 @@ def plan_promotion(build_dir, source_root, mo2_root, profile, *,
                     if row["slot"] in seen_slots:
                         block("malformed_library_metadata", f"{origin}: duplicate slot")
                     seen_slots.add(row["slot"])
-                if isinstance(row, dict) and any(row.get(key) is not None for key in VERSION_FIELDS):
+                if (isinstance(row, dict) and any(
+                        key in row for key in (*VERSION_FIELDS, "identity_key"))
+                        and candidate_capability is None):
                     block("versioned_library_unsupported",
-                          f"{origin}: recording {index}; no verified runtime identity capability")
+                          f"{origin}: recording {index}; no verified candidate selection capability")
         except (ValueError, TypeError, KeyError):
             block("malformed_library_metadata", origin)
 
@@ -342,11 +363,14 @@ def plan_promotion(build_dir, source_root, mo2_root, profile, *,
         "files": files, "preserved": sorted(preserved, key=lambda row: (row["path"], row["kind"])),
         "blockers": sorted(blockers, key=lambda row: (row["code"], row["detail"])),
         "runtime_identity_supported": False, "vfs_winners_verified": False,
+        "candidate_runtime_selection_verified": candidate_capability is not None,
+        "candidate_runtime_selection_capability": candidate_capability,
         "snapshot_sha256": snapshot_hash, "observed_files": snapshot,
         "limits": [
             "Static differences are proposals only; this command has no apply operation.",
             "Runtime JSON, audio, lyrics, user settings, saves and profile lists are preserved.",
             "Build provenance is evidence, not attestation of runtime identity enforcement.",
+            "Candidate selection evidence tests a projected identity with mocked native APIs; installed engine behavior is unverified.",
             "Library metadata inspection does not validate or promote its audio assets.",
             "VFS winners, running processes, saved-script compatibility and playback remain unverified.",
             "Replan after any source or target change; observations are not an atomic filesystem snapshot.",

@@ -47,6 +47,11 @@ builder all stay in the workspace. NuGet sources and vulnerability-audit
 network queries are disabled; missing cached dependencies fail the build.
 `build/` contains the package, imports, logs, disassembly, input plan, package
 hashes and a build receipt identifying the stack, source and toolchain hashes.
+The builder runs every required runtime-identity fixture against the new
+disassembled scripts in a fresh Python process. Failed or skipped tests prevent
+a successful receipt. `runtime-selection-verification.json` binds those results
+to the package, source, disassembly, fixtures and verification helpers; promotion
+rechecks these hashes. This is compiled-code evidence with mocked native APIs.
 The receipt does not establish installation or runtime compatibility.
 The checkout's existing `game_package/build` is left intact. Tests can target
 the new build with `HOLD_MUSIC_TEST_BUILD`; an incomplete explicit target fails
@@ -73,8 +78,11 @@ Use the separate [read-only promotion planner](../docs/game-promotion.md) to
 compare an explicit candidate against an existing installation. It verifies
 source and package hashes, preserves runtime data and audio, and reports static
 changes without applying them. The current installer is not an incremental
-promotion mechanism. Versioned libraries remain blocked until the compiled
-controller enforces their full recording identity.
+promotion mechanism. Candidate identity capability can clear the versioned
+selection blocker only with matching verification evidence and a valid projected
+library contract. Library merging remains unsupported, and the installed
+controller remains unchanged. See the [candidate identity contract](../docs/candidate-runtime-identity.md)
+for the projection and native-API limitations.
 
 ## Install and rollback
 

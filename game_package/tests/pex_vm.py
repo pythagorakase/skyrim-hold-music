@@ -95,6 +95,14 @@ class VM:
     def default(typ):
         return {"int": 0, "float": 0.0, "bool": False, "string": ""}.get(typ.lower())
 
+    @staticmethod
+    def equal(left, right):
+        # SKSEVR StringUtil.psc documents case-insensitive BSFixedString
+        # interning. Do not let Python's exact equality overstate Papyrus.
+        if isinstance(left, str) and isinstance(right, str):
+            return left.casefold() == right.casefold()
+        return left == right
+
     def run(self, owner, method, *params):
         owner, method = owner.lower(), method.lower()
         block = self.scripts[owner][method]
@@ -144,7 +152,7 @@ class VM:
             elif op=='not': put(a[0],not val(a[1]))
             elif op.startswith('cmp_') or op=='comp_gte':
                 x,y=val(a[1]),val(a[2])
-                funcs={'cmp_eq':lambda:x==y,'cmp_lt':lambda:x<y,'cmp_lte':lambda:x<=y,'cmp_gt':lambda:x>y,'comp_gte':lambda:x>=y,'cmp_gte':lambda:x>=y}
+                funcs={'cmp_eq':lambda:self.equal(x,y),'cmp_lt':lambda:x<y,'cmp_lte':lambda:x<=y,'cmp_gt':lambda:x>y,'comp_gte':lambda:x>=y,'cmp_gte':lambda:x>=y}
                 put(a[0],funcs[op]())
             elif op in ('iadd','fadd'): put(a[0],val(a[1])+val(a[2]))
             elif op in ('isub','fsub'): put(a[0],val(a[1])-val(a[2]))
@@ -155,8 +163,8 @@ class VM:
             elif op=='array_getlement': put(a[0],val(a[1])[val(a[2])])
             elif op=='array_setelement': val(a[0])[val(a[1])]=val(a[2])
             elif op=='array_findelement':
-                try: found=(val(a[0]) or []).index(val(a[2]),val(a[3]))
-                except ValueError: found=-1
+                found=next((i for i,item in enumerate(val(a[0]) or [])
+                            if i >= val(a[3]) and self.equal(item,val(a[2]))),-1)
                 put(a[1],found)
             elif op=='propget': put(a[2],self.state[val(a[1])[1]]['::'+a[0].lower()+'_var'])
             elif op=='propset': self.state[val(a[1])[1]]['::'+a[0].lower()+'_var']=val(a[2])
@@ -227,6 +235,13 @@ class VM:
             obj=obj[key]
 
     def static(self,owner,name,a):
+        if owner=='stringutil':
+            if name=='getlength': return len(a[0].encode('utf-8'))
+            if name=='aschar': return chr(a[0]) if 0 <= a[0] <= 255 else ''
+            if name=='getnthchar':
+                raw=a[0].encode('utf-8')
+                return chr(raw[a[1]]) if 0 <= a[1] < len(raw) else ''
+            if name=='find': return a[0].casefold().find(a[1].casefold(),a[2])
         if owner=='game':
             if name=='getplayer': return 'P'
             if name=='getformfromfile':
@@ -257,18 +272,24 @@ class VM:
                 self.effects.append(('clearpath',*a)); return None
             if name=='setrawpathvalue':
                 self.json_set(a[0],a[1],json.loads(a[2])); return True
-            if name=='pathcount': return len(self.json_get(*a,default=[]) or [])
-            if name=='pathmembers': return list(self.json_get(*a,default={}))
+            if name=='pathcount':
+                value=self.json_get(*a)
+                return len(value) if isinstance(value,(list,dict)) else -1
+            if name=='pathmembers':
+                value=self.json_get(*a,default={})
+                return list(value) if isinstance(value,dict) else []
             if name.startswith('setpath'):
                 self.json_set(*a); return None
             if name.startswith('getpath'):
                 value = self.json_get(*a)
+                if name=='getpathboolvalue':
+                    return value if isinstance(value,bool) else a[2]
                 typ = {'getpathstringvalue': str, 'getpathintvalue': int, 'getpathfloatvalue': (int, float)}[name]
                 return value if isinstance(value, typ) and not isinstance(value, bool) else a[2]
             if name=='canresolvepath':
-                missing=object(); return self.json_get(*a,default=missing) is not missing
+                return self.json_get(*a) is not None
             if name.startswith('ispath'):
                 value=self.json_get(*a)
                 typ={'ispathobject':dict,'ispatharray':list,'ispathstring':str,'ispathnumber':(int,float),'ispathbool':bool}[name]
-                return isinstance(value,typ)
+                return isinstance(value,typ) and not (name=='ispathnumber' and isinstance(value,bool))
         raise AssertionError(('unmocked static',owner,name,a))

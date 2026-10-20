@@ -14,6 +14,10 @@ from build_registry import build_registry
 from build_config import parse_args, sha256
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT.parent))
+from hold_music.runtime_capability import (
+    REPORT_FILENAME, capture_inputs, receipt_capability, validate_capability,
+)
 
 
 def main(argv=None):
@@ -136,6 +140,18 @@ def main(argv=None):
         raise RuntimeError('Compile-time BardSongsScript stub must never be packaged')
     hashes={p.relative_to(PACKAGE).as_posix():hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(PACKAGE.rglob('*')) if p.is_file()}
     (BUILD/'package-hashes.json').write_text(json.dumps(hashes,indent=2)+'\n')
+    # Execute fixtures in a fresh interpreter against this exact isolated build.
+    # The verifier measures sources, PEX, disassembly and test helpers before
+    # and after the run; a failed or skipped required test aborts the build.
+    capture_inputs(BUILD, ROOT, plan)
+    env['HOLD_MUSIC_TEST_BUILD'] = str(BUILD.resolve())
+    result, content = run([
+        sys.executable, '-X', 'utf8', '-B', ROOT/'tools/verify_runtime_selection.py',
+        '--build-dir', BUILD, '--source-root', ROOT, '--decompiler', DECOMPILER,
+    ], 'runtime-selection-verification.log')
+    if result.returncode:
+        raise RuntimeError('Candidate runtime verification failed: ' + content)
+    say(content.strip())
     current_sources = {
         p.relative_to(ROOT).as_posix(): sha256(p)
         for folder in ('src', 'data', 'imports')
@@ -151,6 +167,10 @@ def main(argv=None):
                    compiled_imports={p.name: sha256(p) for p in sorted(imports.glob('*.psc'))},
                    package_hashes=hashes,
                    installed=False, runtime_verified=False)
+    receipt['runtime_selection_capability'] = receipt_capability(
+        (BUILD / REPORT_FILENAME).read_bytes())
+    # Recheck all bound inputs immediately before publishing a success receipt.
+    validate_capability(receipt, BUILD, ROOT)
     (BUILD/'build-receipt.json').write_text(json.dumps(receipt,indent=2)+'\n',encoding='utf-8')
     say(f'Build ready: {PACKAGE}; {len(hashes)} hashed files. Nothing installed or launched.')
     return 0

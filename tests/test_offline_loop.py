@@ -10,6 +10,10 @@ import unittest
 from unittest.mock import patch
 
 from hold_music.library import Library
+from hold_music.runtime_contract import (
+    manifest_runtime_selection_errors, project_runtime_contract, recording_contract_errors,
+    runtime_identity_key,
+)
 from tools.verify_offline_loop import (
     CONTRACT_FIELDS, compatible_recording, reconcile_receipt, run, sha, stage_selection,
 )
@@ -59,6 +63,15 @@ class OfflineLoopTests(unittest.TestCase):
         staged = Library(self.root / "staged/library").load()
         self.assertEqual(compatible_recording(staged.recordings[0], self.contract), [])
         self.assertEqual(staged.recordings[0]["source"], self.library.load().recordings[0]["source"])
+        expected = dict(version=1, contracts=[project_runtime_contract(self.decision)])
+        self.assertEqual(receipt["runtime_selection"], expected)
+        self.assertEqual(staged.manifest["runtime_selection"], expected)
+        self.assertEqual(manifest_runtime_selection_errors(staged.manifest, required=True), [])
+        self.assertEqual(recording_contract_errors(staged.recordings[0], expected["contracts"][0]), [])
+        payload = self.root / "staged/Data/SKSE/Plugins/StorageUtilData/HoldMusic/library.json"
+        self.assertEqual(json.loads(payload.read_text()), staged.manifest)
+        self.assertNotIn("runtime_selection", self.library.manifest)
+        self.assertNotIn("identity_key", self.library.recordings[0])
         for path, digest in self.report["source_code_sha256"].items():
             self.assertEqual(sha(ROOT / path), digest)
 
@@ -101,6 +114,48 @@ class OfflineLoopTests(unittest.TestCase):
         self.assertEqual(receipt["source"], source)
         self.assertEqual(receipt["provenance"], source)
         self.assertEqual((self.library.root / "library.json").read_bytes(), before)
+
+    def test_stage_recomputes_untrusted_source_digest_only_in_new_manifest(self):
+        manifest = self.library.load().manifest
+        manifest["recordings"][0]["identity_key"] = "stale-source-annotation"
+        path = self.library.root / "library.json"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        before = {p.name: p.read_bytes() for p in self.library.root.iterdir() if p.is_file()}
+        destination = self.root / "reprojected"
+        receipt = stage_selection(self.library, self.decision, self.contract, destination)
+        staged = Library(destination / "library").load()
+        row = staged.recordings[0]
+        self.assertEqual(row["identity_key"], runtime_identity_key(row))
+        self.assertEqual(row["identity_key"], receipt["runtime_selection"]["contracts"][0]["identity_key"])
+        self.assertEqual(before, {p.name: p.read_bytes() for p in self.library.root.iterdir() if p.is_file()})
+
+    def test_stage_rejects_request_case_drift_and_missing_fields_without_source_fallback(self):
+        for change in ("missing", "case"):
+            decision = deepcopy(self.decision)
+            contract = deepcopy(self.contract)
+            if change == "missing":
+                decision["request"].pop("instrument_name")
+                contract.pop("instrument_name")
+            else:
+                decision["request"]["instrument_name"] = "CITTERN"
+                contract["instrument_name"] = "CITTERN"
+            destination = self.root / ("bad-request-" + change)
+            with self.assertRaises(ValueError):
+                stage_selection(self.library, decision, contract, destination)
+            self.assertFalse(destination.exists())
+
+    def test_stage_validates_every_existing_runtime_contract_in_source_manifest(self):
+        manifest = self.library.load().manifest
+        manifest["runtime_selection"] = dict(version=1, contracts=[
+            project_runtime_contract(self.decision), {"performer_id": "unselected-bad-entry"}])
+        path = self.library.root / "library.json"
+        path.write_text(json.dumps(manifest), encoding="utf-8")
+        before = path.read_bytes()
+        destination = self.root / "bad-runtime-selection"
+        with self.assertRaisesRegex(ValueError, "contracts\\[1\\]"):
+            stage_selection(self.library, self.decision, self.contract, destination)
+        self.assertEqual(path.read_bytes(), before)
+        self.assertFalse(destination.exists())
 
     def test_truncated_audio_fails_before_staging(self):
         (self.library.root / "hm_slot_01.wav").write_bytes(b"RIFF")

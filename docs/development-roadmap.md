@@ -115,8 +115,14 @@ the target stack. Candidate artifacts can be tested without replacing the
 checkout's reviewed build. The [promotion planner](game-promotion.md) now verifies
 the candidate and its source provenance, compares allowed static files and
 inventories protected runtime data, audio, settings and saves. It has no apply
-operation and blocks versioned libraries until the game controller enforces
-their identity. Installation and promotion remain separate. Continue portable
+operation. The candidate Papyrus selector enforces a validated identity
+projection; the builder now requires its compiled fixtures to pass and binds
+that evidence to the actual artifacts and sources. Promotion validates that
+evidence separately from the projected library. Missing candidate evidence or
+malformed identity still blocks review; library merging remains unsupported.
+The installed controller and runtime verification remain separate. Next design
+reviewed incremental apply/rollback with stale-input checks and preservation of
+runtime data. Continue portable
 work while following the [RC5 / SkyrimNet migration plan](stack-migration-rc5-beta27.md).
 Evaluate native song import as an alternative delivery route when its actual
 metadata and ownership behavior can be inspected. Do not assume imported audio

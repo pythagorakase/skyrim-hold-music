@@ -62,23 +62,29 @@ mod replacement and empty trace initialization are not promotion operations.
 Save files and profile lists are not edited, and missing user settings are
 reported instead of silently replaced with defaults.
 
-## Runtime Identity Remains a Separate Requirement
+## Candidate Identity and Installed Runtime Evidence
 
-The current Papyrus pilot selects by performer, region and mode. It does not
-enforce the production contract's recipe revision, named instrument, instrument
-family, arrangement, voice and model. Versioned recordings in an observed or
-proposed library therefore produce an explicit compatibility blocker, even if
-their schema and offline planner checks pass. Partial identity metadata is
-reported as malformed. Legacy identity stays unknown and is never filled from
-the current recipes.
+The installed Papyrus pilot selects by performer, region and mode. The new
+[candidate library selector](candidate-runtime-identity.md) also checks the
+projected recipe revision, named instrument, family, arrangement, voice and
+model. A new build earns `candidate_runtime_selection_verified: true` only when
+its required compiled-script fixtures pass without skips and its verification
+report matches the current package, disassembly, source, fixtures and helpers.
+Changing any measured input invalidates that evidence. An older receipt without
+this capability remains usable for legacy review, but versioned libraries or
+explicit runtime contracts produce `versioned_library_unsupported`, even when
+the current recordings are legacy-only or empty.
 
-No package currently gains runtime identity capability merely by supplying
-metadata in a receipt. A later compiled, tested controller needs an explicit
-capability contract bound to its build and hashes before versioned library
-promotion can be supported.
+Candidate capability removes only that compatibility blocker. A projected
+library must independently pass strict contract and identity-key validation;
+partial, null or stale metadata blocks review. Library merging remains
+unsupported and produces its own blocker. Legacy identity stays unknown and is
+never filled from current recipes. The hash projection's Papyrus string and
+numeric limitations are documented in the candidate contract.
 
 The plan always records `installed: false`, `runtime_verified: false` and
-`runtime_identity_supported: false`. It does not establish process state,
+`runtime_identity_supported: false`, including for a verified candidate. Its
+compiled fixtures use mocked native APIs, not the Skyrim engine. It does not establish process state,
 saved-script compatibility, controller ownership, sound/animation behavior or
 VFS write destinations. Replan after source or target changes; filesystem
 observations are not an atomic snapshot. Any later apply/rollback implementation
@@ -92,6 +98,6 @@ python -B -m unittest discover -s tests -p test_game_promotion.py -v
 
 Tests use temporary fixture trees and compare file bytes and modification times
 before and after planning. They cover deterministic reports, preservation,
-stale/tampered inputs, path safety, runtime identity blockers and the CLI's
+stale/tampered inputs, path safety, candidate capability and identity blockers, and the CLI's
 absence of an apply operation. They neither modify the installed game nor make
 provider calls.

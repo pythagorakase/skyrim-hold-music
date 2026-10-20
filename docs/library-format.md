@@ -232,6 +232,25 @@ This collection persists independently of slot replacement. Imports create no
 generation receipt. UTC import timestamps and performance receipts never count
 as paid generation starts. T0 does not implement a generation executor.
 
+## Candidate runtime selection projection
+
+New scratch staging can add `runtime_selection: {"version": 1, "contracts": [...]}`
+and an `identity_key` on each projected recording. Each performer has one explicit
+contract containing performer/region and the eight recording-contract fields.
+The key is SHA-256 of their ordered UTF-8 JSON value array; exact ordering,
+supported arrangements and native comparison limits are specified in the
+[candidate runtime contract](candidate-runtime-identity.md).
+
+Python verifies both readable metadata and keys. The compiled candidate uses
+the validated projection to reject other revisions, instruments and arrangements
+without falling back to legacy rows. It captures selected identity for the
+performance receipt. Fully legacy performers retain their existing selection
+behavior. `Library.validate()` alone does not certify this optional projection;
+staging and promotion apply the additional runtime-contract validation.
+
+This is candidate metadata, not an installed-library migration. Current recipes
+never fill historical gaps, and staging writes only a new payload.
+
 ## Import an existing MP3
 
 ```sh

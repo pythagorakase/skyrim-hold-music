@@ -7,8 +7,11 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from hold_music.promotion import DEFAULT_DATA_MOD, DEFAULT_MOD, REQUIRED_FILES, SETTINGS, STORAGE, plan_promotion
+from hold_music.recording_identity import CONTRACT_FIELDS
+from hold_music.runtime_contract import project_runtime_contract, runtime_identity_key
 
 
 def sha(path):
@@ -102,6 +105,66 @@ class PromotionTests(unittest.TestCase):
                     recipe_id="whiterun/instrumental", model_id="old-model", lyrics_sha256=None,
                     created_at="2026-10-20T00:00:00Z", playable=True,
                     source={"kind": "import", "path_or_request_id": "fixture.wav"}, **extra)
+
+    def projected_library(self):
+        row = self.recording(recipe_revision="fixture-revision", instrument_family="plucked_string",
+                             instrument_name="cittern", arrangement="solo_lute", voice="none")
+        contract = project_runtime_contract(dict(
+            action="play_recording", performer_id=row["performer_id"],
+            request=dict(tradition=row["region"], **{key: row[key] for key in CONTRACT_FIELDS})))
+        row["identity_key"] = runtime_identity_key(row)
+        return {"version": 1, "slots": 24, "recordings": [row],
+                "runtime_selection": {"version": 1, "contracts": [contract]}}
+
+    def test_candidate_capability_does_not_claim_installed_runtime_support(self):
+        write(self.target / (STORAGE + "/library.json"), self.projected_library())
+        before = snapshot(self.root)
+        with patch("hold_music.promotion.validate_capability",
+                   return_value={"fixture": "verified offline candidate"}):
+            report = self.plan()
+        self.assertEqual(report["blockers"], [])
+        self.assertTrue(report["candidate_runtime_selection_verified"])
+        self.assertFalse(report["runtime_identity_supported"])
+        self.assertFalse(report["runtime_verified"])
+        self.assertFalse(report["installed"])
+        self.assertEqual(snapshot(self.root), before)
+
+    def test_candidate_capability_does_not_clear_manifest_or_merge_blockers(self):
+        data = self.projected_library()
+        data["recordings"][0]["instrument_name"] = "Cittern"
+        write(self.target / (STORAGE + "/library.json"), data)
+        inspection = self.root / "inspection"
+        write(inspection / "library.json", self.projected_library())
+        before = snapshot(self.root)
+        with patch("hold_music.promotion.validate_capability", return_value={"fixture": True}):
+            report = self.plan(library=inspection)
+        codes = {row["code"] for row in report["blockers"]}
+        self.assertIn("invalid_runtime_selection", codes)
+        self.assertIn("library_promotion_not_supported", codes)
+        self.assertNotIn("versioned_library_unsupported", codes)
+        self.assertEqual(snapshot(self.root), before)
+
+    def test_malformed_capability_cannot_be_treated_as_legacy(self):
+        before = snapshot(self.root)
+        with patch("hold_music.promotion.validate_capability",
+                   side_effect=ValueError("Stale capability evidence")):
+            with self.assertRaisesRegex(ValueError, "Stale capability"):
+                self.plan()
+        self.assertEqual(snapshot(self.root), before)
+
+    def test_explicit_contract_requires_capability_even_without_projected_rows(self):
+        for recordings in ([self.recording()], []):
+            with self.subTest(recordings=recordings):
+                data = self.projected_library()
+                data["recordings"] = recordings
+                write(self.target / (STORAGE + "/library.json"), data)
+                before = snapshot(self.root)
+                report = self.plan()
+                codes = {row["code"] for row in report["blockers"]}
+                self.assertIn("versioned_library_unsupported", codes)
+                self.assertNotIn("invalid_runtime_selection", codes)
+                self.assertEqual(report["status"], "blocked")
+                self.assertEqual(snapshot(self.root), before)
 
     def test_deterministic_plan_preserves_all_runtime_state_and_paths(self):
         before = snapshot(self.root)

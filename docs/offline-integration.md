@@ -67,8 +67,11 @@ The same fields now travel through the production planner request, pending-work
 identity, executor journal/publication and library snapshot. This proof uses
 that production request shape before checking the stricter plucked-string
 staging boundary; it no longer supplies missing identity only at publication.
-The installed Papyrus controller still needs separate integration of these
-selection fields.
+Staging now writes a `runtime_selection` contract from that frozen request and
+independently derives each staged recording's `identity_key`. Both are recorded
+in the staging receipt. The source library remains byte-for-byte unchanged;
+historical rows are not relabeled. The [candidate Papyrus selector](candidate-runtime-identity.md)
+checks this projection, while the installed controller remains unchanged.
 
 Both completed and interrupted performance receipts count as a heard start for
 the current planner's repeat policy. Re-ingesting the identical receipt is a
