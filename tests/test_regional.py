@@ -7,7 +7,7 @@ from hold_music.regional import REGIONS, load_profiles, music_prompt, resolve_lo
 
 
 class RegionalRecipes(unittest.TestCase):
-    def test_approved_nine_regions_and_nord_fallback_are_available(self):
+    def test_provisional_nine_regions_and_nord_fallback_are_available(self):
         _, profiles = load_profiles()
         self.assertEqual(set(profiles), set(REGIONS) | {'nord'})
         for region in (*REGIONS, 'nord'):
@@ -15,7 +15,7 @@ class RegionalRecipes(unittest.TestCase):
                 text = music_prompt(region, choice, 'female', 'Unique lyric draft.')
                 profile = profiles[region]
                 for field in ('core', 'lute'):
-                    clause = (profile.get(field + '_instrumental') or profile[field]) if choice == 'instrumental' else profile[field]
+                    clause = (profile.get(field + '_instrumental') or profile[field]) if performance_mode(region, choice) == 'instrumental' else profile[field]
                     self.assertIn(clause, text)
 
     def test_instrumentals_never_receive_lyric_draft_or_voice_technique(self):
@@ -33,7 +33,7 @@ class RegionalRecipes(unittest.TestCase):
     def test_winterhold_sung_half_is_wordless(self):
         text = music_prompt('winterhold', 'vocal', 'male', 'UNUSED_VERSES')
         self.assertIn('Wordless singing', text)
-        self.assertIn('One adult male performer; singing with plucked lute.', text)
+        self.assertIn('One adult male performer; singing while playing lute; plucked strings.', text)
         self.assertIn('Wordless singing with vocables only; no lyrics, sentences or spoken words.', text)
         self.assertNotIn('UNUSED_VERSES', text)
         self.assertNotIn('Lyrics:', text)
@@ -42,8 +42,21 @@ class RegionalRecipes(unittest.TestCase):
         lyric = '[Verse]\nA long road—home.\n'
         for gender in ('male', 'female'):
             text = music_prompt('falkreath', 'vocal', gender, lyric)
-            self.assertIn(f'One adult {gender} performer; singing with plucked lute.', text)
+            self.assertIn(f'One adult {gender} performer; singing while playing plucked kantele; plucked strings.', text)
+            self.assertNotIn('plucked plucked', text)
             self.assertTrue(text.endswith(lyric))
+
+    def test_hjaalmarch_stays_instrumental_for_every_requested_mode(self):
+        for choice in ('instrumental', 'vocal', 'wordless'):
+            with self.subTest(choice=choice):
+                self.assertEqual(performance_mode('hjaalmarch', choice), 'instrumental')
+                text = music_prompt('hjaalmarch', choice, 'male', 'UNUSED_VERSES')
+                self.assertIn('Entirely instrumental; no singing, humming or spoken words', text)
+                self.assertIn('solo plucked kanklės instrumental; plucked strings.', text)
+                self.assertIn('Plucked kanklės: ', text)
+                self.assertNotIn('UNUSED_VERSES', text)
+                self.assertNotIn('Voice:', text)
+                self.assertNotIn('Lyrics:', text)
 
     def test_location_resolution_does_not_guess_from_substrings(self):
         registry = {'locations': {"dead man's drink": 'falkreath', 'ambiguous inn': None}}
@@ -71,12 +84,14 @@ class CompactPrompts(unittest.TestCase):
                         prompt = music_prompt(region, choice, gender, 'PRIVATE_LYRIC')
                         direction = prompt.split('\n\nLyrics:\n', 1)[0]
                         self.assertLess(len(direction), 1000)
-                        mode = 'wordless' if choice == 'wordless' else performance_mode(region, choice)
+                        mode = performance_mode(region, choice)
                         adaptation = {'vocal': 'solo adaptation', 'wordless': 'solo wordless adaptation',
                                       'instrumental': 'instrumental reduction'}[mode]
                         styles = [line for line in prompt.splitlines() if line.startswith('Style: ')]
                         self.assertEqual(styles, [f"Style: {profiles[region]['reference']} ({adaptation})."])
                         self.assertEqual(prompt.count('One adult '), 1)
+                        self.assertEqual(prompt.count('No bowed strings.'), 1)
+                        self.assertNotIn('plucked plucked', prompt)
                         self.assertEqual('Voice: ' in prompt, mode != 'instrumental')
                         self.assertEqual('Lyrics:' in prompt, mode == 'vocal')
                         self.assertEqual('PRIVATE_LYRIC' in prompt, mode == 'vocal')
@@ -97,6 +112,7 @@ class CompactPrompts(unittest.TestCase):
         self.assertIn(profile['core'] + '.', prompt)
         self.assertIn('Lute: ' + profile['lute'] + '.', prompt)
         self.assertIn('One adult female performer; solo lute instrumental; plucked strings.', prompt)
+        self.assertIn('No bowed strings.', prompt)
 
 
 if __name__ == '__main__':

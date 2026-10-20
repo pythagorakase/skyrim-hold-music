@@ -55,15 +55,18 @@ class TransformTests(unittest.TestCase):
         for unwanted in ("UNIQUE_DRAFT", "EXTRA_LYRICS", "Female vocal", "Lyrics:", "audio_config", "Old style"):
             self.assertNotIn(unwanted, text)
         self.assertEqual(set(result), {"model", "messages", "stream"})
-        self.assertIn("One adult female performer; solo lute instrumental; plucked strings.", text)
-        self.assertIn("Style: Karelian laments and runo-song (instrumental reduction).", text)
+        self.assertIn("One adult female performer; solo plucked kantele instrumental; plucked strings.", text)
+        self.assertIn("No bowed strings.", text)
+        self.assertIn("Style: Karelian runo-song (instrumental reduction).", text)
         self.assertNotIn("Voice:", text)
 
     def test_vocal_keeps_gender_and_lyrics_verbatim(self):
         lyric = "[Verse]\nZohra’s road — and a lute.\n[Chorus]\nSing!\n"
         for gender in ("Male", "Female"):
             text = engine.transform(sample(lyric, gender), "vocal")["messages"][0]["content"]
-            self.assertIn("One adult " + gender.lower() + " performer; singing with plucked lute.", text)
+            self.assertIn("One adult " + gender.lower() + " performer; singing while playing plucked kantele; plucked strings.", text)
+            self.assertIn("No bowed strings.", text)
+            self.assertNotIn("plucked plucked", text)
             self.assertTrue(text.endswith("Lyrics:\n" + lyric))
             self.assertNotIn("Old style", text)
 

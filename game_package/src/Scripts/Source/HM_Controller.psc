@@ -171,7 +171,11 @@ Event OnUpdate()
         EndIf
     ElseIf HM_Enabled.GetValue() != 0.0 && SessionCount < HM_SessionCap.GetValue() && Venue && Game.GetPlayer().GetCurrentLocation() == Venue && Venue.HasKeyword(LocTypeInn) && !Config.StopRequested
         Library.Trace("check_start", "venue=" + Venue.GetFormID())
-        Actor[] candidates = MiscUtil.ScanCellNPCs(Game.GetPlayer(), 2000.0, None, True)
+        ; PapyrusUtil VR 3.6's IgnoreDead=True branch dispatches the wrong
+        ; actor vtable slot (0x99), reaching CellChange instead of IsDead.
+        ; Include corpses here; Eligible() uses Skyrim's native IsDead()
+        ; before any scene, idle or sound changes. See the 2026-10-15 RCA.
+        Actor[] candidates = MiscUtil.ScanCellNPCs(Game.GetPlayer(), 2000.0, None, False)
         Int i = 0
         Int matched = 0
         While i < candidates.Length && !Performer

@@ -1,5 +1,11 @@
 # In-game test plan: Hold Music at the Bannered Mare
 
+**Migration update (15 October 2026):** the procedures below describe RC4.1
+tests and recorded outcomes. For MGO RC5 with SkyrimNet beta 27, use the
+[migration validation sequence](stack-migration-rc5-beta27.md#validation-on-the-new-stack).
+Recheck the selected profile, save and controller handoff before repeating a
+test; disabling SkyrimNet composition alone does not disable its playback.
+
 **Result (9 October 2026, 11:14):** passed. Mikael composed and performed
 "The Shadowed Rose" through adapter 0.2.2 with the Whiterun recipe, correct
 duration and lyric pacing; see the verification record. The plan below is kept
@@ -100,13 +106,12 @@ strings; treat the exact formula as inferred.
 
 ## Why Riverwood was silent
 
-Two reasons. Sven's winning record has the Lumberjack class and is listed in
-`BardSingerFaction` at rank -1 (not a member), so SkyrimNet's check never
-treats him as a performer. And he was not in the Sleeping Giant Inn when you
-entered it at 00:17 (in-game 7:53 AM); only Orgnar, Delphine, Embry and Gorr
-were nearby. The Bannered Mare itself was never entered on Oct 8 (Whiterun
-interiors visited were Warmaiden's and Belethor's). Registering Sven is a
-design decision for the performance-ownership work, not an adapter fix.
+Sven was not in the Sleeping Giant Inn when you entered it at 00:17 on
+October 8 (in-game 7:53 AM); only Orgnar, Delphine, Embry and Gorr were nearby.
+The Bannered Mare itself was never entered that day. Static record inspection
+also suggested that SkyrimNet would exclude Sven, but that inference was
+disproved by his successful SkyrimNet playback on October 13. His runtime
+eligibility cannot be inferred from those static records alone.
 
 ## Listening before the test
 
@@ -126,44 +131,115 @@ short note on what it sounded like is the one thing only you can provide.
 # Second test: Sven at the Sleeping Giant Inn (Hold Music owned path)
 
 Prepared 11 October 2026. This is the first headset test of the owned
-performance path (T1 gate in the design doc). Nothing is installed yet.
+performance path (T1 gate in the design doc).
 
-## Before the session (Claude, once MO2 is closed)
+**Installation update (13 October 2026):** the prepared package is now installed
+and enabled in the experimental profile on HALCYON. All 22 installed files,
+the two profile-list edits, and backups of those lists and the Save296 ESS/SKSE
+pair were verified. The original save is unchanged. Sven has the prepared
+158.7-second instrumental in slot 3; the first in-game test remains pending.
 
-1. You close MO2 and Skyrim and say so. The installer refuses to run while
-   either is open, and `--dry-run` has already been proven against the real
-   profile with the seed library at `C:\MGO\hm-scratch\library`.
-2. Claude runs `game_package/tools/install_game_package.py` for real: it backs
-   up `modlist.txt`, `plugins.txt` and the newest save pair to
-   `C:\MGO\codex-backups\<timestamp>-hold-music-performances\`, creates the
-   mod `MGO Experimental - Hold Music Performances` (ESP, scripts, MCM, registry,
-   four slot WAVs, `library.json`, empty `receipts.json` and `trace.json`),
-   enables it at the top of the mod list and appends `*HoldMusic.esp`.
-3. Rollback is `--uninstall` (disables the mod and plugin, keeps the folder);
-   `--purge` removes the folder too. A save made with the plugin enabled will
-   warn about a missing plugin after rollback, as with any removed mod.
+**Runtime correction (14 October 2026):** the first Sven visit on October 13
+used the already installed adapter/SkyrimNet path. At 18:09:45 CDT, SkyrimNet
+selected the cached Talsgar instrumental **Ballad of the Open Road**, played
+it on Sven, and logged playback finishing at 18:12:40. No new composition was
+requested for that performance. The player described it as a rather nice
+instrumental solo. This is evidence of successful cached playback, not of
+the new controller or its Whiterun slot.
+
+The owned controller was installed later, at 18:39 CDT. Its trace and receipts
+were still empty when checked on October 14. **The original test procedure
+required an explicit handoff to prevent SkyrimNet and Hold Music from
+controlling Sven together; the procedure below is now revised.** The assumption
+that SkyrimNet never acts on Sven is false in this save. Game settings were
+unchanged during that initial evidence review. The retained source is
+`SkyrimNet.2026-10-13_22-48-09.log`; a filtered local evidence copy is kept under
+`local/checks/sven-first-visit-2026-10-14/playback-evidence.json`.
+
+**Post-session evidence (14 October 2026):** the player did not revisit Sven.
+The session nevertheless establishes two useful facts: `HM_Quest` started at
+18:57:27 CDT, and SkyrimNet logged `BardSinging: Shutting down` at 19:01:50
+when its dashboard switch was turned off. The adapter preserved that edit in
+the profile data mod on game exit at 19:30:14. Trace and receipt arrays remain
+empty; without an inn visit, this does not establish a controller failure.
+The filtered report is in `local/checks/post-session-2026-10-14/evidence-report.md`.
+
+The new preflight also found a conflicting **older overwrite copy** of
+`BardSinging.yaml`, last modified October 5 CDT, with singing still enabled.
+The adapter's configured source and last overlay both have singing disabled.
+The live shutdown above is confirmed, but loose-file priority alone cannot
+prove what a subsequent adapter mapping will expose. Resolve the conflict or
+verify the VFS winner before declaring the next pilot ready. No game files or
+settings were changed during this post-session inspection.
+
+**Crash and fix update (15 October 2026):** Sven's next visit crashed in the
+owned controller's candidate scan while a vanilla flute piece was playing.
+The installed PapyrusUtil VR dead filter dispatches the wrong virtual function.
+The [RCA and fix](sven-crash-2026-10-15.md) document the binary evidence and the
+installed two-file workaround. SkyrimNet's bard feature was already disabled
+in that run and was left disabled. All 52 package tests passed at installation;
+successful owned playback still needs runtime confirmation. The next headset
+test checks that the trace advances beyond `check_start` into playback. If
+loading inside the inn, leave and re-enter to schedule the check.
+
+**Development policy (19 October 2026):** this is a runtime lifecycle check,
+not approval of a regional musical style. Offline engineering continues with
+provisional recipes and existing audio; see the [development roadmap](development-roadmap.md).
+
+## Before the next session
+
+Installation is already complete; do not reinstall solely to run this test.
+An agent can use the updated checkout on HALCYON to inspect the prepared files:
+
+```powershell
+py -3 -B tools\preflight_performance.py --mo2-root "C:\MGO\Skyrim MGO 4.0 RC4.1" --profile "MGO EXP - SkyrimNet b26 + SeverActions 4.2" --performer sven --json
+```
+
+This makes no provider calls and changes no inputs. It checks the enabled
+package, loose-file precedence, configured adapter input, MCM defaults and
+overrides, ownership, matching audio format/duration, and evidence-file validity.
+`prepared_for_headset_test` means those file checks passed, not that playback
+works. `blocked` names the checks needing attention. In particular, an old
+overlay is not assumed to be live, and zero trace entries is not a failed test.
+See [the preflight contract](evidence.md#read-only-performance-preflight).
+
+The required pilot state is **SkyrimNet Bard Singing off, Hold Music on**.
+If needed, the agent can use SkyrimNet's live web dashboard to change its
+Quick Toggles → Bard Singing switch, as done on October 14; the player need
+not find that menu in VR. Keep dialogue and other gameplay features enabled.
+Offline profile changes or reinstallation require both Skyrim and MO2 closed.
 
 ## What to do
 
-1. Launch as usual and load your latest save (Save279, College of Winterhold).
-   The SkyrimNet adapter stays on; Mikael and the other SkyrimNet bards behave
-   exactly as before. Only Sven and Lynly are owned by Hold Music.
+1. Launch as usual and load a pre-crash save. In MCM -> Hold Music, confirm
+   Enable Hold Music is on; if the menu is missing, skip this test and report it.
+   Keep SkyrimNet Bard Singing disabled; dialogue remains available. Only Sven
+   and Lynly are owned by Hold Music. If loading inside the inn, leave and
+   re-enter so the controller schedules a fresh check.
 2. Travel to Riverwood and enter the Sleeping Giant Inn while Sven is inside
    (he is there most of the day and evening). The controller waits a random 15
    to 60 seconds after you enter, then checks the room.
 3. Expect: the vanilla lute song stops if it was playing, Sven raises his lute,
    and a solo lute piece in the Whiterun recipe plays from his position for
-   about 2.5 minutes (slot 3, 158 s). Talking to him, leaving the inn or combat
-   stops it. If a vanilla song tries to restart mid-performance it is stopped
-   again within two seconds.
+   158.7 seconds (slot 3). Open his ordinary dialogue menu during the piece:
+   both sound and lute animation should stop. Leaving the inn or combat should
+   also stop it, but a short session only needs the one dialogue-interruption
+   check. If a vanilla song tries to restart mid-performance it should stop
+   again within two seconds. These are expectations awaiting runtime proof.
 4. If nothing happens within two minutes: step outside and back in once. Then
    note the game time and move on; the trace will say why.
-5. Optional second venue: Lynly at the Vilemyr Inn in Ivarstead (slot 4, Rift
-   recipe, 183 s). The per-session cap is three performances.
+5. Do not expect an immediate repeat after a successful start: performer
+   cooldowns and used-slot locks apply even if the piece was interrupted.
+   Lynly at the Vilemyr Inn in Ivarstead is an optional separate venue, not a
+   required detour (slot 4, Rift recipe, 182.5 seconds).
+6. For ordinary play afterwards, turn Hold Music off before re-enabling
+   SkyrimNet Bard Singing. If the session ends before doing this, report it so
+   the next launch state can be checked; do not assume the dashboard change
+   expires when Skyrim exits.
 
 ## Afterwards
 
-Nothing to collect by hand. When the game is closed, Claude runs
+Nothing to collect by hand. When the game is closed, an agent runs
 `tools/collect_evidence.py` on Halcyon; it gathers `trace.json`, `receipts.json`,
 the Hold Music logs and the bard-related SkyrimNet log lines into one redacted
 report. The trace records every inn entry, every registry match with its owner
@@ -172,6 +248,6 @@ outcome, so a silent inn is diagnosable without Papyrus logging.
 
 ## What it does not test
 
-Sung material: neither bard has SkyrimNet memories yet, so both seed
-recordings are instrumental. Once you have talked to Sven, the lyrical
-executor can write him a song for the following session.
+Sung material: both prepared seed recordings are instrumental. Lyrical
+preparation requires a fresh actor-knowledge snapshot and a suitable planner
+decision; a conversation alone does not guarantee that a song will be selected.

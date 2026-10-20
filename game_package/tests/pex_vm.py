@@ -233,7 +233,12 @@ class VM:
             if name=='randomfloat': return a[0]
             if name=='randomint': return 1
         if owner=='miscutil' and name=='scancellnpcs':
-            assert a==['P',2000.0,None,True]; return self.candidates[:]
+            assert len(a)==4 and a[:3]==['P',2000.0,None], a
+            # The installed PapyrusUtil VR IgnoreDead=True branch makes an
+            # incompatible native virtual call. Keep corpses in the result so
+            # the compiled controller must reject them through Eligible().
+            assert a[3] is False, 'Unsafe PapyrusUtil ScanCellNPCs IgnoreDead branch'
+            return self.candidates[:]
         if owner=='sound' and name=='stopinstance': self.effects.append(('stop',a[0])); return None
         if owner=='debug' and name=='trace': self.effects.append(('trace',*a)); return None
         if owner=='jsonutil':

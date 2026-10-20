@@ -1,9 +1,14 @@
 # Hold Music game package (T1)
 
 Offline-built Skyrim VR package: an ESL-flagged `HoldMusic.esp`, three compiled
-Papyrus scripts, 24 positional sound slots, and an MCM Helper menu. **Nothing
-was installed or run in-game.** No WAV is bundled, and the VFS probe was not run.
-See [dated verification](../docs/game-package-verification.md) for evidence.
+Papyrus scripts, 24 positional sound slots, and an MCM Helper menu. The pilot
+was installed on Halcyon on October 13; the targeted actor-scan workaround was
+installed and VFS-verified on October 15. Successful owned playback after that
+fix still requires the [runtime test](../docs/in-game-test-plan.md). See the
+[crash RCA and repair](../docs/sven-crash-2026-10-15.md) and the historical
+[package verification](../docs/game-package-verification.md) for their distinct
+evidence. No WAV is bundled in Git; generated builds and recordings remain
+separate machine-local artifacts.
 
 ## Build
 

@@ -10,10 +10,10 @@ const template = fs.readFileSync(path.join(root, 'dashboard/index.template.html'
 let script = template.split('<script>')[1].split('</script>')[0].replace('__PALETTE_DATA__', JSON.stringify(data));
 // Load the actual prompt functions without registering UI handlers or starting fetches.
 script = script.split("document.querySelectorAll('[data-tab]').forEach(button=>{button.addEventListener")[0];
-script += 'globalThis.testApi = {buildPrompt,generationInput,arrangementSupport,ARRANGEMENTS,state,lyricsCatalog,profiles,validate};})();';
+script += 'globalThis.testApi = {buildPrompt,generationInput,arrangementSupport,ARRANGEMENTS,state,lyricsCatalog,profiles,validate,draftsFor,takePromptStatus,comparisonState,matchesComparisonFilter,comparisonTakeIds,sharedTextPairs,sampleCode,reviewIsUncertain,workshop};})();';
 const sandbox = {location:{protocol:'http:'},localStorage:{getItem:()=>null},sessionStorage:{getItem:()=>null}};
 vm.runInNewContext(script, sandbox);
-const {buildPrompt,generationInput,arrangementSupport,ARRANGEMENTS,state,lyricsCatalog,profiles,validate} = sandbox.testApi;
+const {buildPrompt,generationInput,arrangementSupport,ARRANGEMENTS,state,lyricsCatalog,profiles,validate,draftsFor} = sandbox.testApi;
 let checked = 0, max = 0, longest;
 for (const profile of profiles) {
  for (const [arrangement,a] of Object.entries(ARRANGEMENTS)) {
@@ -38,6 +38,11 @@ for (const profile of profiles) {
     assert(input.musicPrompt.includes(data.auditionRaces[race]),'Keep the actual performer race');
     const place = region==='skyrim'?'Skyrim, unnamed venue':region==='cyrodiil'?'Cyrodiil, unnamed venue':data.auditionRegions[region];
     assert(input.musicPrompt.includes(place),'Keep the actual target region');
+    if (arrangement.startsWith('lute')) {
+     assert(input.musicPrompt.includes('No bowed strings.'),'Plucked-family prompts explicitly exclude bowed strings');
+     assert(input.musicPrompt.includes(profile.workshop.plucked),'Name the specific mapped instrument');
+     assert(!input.musicPrompt.includes('plucked plucked'),'Do not duplicate the plucked-family label');
+    }
     if (!a.sings) assert(!/Vocal tone:|Voice:|Write lyrics/.test(input.preview),'Instrumentals must not ask for a singer');
     if (length>max) {max=length;longest=`${profile.id}/${arrangement}/${race}/${region}`;}
     checked++;
@@ -50,39 +55,75 @@ state.workspace.targetRegion = 'profile';
 state.workspace.lyricsId = 'fixture';
 lyricsCatalog.loaded=true;
 lyricsCatalog.songs=[{id:'fixture',lyrics:'[Verse]\nOriginal words',sha256:'fixture-hash'}];
-for (const id of ['khajiit','argonian']) {
- const profile = profiles.find(p=>p.id===id);
- assert.deepEqual(Array.from(profile.workshop.allowed),id==='khajiit'?['lute','flute','drum']:['lute','flute']);
- const built = buildPrompt(profile,'lute','prompt-a');
- const input = generationInput('lute',built.prompt,id,'prompt-a');
- assert(!input.preview.includes('Original words'),'Selected lyrics must stay out of instrumentals');
- assert.equal(input.song,null);
- assert(input.musicPrompt.includes(profile.workshop.plucked));
- assert(!input.musicPrompt.includes('Lute:'),'Use the recipe’s actual plucked instrument');
+const admitted = profiles.filter(p=>p.audition.stage!=='deferred');
+assert.equal(admitted.length,12);
+assert.equal(admitted.filter(p=>p.audition.stage==='baseline').length,11);
+assert.deepEqual(Array.from(admitted.filter(p=>p.audition.stage==='comparison').map(p=>p.id)),['reach_sean_nos']);
+for(const profile of profiles){
+ const keys=Object.keys(ARRANGEMENTS).filter(key=>arrangementSupport(profile,key,'prompt-a').valid);
+ assert.deepEqual(Array.from(keys),profile.audition.stage==='deferred'?[]:[profile.audition.arrangement]);
 }
-const khajiit=profiles.find(p=>p.id==='khajiit');
-const tabla=generationInput('drum',buildPrompt(khajiit,'drum','prompt-a').prompt,khajiit.id,'prompt-a');
-assert(tabla.valid&&tabla.musicPrompt.includes('Hindustani tabla solo'));
-assert(tabla.musicPrompt.includes('16-beat teental (4+4+4+4)'));
-assert(tabla.musicPrompt.includes('bayan')&&tabla.musicPrompt.includes('dayan')&&tabla.musicPrompt.includes('tihai'));
-assert(!/raga|sitar|drone|Voice:|Vocal tone:|Original words|Write lyrics/i.test(tabla.preview),'Tabla is a complete percussion solo, with no melodic or vocal parts');
-assert.equal(tabla.song,null,'Do not attach the selected lyrics to tabla');
+for(const id of ['winterhold','hjaalmarch']){
+ const p=profiles.find(p=>p.id===id),key=p.audition.arrangement;
+ const input=generationInput(key,buildPrompt(p,key,'prompt-a').prompt,id,'prompt-a');
+ assert(input.valid,input.reason);
+ assert.equal(input.song,null);
+ assert(!input.preview.includes('Original words'));
+ assert(!/Write English lyrics|Lyrics:/.test(input.preview));
+ assert.equal(generationInput(key,'A tune.\nLyrics:\nWords',id,'prompt-a').valid,false);
+ if(id==='winterhold')assert(input.preview.endsWith('Wordless vocables only; no lyrics, sentences or spoken words.'));
+ else assert(!input.preview.includes('Voice:'));
+}
+const reach=profiles.find(p=>p.id==='reach'),air=profiles.find(p=>p.id==='reach_sean_nos');
+assert(reach.reference.includes('puirt-à-beul'));
+assert(air.reference.includes('sean-nós'));
+assert(buildPrompt(reach,'lute_voice','prompt-a').prompt.includes('duple reel'));
+assert(!buildPrompt(reach,'lute_voice','prompt-a').prompt.includes('free-rhythm'));
+const lyrical=generationInput('lute_voice',buildPrompt(reach,'lute_voice','prompt-a').prompt,reach.id,'prompt-a');
+assert.equal(lyrical.song.lyrics,'[Verse]\nOriginal words');
+assert(lyrical.preview.endsWith('[Verse]\nOriginal words'));
 state.workspace.lyricsId='';
-assert.equal(generationInput('lute','A tune.\nLyrics:\nSing these words','khajiit','prompt-a').valid,false,'Inline words cannot bypass instrumental-only casting');
-const nord=profiles.find(p=>p.id==='nord');
-const sung=buildPrompt(nord,'lute_voice','prompt-a');
-const instrumental=buildPrompt(nord,'lute','prompt-a');
-assert(sung.prompt.includes('Voice:'));
-assert(!instrumental.prompt.includes('Voice:'));
-assert(instrumental.prompt.includes('refrain'),'A solo instrumental carries the melody');
-const orc=profiles.find(p=>p.id==='orc_resonant_names');
-assert(orc.name.includes('throat singing'));
-assert(buildPrompt(orc,'voice','prompt-a').prompt.includes('moving whistle-like upper-overtone melody'));
-assert(data.ideas.some(p=>p.name==='Resonant Name-Songs'&&p.finalistId===orc.id),'Keep old idea-bank links');
-assert.deepEqual(Array.from(profiles.filter(p=>p.workshop.allowed.includes('drum')).map(p=>p.id)).sort(),['bosmer_leaping_tales','khajiit','orc_seven_step','redguard','rift']);
-const backup=validate({format:'hold-music-auditions',version:1,records:{khajiit:{status:'revise',notes:'Keep the first vocal take for comparison.',prompts:{lute_voice:'My historical vocal direction',lute:'My historical lute direction'}}}});
-assert.equal(backup.records.khajiit.prompts.lute_voice,'My historical vocal direction','Preserve saved edits even when their arrangement is no longer offered');
-assert.equal(backup.records.khajiit.prompts.lute,'My historical lute direction','Keep historical plucked-family keys readable');
-const custom=generationInput('lute','x'.repeat(1500),nord.id,'prompt-a');
+const backup=validate({format:'hold-music-auditions',version:1,records:{reach:{status:'revise',notes:'Keep the earlier air.',prompts:{lute_voice:'My historical air'}}},workspace:{left:'orc_resonant_names',right:'bosmer_leaping_tales',arrangement:'lute_voice',tab:'finalists'}});
+state.records=backup.records;
+assert.equal(state.records.reach.prompts.lute_voice,'My historical air');
+assert.equal(draftsFor(reach),undefined,'An earlier edit cannot override the baseline');
+draftsFor(reach,true).lute_voice='A revised reel';
+assert.equal(draftsFor(reach).lute_voice,'A revised reel');
+assert.equal(state.records.reach.prompts.lute_voice,'My historical air','New editing preserves the original');
+const roundtrip=validate({format:'hold-music-auditions',version:1,records:state.records});
+assert.equal(roundtrip.records.reach.promptSets[data.baseline.revision].lute_voice,'A revised reel');
+assert.equal(roundtrip.records.reach.prompts.lute_voice,'My historical air');
+assert.equal(backup.workspace.tab,'baseline','Older collection names migrate');
+const custom=generationInput('lute_voice','x'.repeat(1500),reach.id,'prompt-a');
 assert(custom.valid&&custom.musicPrompt.includes('x'.repeat(1500)),'Never silently truncate custom edits');
+const {takePromptStatus,comparisonState,matchesComparisonFilter,workshop}=sandbox.testApi;
+delete draftsFor(reach).lute_voice;
+const originalDirection=buildPrompt(reach,'lute_voice','prompt-a').prompt;
+const currentTake={id:'fixture-a',profile_id:'reach',arrangement:'lute_voice',direction_draft:originalDirection,prompt:originalDirection,prompt_status:{state:'current',label:'Current prompt'}};
+assert.equal(takePromptStatus(currentTake).state,'current');
+draftsFor(reach,true).lute_voice='Changed musical direction';
+assert.equal(takePromptStatus(currentTake).state,'obsolete','Prompt edits must visibly invalidate earlier takes');
+workshop.takes=[currentTake];
+const comparison={state:'reviewed',take_ids:['fixture-a']};
+assert.equal(comparisonState(comparison),'obsolete','A prior review does not approve a newer direction');
+assert(matchesComparisonFilter(comparison,'waiting'));
+assert(!matchesComparisonFilter(comparison,'reviewed'));
+delete draftsFor(reach).lute_voice;
+assert.equal(takePromptStatus(currentTake).state,'current','Resetting the draft restores a matching take');
+assert.equal(comparisonState(comparison),'reviewed');
+assert.equal(takePromptStatus({...currentTake,direction_draft:undefined,prompt_status:undefined}).state,'unknown','Do not invent version evidence for old takes');
+assert(matchesComparisonFilter({state:'revisit',take_ids:[]},'pending'),'Unsure decisions remain in the listening queue');
+const {comparisonTakeIds,sharedTextPairs,sampleCode,reviewIsUncertain}=sandbox.testApi;
+const expanded={kind:'neighbor',state:'reviewed',take_ids:['a1','b1'],evidence_take_ids:['a1','a2','b1','b2'],groups:[
+ {samples:[{take_id:'a1',replicate:1,lyric_id:'workroom'},{take_id:'a2',replicate:2,lyric_id:'cart'}]},
+ {samples:[{take_id:'b1',replicate:1,lyric_id:'workroom'},{take_id:'b2',replicate:2,lyric_id:'cart'}]}
+]};
+assert.deepEqual(comparisonTakeIds(expanded),['a1','a2','b1','b2']);
+assert.deepEqual(Array.from(sharedTextPairs(expanded)),['A1 with B1','A2 with B2']);
+assert.equal(sampleCode(expanded,'b2'),'B2');
+assert.deepEqual(Array.from(sharedTextPairs({...expanded,groups:[expanded.groups[0],{samples:[{replicate:1,vocal_mode:'wordless'},{replicate:2,vocal_mode:'wordless'}]}]})),[],'Wordless takes do not get a shared-lyrics claim');
+workshop.takes=expanded.evidence_take_ids.map(id=>({...currentTake,id,prompt_status:{state:id==='a2'?'obsolete':'current'}}));
+assert.equal(comparisonState(expanded),'obsolete','Second takes outside the original judge pair must invalidate a stale review');
+assert(reviewIsUncertain({outcome:'distinct',consistency:{a:'uncertain',b:'consistent'}}),'Uncertain repetition stays in the queue despite distinct styles');
+assert(!reviewIsUncertain({outcome:'distinct',consistency:{a:'consistent',b:'inconsistent'}}),'A definite inconsistency is still a completed listening decision');
 console.log(`Prompt contracts passed: ${checked} valid combinations; maximum ${max}/1000 characters (${longest}).`);

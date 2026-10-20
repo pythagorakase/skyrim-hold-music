@@ -1,4 +1,4 @@
-"""The nine approved Nord/region recipes for the first game integration.
+"""The nine provisional Nord/region recipes shared with the local game package.
 
 Recipe data comes from the same generated palette as the listening workshop.
 This module does not choose an actor, change game state, or make provider calls.
@@ -71,9 +71,11 @@ def resolve_location_detail(location, registry):
 
 
 def performance_mode(region, choice):
-    if choice not in ('instrumental', 'vocal'):
+    if choice not in ('instrumental', 'vocal', 'wordless'):
         raise ValueError('Unknown composition choice')
-    # Winterhold's approved sung recipe uses vocables, not written verses.
+    # Preserve the baseline exceptions even when the caller requests vocals.
+    if region == 'hjaalmarch':
+        return 'instrumental'
     if region == 'winterhold' and choice == 'vocal':
         return 'wordless'
     return choice
@@ -86,7 +88,7 @@ def music_prompt(region, choice, gender, lyrics='', palette_path=PALETTE):
     if gender.casefold() not in ('male', 'female'):
         raise ValueError('Unsupported SkyrimNet vocal gender')
     profile = profiles[region]
-    mode = 'wordless' if choice == 'wordless' else performance_mode(region, choice)
+    mode = performance_mode(region, choice)
     palette = json.loads(Path(palette_path).read_text(encoding='utf-8'))
     region_label = 'Skyrim, unnamed venue' if region == 'nord' else palette['auditionRegions'][region]
     instrument = profile.get('workshop', {}).get('plucked') or 'lute'
@@ -98,7 +100,8 @@ def music_prompt(region, choice, gender, lyrics='', palette_path=PALETTE):
         role += '. Entirely instrumental; no singing, humming or spoken words'
     else:
         adaptation = 'solo wordless adaptation' if mode == 'wordless' else 'solo adaptation'
-        role = f'singing with plucked {instrument}'
+        role = f'singing while playing {instrument}; plucked strings'
+    family_rule = profile.get('workshop', {}).get('family_rules', {}).get('plucked') or 'No bowed strings.'
     core = (profile.get('core_instrumental') or profile['core']) if mode == 'instrumental' else profile['core']
     lute = (profile.get('lute_instrumental') or profile['lute']) if mode == 'instrumental' else profile['lute']
     sections = [f"Style: {profile['reference']} ({adaptation}).",
@@ -107,6 +110,7 @@ def music_prompt(region, choice, gender, lyrics='', palette_path=PALETTE):
                 'Intimate live acoustic room; only these sound sources. '
                 'No other instruments, percussion, backing voices, choir, overdubs, '
                 'orchestral backing or modern studio production.',
+                family_rule,
                 core.rstrip('.') + '.']
     if mode != 'instrumental':
         voice = 'Voice: ' + profile['voice'].rstrip('.') + '.'

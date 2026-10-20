@@ -85,6 +85,41 @@ SkyrimNet's only allowed matching patterns are `BardSinging`, `Hold Music`,
 `Starting song generation`. Lines marked as dialogue or memory are excluded
 even if they match. No dialogue or memory text belongs in the report.
 
+## Read-only performance preflight
+
+`tools/preflight_performance.py` checks the prepared pilot after Skyrim exits.
+It does not change settings, inspect save contents, request music, or launch
+MO2/the game. It prints a human-readable checklist, or JSON with `--json`:
+
+```powershell
+py -3 -B tools\preflight_performance.py --mo2-root "C:\MGO\Skyrim MGO 4.0 RC4.1" --profile "MGO EXP - SkyrimNet b26 + SeverActions 4.2" --performer sven --json
+```
+
+The exit code is 0 for `prepared_for_headset_test`, 2 for a blocked check or
+invalid input. The JSON names each failed check and the selected files, without
+dumping credentials, configuration bodies, lyrics, memories or trace details.
+
+Checks cover enabled mod/plugin entries, required package files, both bard
+switches, MCM overrides and session cap, the selected performer's owner/base
+form/region, matching slot metadata and complete PCM WAV data, and valid evidence
+files. The saved `playable` flag is not trusted. Empty trace/receipt arrays mean
+no recorded evidence and do not fail the preflight.
+
+Loose files are resolved from overwrite first, then enabled mods in MO2's
+stored priority order. If the installed adapter is configured for this profile,
+its separate launch input is checked too. An outstanding adapter baseline blocks
+the check until reconciliation. Archives, arbitrary plugin mappings, live globals,
+actor state and session locks are not resolved: the result is an offline
+preparation check, not VFS or runtime acceptance. Process state is a caller
+precondition, not inferred from stale files.
+
+On October 14 this check validated the installed Sven and Lynly WAVs but found
+an older enabled `BardSinging.yaml` under overwrite, conflicting with the
+disabled profile-data source and last adapter overlay. The pilot remains
+`blocked` until the conflict is resolved or the effective VFS mapping is
+verified. The live dashboard shutdown in that session is separately confirmed
+by SkyrimNet's log; it is not invalidated by the offline conflict.
+
 ## Redaction
 
 Before writing any report or copy, drop every entire line containing `key`,

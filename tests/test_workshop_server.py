@@ -19,6 +19,7 @@ from urllib.error import HTTPError, URLError
 
 from tools import configure_key
 from tools import workshop_server as server
+from tools import workshop_library as library
 
 
 AUDIO = b"ID3\x04\x00\x00fixture-audio-data"
@@ -36,7 +37,9 @@ def music_payload(audio=AUDIO, mime="audio/mpeg"):
 
 class StartupTests(unittest.TestCase):
     def test_occupied_port_reports_existing_address(self):
-        with patch("sys.argv", ["workshop_server.py", "--port", "8765"]), \
+        with tempfile.TemporaryDirectory() as temporary, \
+                patch.object(server, "ROOT", Path(temporary)), \
+                patch("sys.argv", ["workshop_server.py", "--port", "8765"]), \
                 patch.object(server, "WorkshopServer", side_effect=OSError(errno.EADDRINUSE, "Address in use")), \
                 patch("sys.stderr", new_callable=io.StringIO) as error:
             with self.assertRaises(SystemExit) as raised:
@@ -198,7 +201,7 @@ class GoogleTests(unittest.TestCase):
             self.assertIn(expected, str(failure))
             self.assertIn(f"Google HTTP {code}", str(failure))
         failure = self.http_failure(400, b'{"error":{"message":"Unsupported model for this API revision","code":"invalid_request"}}')
-        self.assertIn("endpoint and request settings support Lyria 3.5", str(failure))
+        self.assertIn("endpoint supports the requested music model and settings", str(failure))
         self.assertIn("invalid_request", str(failure))
 
     def test_unicode_controls_and_diagnostic_fields_are_bounded(self):
@@ -295,6 +298,230 @@ class WorkshopHTTPTests(unittest.TestCase):
             return payload["prompt"] + server.LYRICS_SEPARATOR + ORIGINAL_LYRICS
         return payload["prompt"]
 
+    def seed_listening_study(self):
+        """An offline two-take trial, plus AI controls and a missing recording."""
+        identifiers = ["a" * 32, "b" * 32]
+        for identifier in identifiers:
+            folder = self.root / "auditions" / identifier
+            folder.mkdir(parents=True)
+            (folder / "audio.mp3").write_bytes(AUDIO)
+            (folder / "take.json").write_text(json.dumps({
+                "id": identifier, "profile_id": "solo", "profile_name": "Canonical solo",
+                "arrangement": "lute_voice", "prompt": "Frozen fixture directions",
+                "created_at": "2026-10-13T12:00:00Z", "lyrics": "", "model": "lyria-3.5", "mime_type": "audio/mpeg",
+            }))
+        directory = self.root / "local" / "listening-tests" / "2026-10-13-fixture"
+        directory.mkdir(parents=True)
+        (directory / "palette-snapshot.json").write_text(json.dumps(self.workshop.palette))
+        (directory / "manifest.json").write_text(json.dumps({
+            "corpus": {"solo_1": {"take_id": identifiers[0], "profile_id": "solo"},
+                       "solo_2": {"take_id": identifiers[1], "profile_id": "solo"}},
+            "trials": [{"id": "s01", "kind": "repeatability", "audio_ids": ["solo_1", "solo_2"]},
+                       {"id": "x01", "kind": "reversed", "audio_ids": ["solo_2", "solo_1"]},
+                       {"id": "x02", "kind": "duplicate", "audio_ids": ["solo_1", "solo_1"]}],
+            "excluded_conditions": [{"id": "s02", "kind": "repeatability", "audio_ids": ["solo_1", "solo_3"]}],
+        }))
+        return identifiers
+
+    def test_live_inventory_discovers_batch_and_marks_version_honestly(self):
+        self.assertEqual(self.request("GET", "/api/takes")[2]["takes"], [])
+        self.seed_listening_study()
+        takes = self.request("GET", "/api/takes")[2]["takes"]
+        self.assertEqual(len(takes), 2)
+        self.assertEqual({t["prompt_status"]["state"] for t in takes}, {"current"})
+        # A rebuild with the same named revision still invalidates old recipes.
+        palette = deepcopy(self.workshop.palette)
+        palette["finalists"][0]["voice"] = "A new vocal approach"
+        (self.root / "dashboard" / "palette-data.json").write_text(json.dumps(palette))
+        takes = self.request("GET", "/api/takes")[2]["takes"]
+        self.assertEqual({t["prompt_status"]["state"] for t in takes}, {"obsolete"})
+        self.generator.assert_not_called()
+
+    def seed_neighbor_study(self):
+        ids = self.seed_listening_study() + ["c" * 32, "d" * 32]
+        for identifier in ids[2:]:
+            folder = self.root / "auditions" / identifier
+            folder.mkdir()
+            take = json.loads((self.root / "auditions" / ids[0] / "take.json").read_text())
+            take.update(id=identifier, profile_id="ensemble", profile_name="Canonical ensemble")
+            (folder / "take.json").write_text(json.dumps(take))
+            (folder / "audio.mp3").write_bytes(AUDIO)
+        path = self.root / "local/listening-tests/2026-10-13-fixture/manifest.json"
+        manifest = json.loads(path.read_text())
+        manifest["excluded_conditions"] = []
+        manifest["trials"].extend([
+            {"id": "s02", "kind": "repeatability", "audio_ids": ["ensemble_1", "ensemble_2"]},
+            {"id": "n01", "kind": "neighbor", "audio_ids": ["solo_1", "ensemble_1"]},
+        ])
+        for identifier, profile, replicate in zip(ids, ["solo", "solo", "ensemble", "ensemble"], [1, 2, 1, 2]):
+            manifest["corpus"][f"{profile}_{replicate}"] = {"take_id": identifier, "profile_id": profile,
+                "replicate": replicate, "lyric_id": "workroom" if replicate == 1 else "cart", "vocal_mode": "lyrics"}
+        path.write_text(json.dumps(manifest))
+        return ids, path
+
+    def test_neighbor_expands_to_four_exact_batch_takes_without_rewriting_pair_review(self):
+        ids, _ = self.seed_neighbor_study()
+        pair_version = library.digest({"ids": [ids[0], ids[2]],
+            "prompts": ["Frozen fixture directions"] * 2,
+            "recipes": [library.recipe_fingerprint(self.workshop.profiles[p], self.workshop.palette) for p in ["solo", "ensemble"]]})
+        identifier = "2026-10-13-fixture:n01"
+        prior = {"version": pair_version, "take_ids": [ids[0], ids[2]], "outcome": "distinct",
+                 "preference": "a", "notes": "Initial pair only; might be a fluke.", "saved_at": "2026-10-13T15:00:00Z", "history": []}
+        review_path = self.root / "auditions/listening-reviews.json"
+        review_path.write_text(json.dumps({identifier: prior}))
+        original_bytes = review_path.read_bytes()
+        comparison = next(c for c in self.workshop.listening()["comparisons"] if c["kind"] == "neighbor")
+        self.assertEqual(comparison["evidence_take_ids"], ids)
+        self.assertEqual([len(g["samples"]) for g in comparison["groups"]], [2, 2])
+        self.assertEqual([s["lyric_id"] for s in comparison["groups"][0]["samples"]], ["workroom", "cart"])
+        self.assertIsNone(comparison["review"])
+        self.assertEqual(comparison["previous_review_scope"], "pair")
+        self.assertEqual(comparison["previous_review"], prior)
+        self.assertEqual(comparison["state"], "pending")
+        self.assertEqual(review_path.read_bytes(), original_bytes)
+        payload = {"id": identifier, "version": pair_version, "outcome": "distinct", "preference": "both"}
+        self.assertEqual(self.request("POST", "/api/listening/review", payload)[0], 409)
+        payload["version"] = comparison["version"]
+        self.assertEqual(self.request("POST", "/api/listening/review", payload)[0], 400)
+        payload["consistency"] = {"a": "consistent", "b": "inconsistent"}
+        review = self.request("POST", "/api/listening/review", payload)[2]["review"]
+        self.assertEqual(review["take_ids"], ids)
+        self.assertEqual(review["scope"], "all_style_takes")
+        self.assertEqual(review["history"], [{k: v for k, v in prior.items() if k != "history"}])
+        restored = server.Workshop(self.root, key_reader=lambda: None)
+        current = next(c for c in restored.listening()["comparisons"] if c["kind"] == "neighbor")
+        self.assertEqual(current["state"], "reviewed")
+        self.assertEqual(current["review"]["consistency"], payload["consistency"])
+        payload["consistency"]["a"] = "uncertain"
+        self.assertEqual(self.request("POST", "/api/listening/review", payload)[0], 200)
+        self.assertEqual(next(c for c in self.workshop.listening()["comparisons"] if c["kind"] == "neighbor")["state"], "revisit")
+        self.generator.assert_not_called()
+
+    def test_missing_second_take_blocks_expanded_review_and_restore_recovers_it(self):
+        ids, _ = self.seed_neighbor_study()
+        comparison = next(c for c in self.workshop.listening()["comparisons"] if c["kind"] == "neighbor")
+        payload = {"id": comparison["id"], "version": comparison["version"], "outcome": "distinct", "preference": "both",
+                   "consistency": {"a": "consistent", "b": "consistent"}}
+        self.assertEqual(self.request("POST", "/api/listening/review", payload)[0], 200)
+        self.assertEqual(self.request("POST", f"/api/takes/{ids[1]}/trash", {})[0], 200)
+        missing = next(c for c in self.workshop.listening()["comparisons"] if c["kind"] == "neighbor")
+        self.assertEqual(missing["state"], "waiting")
+        self.assertEqual(missing["missing"], ["solo_2"])
+        self.assertEqual(len(missing["evidence_take_ids"]), 4)
+        self.assertEqual(self.request("POST", "/api/listening/review", payload)[0], 409)
+        self.assertEqual(self.request("POST", f"/api/takes/{ids[1]}/restore", {})[0], 200)
+        restored = next(c for c in self.workshop.listening()["comparisons"] if c["kind"] == "neighbor")
+        self.assertEqual(restored["state"], "reviewed")
+        # A modification to the extra recording invalidates the whole comparison.
+        path = self.root / "auditions" / ids[1] / "take.json"
+        take = json.loads(path.read_text()); take["prompt"] = "Changed second take directions"; path.write_text(json.dumps(take))
+        self.assertEqual(self.request("POST", "/api/listening/review", payload)[0], 409)
+        self.generator.assert_not_called()
+
+    def test_failed_sample_keeps_its_slot_and_unrelated_library_takes_are_excluded(self):
+        ids, path = self.seed_neighbor_study()
+        manifest = json.loads(path.read_text()); del manifest["corpus"]["solo_2"]; path.write_text(json.dumps(manifest))
+        # solo_2 still exists in the library; the batch manifest declares no successful sample.
+        comparison = next(c for c in self.workshop.listening()["comparisons"] if c["kind"] == "neighbor")
+        self.assertEqual(comparison["evidence_take_ids"], [ids[0], None, ids[2], ids[3]])
+        self.assertEqual(comparison["missing"], ["solo_2"])
+        self.assertEqual(comparison["state"], "waiting")
+        self.generator.assert_not_called()
+
+    def test_review_is_durable_and_bound_to_exact_pair_and_recipe(self):
+        ids = self.seed_listening_study()
+        queue = self.request("GET", "/api/listening")[2]
+        self.assertEqual(len(queue["comparisons"]), 2)  # no reversed or duplicate chores
+        comparison = queue["comparisons"][0]
+        self.assertEqual(comparison["take_ids"], ids)
+        self.assertEqual(queue["comparisons"][1]["state"], "waiting")
+        payload = {"id": comparison["id"], "version": comparison["version"], "outcome": "consistent", "preference": "a", "notes": "Fixture listening only"}
+        self.assertEqual(self.request("POST", "/api/listening/review", payload)[0], 200)
+        restored = server.Workshop(self.root, generator=self.generator, key_reader=self.key_reader)
+        reviewed = restored.listening()["comparisons"][0]
+        self.assertEqual(reviewed["state"], "reviewed")
+        self.assertEqual(reviewed["review"]["notes"], payload["notes"])
+        # Missing recordings cannot inherit a saved result, and restoring retains it.
+        self.assertEqual(self.request("POST", f"/api/takes/{ids[0]}/trash", {})[0], 200)
+        self.assertEqual(self.request("GET", "/api/listening")[2]["comparisons"][0]["state"], "waiting")
+        self.assertEqual(self.request("POST", "/api/listening/review", payload)[0], 409)
+        self.assertEqual(self.request("POST", f"/api/takes/{ids[0]}/restore", {})[0], 200)
+        self.assertEqual(self.request("GET", "/api/listening")[2]["comparisons"][0]["state"], "reviewed")
+        self.workshop.profiles["solo"]["voice"] = "Changed recipe"
+        self.assertEqual(self.request("POST", "/api/listening/review", payload)[0], 409)
+        changed = self.request("GET", "/api/listening")[2]["comparisons"][0]
+        self.assertEqual(changed["state"], "obsolete")
+        self.assertEqual(changed["previous_review"]["notes"], payload["notes"])
+        self.generator.assert_not_called()
+
+    def test_trash_restore_preserves_all_original_bytes_and_is_restart_safe(self):
+        ids = self.seed_listening_study()
+        folder = self.root / "auditions" / ids[0]
+        originals = {p.name: p.read_bytes() for p in folder.iterdir()}
+        self.request("GET", "/api/takes")
+        self.assertEqual(self.request("POST", f"/api/takes/{ids[0]}/trash", {})[0], 200)
+        self.assertFalse(folder.exists())
+        self.assertEqual(self.request("GET", f"/api/takes/{ids[0]}/audio")[0], 404)
+        self.assertEqual(len(self.request("GET", "/api/takes")[2]["takes"]), 1)
+        restored = server.Workshop(self.root, key_reader=lambda: None)
+        self.assertEqual(restored.trash_takes()[0]["id"], ids[0])
+        restored.move_take(ids[0], restore=True)
+        self.assertEqual({p.name: p.read_bytes() for p in folder.iterdir()}, originals)
+        self.assertEqual(len(self.request("GET", "/api/takes")[2]["takes"]), 2)
+        self.generator.assert_not_called()
+
+    def test_mutations_require_same_origin_token_and_reject_path_traversal(self):
+        ids = self.seed_listening_study()
+        for path in (f"/api/takes/{ids[0]}/trash", f"/api/takes/{ids[0]}/restore", "/api/listening/review"):
+            self.assertEqual(self.request("POST", path, {}, headers={"X-Workshop-Token": None})[0], 403)
+            self.assertEqual(self.request("POST", path, {}, headers={"Origin": "https://evil.invalid"})[0], 403)
+        self.assertEqual(self.request("POST", "/api/takes/../trash", {})[0], 404)
+        self.assertTrue((self.root / "auditions" / ids[0]).exists())
+        self.assertEqual((self.root / "secret.txt").read_text(), SECRET)
+        self.generator.assert_not_called()
+
+    def test_mutations_reject_real_symlink_inside_take_directory(self):
+        ids = self.seed_listening_study()
+        folder = self.root / "auditions" / ids[0]
+        try:
+            (folder / "linked-secret").symlink_to(self.root / "secret.txt")
+        except OSError as exc:
+            if os.name == "nt" and getattr(exc, "winerror", None) == 1314:
+                self.skipTest("Windows account lacks the privilege to create symlinks")
+            raise
+        self.assertEqual(self.request("POST", f"/api/takes/{ids[0]}/trash", {})[0], 409)
+        self.assertTrue(folder.exists())
+        self.assertEqual((self.root / "secret.txt").read_text(), SECRET)
+        self.generator.assert_not_called()
+
+    def test_unknown_versions_are_not_invented_and_generation_records_fingerprint(self):
+        ids = self.seed_listening_study()
+        snapshot = self.root / "local/listening-tests/2026-10-13-fixture/palette-snapshot.json"
+        snapshot.unlink()
+        self.assertEqual(self.request("GET", "/api/takes")[2]["takes"][0]["prompt_status"]["state"], "unknown")
+        result = self.request("POST", "/api/generate", self.payload(direction_draft="quiet song"))[2]
+        take = self.completed_job(result["job"]["id"])["take"]
+        self.assertEqual(len(take["recipe_fingerprint"]), 64)
+        self.assertEqual(take["direction_draft"], "quiet song")
+        self.assertEqual(take["prompt_status"]["state"], "current")
+        self.assertEqual(self.request("POST", "/api/generate", self.payload(direction_draft="not part of the prompt"))[0], 400)
+
+    def test_invalid_reviews_do_not_destroy_existing_notes(self):
+        self.seed_listening_study()
+        comparison = self.workshop.listening()["comparisons"][0]
+        payload = {"id": comparison["id"], "version": comparison["version"], "outcome": "consistent", "preference": "both", "notes": "First opinion"}
+        self.request("POST", "/api/listening/review", payload)
+        payload["notes"] = "Revised opinion"
+        saved = self.request("POST", "/api/listening/review", payload)[2]["review"]
+        self.assertEqual(saved["history"][0]["notes"], "First opinion")
+        payload["outcome"] = "distinct"  # wrong kind of result for a repeatability test
+        self.assertEqual(self.request("POST", "/api/listening/review", payload)[0], 400)
+        path = self.root / "auditions/listening-reviews.json"
+        path.write_text("incomplete fixture")
+        payload["outcome"] = "consistent"
+        self.assertEqual(self.request("POST", "/api/listening/review", payload)[0], 409)
+        self.assertEqual(path.read_text(), "incomplete fixture")
+
     def test_omitted_recipe_arrangements_reject_even_with_another_race_or_custom_prompt(self):
         profile = self.workshop.profiles["solo"]
         profile["workshop"] = {"allowed": ["lute", "flute"],
@@ -327,19 +554,65 @@ class WorkshopHTTPTests(unittest.TestCase):
         self.assertIn("Lyrics: block", content["error"])
         self.generator.assert_not_called()
 
-    def test_current_khajiit_recipe_accepts_tabla_solo_without_lyrics(self):
+    def test_baseline_gate_rejects_deferred_profiles_and_arrangements_before_provider_access(self):
         palette = json.loads((server.ROOT / "dashboard" / "palette-data.json").read_text(encoding="utf-8"))
-        self.workshop.profiles["khajiit"] = next(profile for profile in palette["existing"] if profile["id"] == "khajiit")
-        payload = self.payload(profile_id="khajiit", arrangement="drum", prompt="A Hindustani tabla solo in 16-beat teental.")
+        profiles = palette["finalists"] + palette["existing"] + palette["comparisons"]
+        self.workshop.profiles.update({p["id"]: p for p in profiles})
+        for profile in profiles:
+            for arrangement in server.ARRANGEMENTS:
+                if profile["audition"].get("arrangement") == arrangement:
+                    continue
+                with self.subTest(profile=profile["id"], arrangement=arrangement):
+                    status, _, response = self.request("POST", "/api/generate", self.payload(
+                        profile_id=profile["id"], arrangement=arrangement, prompt="Custom direction"))
+                    self.assertEqual(status, 400)
+                    self.assertIn("listening", response["error"])
+        self.generator.assert_not_called()
+        self.key_reader.assert_not_called()
+        self.catalog_reader.assert_not_called()
+
+    def test_wordless_baseline_rejects_saved_and_inline_lyrics(self):
+        palette = json.loads((server.ROOT / "dashboard" / "palette-data.json").read_text(encoding="utf-8"))
+        self.workshop.profiles["winterhold"] = next(p for p in palette["existing"] if p["id"] == "winterhold")
+        for extra in ({"lyrics_song_id": "skyrim-song-1", "lyrics_sha256": LYRIC_DIGEST}, {"prompt": "A joik.\nLyrics:\nNot vocables"}):
+            payload = {"profile_id": "winterhold", "arrangement": "lute_voice", "prompt": "A joik.", **extra}
+            status, _, response = self.request("POST", "/api/generate", payload)
+            self.assertEqual(status, 400)
+            self.assertIn("wordless", response["error"])
+        self.generator.assert_not_called()
+        self.key_reader.assert_not_called()
+        self.catalog_reader.assert_not_called()
+
+    def test_admitted_reach_comparison_saves_baseline_provenance(self):
+        palette = json.loads((server.ROOT / "dashboard" / "palette-data.json").read_text(encoding="utf-8"))
+        profile = palette["comparisons"][0]
+        self.workshop.profiles[profile["id"]] = profile
+        payload = self.payload(profile_id=profile["id"], prompt="An English sean-nós air on one lute.")
         status, _, response = self.request("POST", "/api/generate", payload)
         self.assertEqual(status, 202)
-        job = self.completed_job(response["job"]["id"])
-        self.assertEqual(job["status"], "completed")
-        self.assertEqual(job["take"]["instrument_name"], "tabla (dayan + bayan pair)")
-        self.assertEqual(job["take"]["performer_race"], "khajiit")
-        self.assertNotIn("supplied_lyrics", job["take"])
+        take = self.completed_job(response["job"]["id"])["take"]
+        self.assertEqual(take["recipe_revision"], palette["baseline"]["revision"])
+        self.assertEqual(take["audition_stage"], "comparison")
+        self.assertEqual(take["vocal_mode"], "lyrics")
+        self.assertEqual(take["prompt"], self.expected_prompt(payload))
+        reloaded = server.Workshop(self.root, key_reader=lambda: None)
+        self.assertEqual(reloaded.list_takes()[0]["recipe_revision"], palette["baseline"]["revision"])
+
+    def test_wordless_preview_is_submitted_verbatim_and_provenance_survives(self):
+        palette = json.loads((server.ROOT / "dashboard" / "palette-data.json").read_text(encoding="utf-8"))
+        self.workshop.profiles["winterhold"] = next(p for p in palette["existing"] if p["id"] == "winterhold")
+        prompt = "One singer and lute.\nWordless vocables only; no lyrics, sentences or spoken words."
+        payload = self.payload(profile_id="winterhold", prompt=prompt)
+        payload.pop("lyrics_song_id")
+        payload.pop("lyrics_sha256")
+        status, _, response = self.request("POST", "/api/generate", payload)
+        self.assertEqual(status, 202)
+        take = self.completed_job(response["job"]["id"])["take"]
+        self.assertEqual(take["prompt"], prompt)
+        self.assertEqual(take["vocal_mode"], "wordless")
+        self.assertNotIn("supplied_lyrics", take)
         self.catalog_reader.assert_not_called()
-        self.generator.assert_called_once_with(payload["prompt"], SECRET)
+        self.generator.assert_called_once_with(prompt, SECRET)
 
     def test_instrumental_take_keeps_actual_instrument_and_race_across_reload(self):
         self.workshop.profiles["solo"]["workshop"] = {"allowed": ["lute"], "plucked": "cittern", "flute": "flute", "drum": "hand drum", "omitted": {}}

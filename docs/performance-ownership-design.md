@@ -1,18 +1,40 @@
 # Hold Music owns performances: design
 
-**Status:** design, 9 October 2026. Nothing below is installed or enabled.
+**Status (19 October 2026 reconciliation):** the owned controller is installed.
+Its October 14 session established quest startup and SkyrimNet's live bard
+shutdown; that inspection also found conflicting saved configuration copies.
+The October 15 Sven visit reached candidate discovery and exposed the native
+scan crash documented below. The targeted fix is installed, but successful
+owned playback, animation and interruption remain unverified. Refresh the
+read-only preflight before the next runtime test rather than treating the
+October 14 configuration report as the current state.
+See [the runtime test](in-game-test-plan.md#second-test-sven-at-the-sleeping-giant-inn-hold-music-owned-path).
+
+**Migration direction:** MGO 4.0 RC5 and SkyrimNet beta 27 remain the planned
+coordinated target. The [migration plan](stack-migration-rc5-beta27.md) defines
+the native-import comparison and verification sequence. Portable deployment,
+actor identity, library preparation and handoff work can proceed before that
+upgrade or the completion of regional listening tests.
+
 **Decision owner:** recorded here by Claude under the delegated takeover; the
 user's standing direction is that Hold Music should eventually take over the
 bard functions entirely from SkyrimNet.
+
+**Runtime update (15 October 2026, evening):** the first owned-controller test
+reached candidate discovery and crashed in PapyrusUtil VR's native dead filter.
+SkyrimNet's bard feature was disabled in that session. A targeted controller
+workaround is now installed; successful owned playback remains unverified.
+See the [native RCA, fix and retest](sven-crash-2026-10-15.md).
 
 ## Why take over
 
 Evidence gathered on 9 October:
 
 - SkyrimNet's bard code is closed (the C++ repository is private). Its bard
-  eligibility check is undocumented; on this install it accepts the Bard class
-  or `BardSingerFaction`, which excludes real performers such as Sven in
-  Riverwood (Lumberjack class, `JobBardFaction` only) and Lynly in Ivarstead.
+  eligibility check is undocumented. Static inspection suggested the Bard
+  class or `BardSingerFaction` would exclude Sven and Lynly. That did not
+  predict Sven's runtime behavior: SkyrimNet played him successfully on
+  October 13. Lynly's runtime eligibility remains unverified.
 - Its ambient trigger is an internal scheduler that fires on entering an inn,
   and GitHub issue #559 (open since Beta24) reports it intermittently staying
   silent in exactly the Sleeping Giant Inn and the Bannered Mare.
@@ -111,9 +133,9 @@ disassembly plus the PEX mock VM for tests, and an MO2 VFS probe.
 
 ### 3. SkyrimNet hand-off
 
-While the owned path is being validated, the 0.2.x adapter stays installed and
-SkyrimNet's bard singing stays on. The config overlay already managed by the
-MO2 plugin gains one more managed scalar, `bard_singing.enabled`, so switching
+The 0.2.x adapter remains installed during the pilot, but SkyrimNet bard
+singing must be off whenever the owned controller is tested. The planned
+config overlay change adds one managed scalar, `bard_singing.enabled`, so switching
 to Hold Music ownership is a profile-local toggle that disables SkyrimNet's
 scheduler without touching the source config, and switching back is the same
 toggle. Lyric generation moves to Hold Music's own prompt at that point; the
@@ -131,23 +153,52 @@ toggle. Lyric generation moves to Hold Music's own prompt at that point; the
 T0 format and API: [Performer registry and recording library](library-format.md).
 T1 package implementation and offline boundaries: [game package README](../game_package/README.md).
 T1c install/rollback: `game_package/tools/install_game_package.py` supports write-free JSON dry runs and `--uninstall`; JsonUtil's physical write target remains open pending the probe.
-T2a implements [offline instrumental and Winterhold wordless preparation](executor.md); lyrical work and live planner integration await the knowledge bridge.
+T2a implements [offline instrumental and Winterhold wordless preparation](executor.md).
 T2b adds the [read-only actor knowledge bridge](knowledge-bridge.md), planner-driven lyrical jobs, and separately accounted lyric/music calls.
 
-T0 and T1 are independent of each other and can be built in parallel; T2
-depends on T0; T3 depends on T1 and T2 passing their headset gates.
+T0 and T1 are independent; T2 depends on T0. Offline T3 implementation and
+configuration tests can proceed before a headset visit. Permanent takeover
+still depends on runtime acceptance and adequate coverage for the other bards.
 
-## Staged takeover (decided 11 October 2026)
+### Work that can proceed without the Sven visit
 
-The first owned release does not replace SkyrimNet's bard system; it runs
-beside it and takes only the performers SkyrimNet's eligibility check rejects.
+- The read-only [performance preflight](evidence.md#read-only-performance-preflight)
+  is implemented and exercised against the installed profile. It catches the
+  conflicting overwrite/adapter inputs and verifies the matching audio assets.
+- Implement and test a reversible ownership switch, including overlay failure,
+  restart, dashboard edits, conflict recovery, and return to SkyrimNet. Its
+  offline contract must account for both the SkyrimNet switch and Hold Music's
+  MCM setting; the registry's `owner` field alone is insufficient.
+- Prepare roster and library coverage plans, strengthen actor identity mapping,
+  and exercise the planner/executor with synthetic snapshots and dry runs.
+  New paid generation remains a separately bounded action.
+- Continue prompt consistency and listening-workshop work using versioned
+  provisional recipes. Listening confidence is recorded separately and does
+  not gate engineering. Admit new repertoire through an explicit source revision;
+  no all-regions listening pass is required to develop it. Keep sound-source,
+  performer-capability and supported-arrangement checks.
+- Follow the [development roadmap](development-roadmap.md) for the next bounded
+  integration milestone using existing recordings without paid generation.
+
+The headset gate covers sound and positioning, animation/scene coexistence,
+dialogue and departure interruption, and game-written receipts. Offline tests
+do not establish those outcomes or approve a full roster rollout.
+
+## Original staged takeover (11 October 2026; isolation assumption superseded)
+
+The first owned release was intended to run beside SkyrimNet and take only
+the performers SkyrimNet's eligibility check rejected.
 Each registered performer carries an authored `owner` field (`hold_music` or
 `skyrimnet`); the game controller performs only for `hold_music` performers,
 and the adapter keeps regionalizing SkyrimNet's compositions for the rest.
-Sven (Sleeping Giant Inn) and Lynly Star-Sung (Vilemyr Inn) are the first
-`hold_music` performers because SkyrimNet never acts on them, so a headset
-test at either inn cannot collide with a SkyrimNet performance. The flip to
-full ownership (T3) happens only after this path is heard working.
+Sven (Sleeping Giant Inn) and Lynly Star-Sung (Vilemyr Inn) were assigned
+`hold_music` on the assumption that SkyrimNet would not act on them. Sven's
+October 13 cached playback disproved that assumption. The authored owner
+field restricts only our controller; it does not tell SkyrimNet to abstain.
+The vanilla scene lock also does not stop SkyrimNet's native audio playback.
+A mutually exclusive handoff is therefore required before the Sven test;
+Lynly cannot be presumed isolated without runtime evidence either. Full
+ownership (T3) remains unverified.
 
 Two consequences shape T1d and T1e:
 
@@ -194,9 +245,10 @@ closed; see [in-game-test-plan.md](in-game-test-plan.md).
   timing authoritative and avoids silencing work.
 - **Registry over predicate.** Who performs is authored data, so Sven and
   Lynly can perform and a Bards College historian need not.
-- **Coexistence before replacement.** Ownership is per performer, so the
-  owned path is tested on bards SkyrimNet ignores while SkyrimNet keeps the
-  rest; nothing regresses if the owned path fails its first headset test.
+- **Explicit handoff before replacement.** Sven disproved the assumption that
+  the owned pilot could safely use bards SkyrimNet ignores. Test with SkyrimNet
+  bard singing off and Hold Music on, then return to the opposite state for
+  ordinary play. A permanent switch requires broader repertoire coverage.
 - **Ahead-of-time generation.** A performance must never wait on a paid
   request; if no recording fits, the bard does not perform and the helper
   queues work for next time.

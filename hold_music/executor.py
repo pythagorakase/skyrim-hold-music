@@ -84,7 +84,7 @@ def plan_work(registry, library, *, performer_ids=None, target_per_performer=1,
                 if target_per_performer == 0 or decision['action'] not in ('compose_lyrics', 'generate_recording'):
                     continue
                 if performance_mode(region, 'vocal') != 'vocal':
-                    decision['reasons'].append('The approved regional recipe is wordless; lyrical dispatch is unsupported.')
+                    decision['reasons'].append('The regional recipe does not support lyrics; lyrical dispatch is unsupported.')
                     decision['action'] = 'no_selection'
                     continue
                 subject = decision.get('subject') or {}

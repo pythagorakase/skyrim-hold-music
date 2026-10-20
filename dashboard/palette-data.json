@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-10-08",
+  "updatedAt": "2026-10-19",
   "auditionContext": "An in-world acoustic performance in Tamriel, in the Elder Scrolls setting. The music is made by the listed performers in the room, with natural close room acoustics rather than a cinematic backing score.",
   "auditionRaces": {
     "nord": "Nord",
@@ -39,7 +39,7 @@
       "culture": "Orsimer",
       "name": "Resonant Name-Songs · throat singing",
       "mood": "Grave, concentrated, enduring",
-      "role": "Favorite vocal identity; individual technique required; instrumental reduction is weaker",
+      "role": "Experimental vocal identity; production vocals deferred; instrumental contour reduction is weaker",
       "lute_instrumental": "isolated low plucks answered by ringing upper notes; a resonant contour reduction of the vocal form",
       "reference": "Mongolian khöömei overtone singing",
       "reference_focus": "a steady low foundation with moving upper harmonics; instrumental reductions translate contour and resonance without adding a throat singer",
@@ -57,6 +57,10 @@
         "plucked": "lute",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -72,14 +76,18 @@
         "note": "Throat-singing finalist: khöömei, with a weighty low fundamental and moving upper overtones. Instrumentals are contour reductions."
       },
       "audition_race": "orc",
-      "audition_region": "skyrim"
+      "audition_region": "skyrim",
+      "audition": {
+        "stage": "deferred",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required."
+      }
     },
     {
       "id": "orc_seven_step",
       "culture": "Orsimer",
       "name": "Seven-Step Oath-Songs",
       "mood": "Resolute, exacting, communal",
-      "role": "Most portable candidate across the existing lute/voice and instrumental grammar",
+      "role": "Portable instrumental release candidate; vocal version remains experimental",
       "lute_instrumental": "low damped strokes and a rising-fourth melody mark deliberate 2+2+3 groups, decisive rests",
       "reference": "Bulgarian rachenitsa",
       "reference_focus": "borrow the 2+2+3 additive rhythm, with deliberate resolute phrasing rather than a fast wedding-dance tempo",
@@ -95,6 +103,10 @@
         "plucked": "lute",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -110,14 +122,18 @@
         "note": ""
       },
       "audition_race": "orc",
-      "audition_region": "skyrim"
+      "audition_region": "skyrim",
+      "audition": {
+        "stage": "deferred",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required."
+      }
     },
     {
       "id": "orc_close_circle",
       "culture": "Orsimer",
       "name": "Close-Circle Songs",
       "mood": "Solemn solidarity, intimate warmth",
-      "role": "Ensemble finalist; current solo version explicitly gives chord work to the lute",
+      "role": "Plucked chord-block release candidate; three-voice form is a deferred ensemble study",
       "lute_instrumental": "simple upper melody against compact low chord blocks, every part releasing together",
       "core_monophonic": "one plain narrow melody in slow measured phrases, decisive releases and clean pauses; solemn warmth",
       "reference": "Sardinian canto a tenore",
@@ -141,6 +157,10 @@
         "plucked": "lute",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -156,7 +176,11 @@
         "note": "The plucked instrument supplies the chord responses; the ensemble study uses exactly three voices."
       },
       "audition_race": "orc",
-      "audition_region": "skyrim"
+      "audition_region": "skyrim",
+      "audition": {
+        "stage": "deferred",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required."
+      }
     },
     {
       "id": "bosmer_leaping_tales",
@@ -178,6 +202,10 @@
         "plucked": "cittern",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -193,7 +221,11 @@
         "note": ""
       },
       "audition_race": "bosmer",
-      "audition_region": "skyrim"
+      "audition_region": "skyrim",
+      "audition": {
+        "stage": "deferred",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required."
+      }
     },
     {
       "id": "bosmer_hunting_calls",
@@ -215,6 +247,10 @@
         "plucked": "lute",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -230,7 +266,11 @@
         "note": ""
       },
       "audition_race": "bosmer",
-      "audition_region": "skyrim"
+      "audition_region": "skyrim",
+      "audition": {
+        "stage": "deferred",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required."
+      }
     },
     {
       "id": "bosmer_spinners_tales",
@@ -253,6 +293,10 @@
         "plucked": "biwa",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -268,7 +312,11 @@
         "note": ""
       },
       "audition_race": "bosmer",
-      "audition_region": "skyrim"
+      "audition_region": "skyrim",
+      "audition": {
+        "stage": "deferred",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required."
+      }
     }
   ],
   "existing": [
@@ -289,6 +337,10 @@
         "plucked": "cittern",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -304,24 +356,33 @@
         "note": ""
       },
       "audition_race": "nord",
-      "audition_region": "skyrim"
+      "audition_region": "skyrim",
+      "audition": {
+        "stage": "deferred",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required."
+      }
     },
     {
       "id": "imperial",
       "kind": "culture",
       "culture": "Imperial",
-      "name": "Imperial expressive solo song",
-      "lute_instrumental": "upper-string melody with ornamental runs over arpeggiated bass, clear cadences",
-      "reference": "Italian frottola and early Baroque monody",
-      "core": "clear major or minor tonality, flexible expressive tempo, strong cadences",
-      "voice": "lyrical solo line with ornamental runs and cadential trills",
-      "lute": "arpeggiated chordal accompaniment under the melody, continuo style",
-      "flute": "singing, vocal-style melody with cadential trills",
-      "drum": "light, even dance pulse",
+      "name": "Cyrodiil · Italian monody",
+      "audition_region": "cyrodiil",
+      "reference": "Italian early Baroque monody",
+      "core": "expressive solo melody, flexible speech-shaped timing over moving bass and changing harmony, pronounced harmonic arrivals",
+      "voice": "intimate rhetorical singing with brief ornamental runs and clear English words",
+      "lute": "changing chordal support and moving bass, with arpeggiated answers at cadences",
+      "lute_instrumental": "expressive upper melody over moving bass and changing chords, flexible timing and strong harmonic arrivals",
+      "flute": "expressive vocal-style melody with cadential ornaments",
+      "drum": "restrained pulse following the expressive phrases",
       "workshop": {
         "plucked": "lute",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -337,7 +398,15 @@
         "note": ""
       },
       "audition_race": "imperial",
-      "audition_region": "skyrim"
+      "audition": {
+        "stage": "baseline",
+        "revision": "baseline-11-v2",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required.",
+        "arrangement": "lute_voice",
+        "vocal_mode": "lyrics"
+      },
+      "neighbor": "Haafingar; Whiterun",
+      "boundary": "Expressive melody over moving bass and changing harmony, without regular dance or modal drone ballad."
     },
     {
       "id": "imperial_vernacular",
@@ -357,6 +426,10 @@
         "plucked": "cittern",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -371,7 +444,11 @@
         },
         "note": ""
       },
-      "audition_race": "imperial"
+      "audition_race": "imperial",
+      "audition": {
+        "stage": "deferred",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required."
+      }
     },
     {
       "id": "breton_court",
@@ -389,6 +466,10 @@
         "plucked": "lute",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -404,7 +485,11 @@
         "note": "Voice and flute are single-line reductions of a form usually supported by plucked chords."
       },
       "audition_race": "breton",
-      "audition_region": "skyrim"
+      "audition_region": "skyrim",
+      "audition": {
+        "stage": "deferred",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required."
+      }
     },
     {
       "id": "breton_folk",
@@ -423,6 +508,10 @@
         "plucked": "cittern",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -438,7 +527,11 @@
         "note": ""
       },
       "audition_race": "breton",
-      "audition_region": "skyrim"
+      "audition_region": "skyrim",
+      "audition": {
+        "stage": "deferred",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required."
+      }
     },
     {
       "id": "redguard",
@@ -456,6 +549,10 @@
         "plucked": "oud",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -471,25 +568,34 @@
         "note": ""
       },
       "audition_race": "redguard",
-      "audition_region": "skyrim"
+      "audition_region": "skyrim",
+      "audition": {
+        "stage": "deferred",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required."
+      }
     },
     {
       "id": "dunmer",
       "kind": "culture",
       "culture": "Dunmer",
-      "name": "Dunmer modal lament",
-      "lute_instrumental": "long sorrowful melody with slow ornaments over the same instrument’s low drone strings",
-      "core_monophonic": "slow free-rhythm lament, long sorrowful single-line phrases and augmented-second color",
-      "reference": "Armenian and Persian modal lament",
-      "core": "slow lament, minor mode with augmented-second color, free rhythm, long sorrowful phrases over a sustained low drone",
-      "voice": "mournful, restrained, long-breathed, slow melisma",
-      "lute": "sparse plucked notes over a low drone string",
-      "flute": "low, breathy tone with slow pitch bends",
-      "drum": "slow, sparse pulse",
+      "name": "Solstheim · Persian lament",
+      "audition_region": "raven_rock",
+      "reference": "Persian āvāz-inspired lament",
+      "core": "slow modal lament, long ornamented phrases with flexible unmetered timing and gradual melodic development",
+      "core_monophonic": "slow modal lament, long ornamented single-line phrases with flexible timing",
+      "voice": "mournful long-breathed solo line, connected melismas and clear English words",
+      "lute": "sparse plucked support and short echoes of the vocal melody, little chordal movement",
+      "lute_instrumental": "long sorrowful modal melody with connected picked ornaments and flexible timing",
+      "flute": "long breathy modal phrases with slow ornaments",
+      "drum": "slow sparse punctuation",
       "workshop": {
-        "plucked": "lute",
+        "plucked": "Persian setar",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -505,7 +611,15 @@
         "note": ""
       },
       "audition_race": "dunmer",
-      "audition_region": "skyrim"
+      "audition": {
+        "stage": "baseline",
+        "revision": "baseline-11-v2",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required.",
+        "arrangement": "lute_voice",
+        "vocal_mode": "lyrics"
+      },
+      "neighbor": "Reach sean-nós; Falkreath",
+      "boundary": "Long modal melismas and flexible timing, distinct from short metrical cells or Gaelic ornaments."
     },
     {
       "id": "altmer",
@@ -524,6 +638,10 @@
         "plucked": "lute",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -539,7 +657,11 @@
         "note": "Flute and alternating voice/flute use sequential imitation; independent counterpoint remains on plucked strings."
       },
       "audition_race": "altmer",
-      "audition_region": "skyrim"
+      "audition_region": "skyrim",
+      "audition": {
+        "stage": "deferred",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required."
+      }
     },
     {
       "id": "khajiit",
@@ -565,6 +687,10 @@
         "plucked": "sitar",
         "flute": "bamboo flute (bansuri)",
         "drum": "tabla (dayan + bayan pair)",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute",
           "flute",
@@ -580,7 +706,11 @@
         "note": "Choose sitar, unaccompanied bamboo flute, or a virtuoso tabla solo on the dayan/bayan pair. Each uses one performer; singing stays omitted."
       },
       "audition_race": "khajiit",
-      "audition_region": "skyrim"
+      "audition_region": "skyrim",
+      "audition": {
+        "stage": "deferred",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required."
+      }
     },
     {
       "id": "argonian",
@@ -598,6 +728,10 @@
         "plucked": "plucked zither (kacapi)",
         "flute": "bamboo flute (suling)",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute",
           "flute"
@@ -613,27 +747,34 @@
         "note": "New instrumental study: kacapi-like woody plucks or one bamboo flute. Keep recurring five-note cells; no gamelan ensemble."
       },
       "audition_race": "argonian",
-      "audition_region": "skyrim"
+      "audition_region": "skyrim",
+      "audition": {
+        "stage": "deferred",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required."
+      }
     },
     {
       "id": "haafingar",
       "kind": "region",
       "culture": "Nord",
       "name": "Haafingar / Solitude",
-      "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
-      "lute": "simple plucked melody over open-string drones",
+      "voice": "measured syllabic singing that preserves the triple dance pulse",
+      "lute": "refined passagework and spacious chord answers within the triple dance",
       "flute": "plain modal melody, few ornaments",
       "drum": "steady walking pulse",
-      "lute_instrumental": "refined upper melody over spacious chord answers, a clear triple dance pulse",
-      "core_monophonic": "polished triple dance motion, refined single-line phrases and clear cadence returns",
-      "reference": "the Danish court of Christian IV and Dowland's lute airs",
-      "dialect": "polished courtly style, recognizable triple dance pulse, refined airs and spacious instrumental answers",
-      "tint": "polished, courtly phrasing",
-      "core": "polished courtly style, recognizable triple dance pulse, refined airs and spacious instrumental answers",
+      "reference": "Renaissance galliard",
+      "dialect": "clear triple galliard dance, balanced phrases, shaped cadences and developed lute passagework",
+      "lute_instrumental": "refined galliard melody and developed passagework over spacious chords in clear triple time",
+      "tint": null,
+      "core": "clear triple galliard dance, balanced phrases, shaped cadences and developed lute passagework",
       "workshop": {
         "plucked": "lute",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -646,31 +787,42 @@
           "trio": "Only Close-Circle currently defines a three-voice ensemble.",
           "voice": "A lone voice would lose the defining chordal or instrumental structure."
         },
-        "note": "The flute versions are melodic reductions of the court air; plucked strings retain its harmonic answers."
+        "note": "The baseline keeps one voice and lute in a triple galliard. Other arrangements remain deferred."
       },
       "audition_race": "nord",
-      "audition_region": "haafingar"
+      "audition_region": "haafingar",
+      "audition": {
+        "stage": "baseline",
+        "revision": "baseline-11-v2",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required.",
+        "arrangement": "lute_voice",
+        "vocal_mode": "lyrics"
+      },
+      "neighbor": "Cyrodiil; Whiterun",
+      "boundary": "Maintain the triple galliard dance and shaped lute passagework, not flexible monody or plain ballad."
     },
     {
       "id": "eastmarch",
       "kind": "region",
       "culture": "Nord",
       "name": "Eastmarch / Windhelm",
-      "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
-      "lute": "bare fifths between phrases and single notes following the lead melody",
+      "voice": "articulated English narrative verse, speech-shaped and restrained with few ornaments",
+      "lute": "isolated plucked notes and bare fifths punctuate vocal phrases",
       "flute": "plain modal melody, few ornaments",
-      "drum": "isolated low strokes at the ends of declaimed phrases; leave speech-paced gaps",
-      "core_instrumental": "austere heroic melody, narrow range, irregular declamatory phrase lengths and complete pauses",
-      "lute_instrumental": "austere narrow melody punctuated by bare fifths and clean pauses",
-      "reference": "Icelandic rímur and tvísöngur",
-      "reference_focus": "austere narrative declamation and open-fifth color; a single melodic line replaces the second singer in a solo reduction",
-      "dialect": "austere speech-shaped heroic phrases, narrow melodic range and exposed single melody",
-      "tint": "sparser and more austere",
-      "core": "austere speech-shaped heroic phrases, narrow melodic range and exposed single melody",
+      "drum": "steady walking pulse",
+      "reference": "Icelandic rímur",
+      "dialect": "austere syllabic narrative declamation, narrow range and speech-shaped phrases with clear pauses",
+      "lute_instrumental": "austere narrow melody, irregular declamatory phrases, bare fifths and clean pauses",
+      "tint": null,
+      "core": "austere syllabic narrative declamation, narrow range and speech-shaped phrases with clear pauses",
       "workshop": {
         "plucked": "lute",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -686,27 +838,39 @@
         "note": ""
       },
       "audition_race": "nord",
-      "audition_region": "eastmarch"
+      "audition_region": "eastmarch",
+      "audition": {
+        "stage": "baseline",
+        "revision": "baseline-11-v2",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required.",
+        "arrangement": "lute_voice",
+        "vocal_mode": "lyrics"
+      },
+      "neighbor": "Falkreath; Reach sean-nós",
+      "boundary": "Speech-shaped narrow declamation must differ from repeated five-beat cells and flowing ornamented airs."
     },
     {
       "id": "whiterun",
       "kind": "region",
       "culture": "Nord",
       "name": "Whiterun",
-      "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
-      "lute": "simple plucked melody over open-string drones",
+      "voice": "plain syllabic storytelling, sustained complete verses and a short refrain",
+      "lute": "restrained modal support on tonic and fifth, simple plucked answers",
       "flute": "plain modal melody, few ornaments",
-      "drum": "broad three-pulse groups with a weighted first beat and a lighter turning third",
-      "lute_instrumental": "plain modal refrain above open tonic and fifth strings, a broad triple dance lilt",
-      "core_monophonic": "strophic Dorian or Mixolydian melody, short refrain, plain ornaments and broad triple sway",
-      "reference": "Swedish and Danish ballads and polska dance tunes",
-      "dialect": "strophic ballad with a short refrain, Dorian or Mixolydian mode, steady drone on the tonic and fifth, triple-meter dance lilt in livelier pieces",
+      "drum": "steady walking pulse",
+      "reference": "Scandinavian medieval narrative ballad",
+      "dialect": "substantial strophic narrative verses and a short returning refrain, plain Dorian or Mixolydian melody",
+      "lute_instrumental": "plain modal verse melody and a short returning refrain over sparse tonic and fifth strings",
       "tint": null,
-      "core": "strophic ballad with a short refrain, Dorian or Mixolydian mode, steady drone on the tonic and fifth, triple-meter dance lilt in livelier pieces",
+      "core": "substantial strophic narrative verses and a short returning refrain, plain Dorian or Mixolydian melody",
       "workshop": {
         "plucked": "cittern",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -722,27 +886,39 @@
         "note": ""
       },
       "audition_race": "nord",
-      "audition_region": "whiterun"
+      "audition_region": "whiterun",
+      "audition": {
+        "stage": "baseline",
+        "revision": "baseline-11-v2",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required.",
+        "arrangement": "lute_voice",
+        "vocal_mode": "lyrics"
+      },
+      "neighbor": "The Pale; Cyrodiil",
+      "boundary": "Substantial modal verses and a short refrain, without jig bounce or moving continuo harmony."
     },
     {
       "id": "reach",
       "kind": "region",
       "culture": "Nord",
       "name": "The Reach / Markarth",
-      "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
-      "lute": "simple plucked melody over open-string drones",
-      "flute": "a plain theme followed by increasingly ornamented variations",
+      "voice": "quick clearly articulated English syllables, tightly fitted to the duple reel, voice driving the dance",
+      "lute": "light plucked support following the vocal rhythm, brief picked ornaments",
+      "flute": "plain modal melody, few ornaments",
       "drum": "steady walking pulse",
-      "lute_instrumental": "one unfolding air with connected picked graces and increasingly ornamented variations",
-      "reference": "Gaelic sean-nós song and pibroch",
-      "dialect": "free-rhythm air with connected grace-note ornament and a slowly unfolding melody",
-      "dance_dialect": "quick flowing mouth-music dance, connected ornamental runs and a recurring lively pulse",
-      "tint": "extra grace-note ornament",
-      "core": "free-rhythm air with connected grace-note ornament and a slowly unfolding melody",
+      "reference": "Scottish puirt-à-beul, reel-based mouth music",
+      "dialect": "duple reel pulse, compact repeating dance strains and dense articulated syllables driving the rhythm",
+      "lute_instrumental": "compact reel strains in clear duple time, tightly packed articulated notes and light ornaments",
+      "tint": null,
+      "core": "duple reel pulse, compact repeating dance strains and dense articulated syllables driving the rhythm",
       "workshop": {
         "plucked": "lute",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -758,26 +934,39 @@
         "note": ""
       },
       "audition_race": "nord",
-      "audition_region": "reach"
+      "audition_region": "reach",
+      "audition": {
+        "stage": "baseline",
+        "revision": "baseline-11-v2",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required.",
+        "arrangement": "lute_voice",
+        "vocal_mode": "lyrics"
+      },
+      "neighbor": "The Rift; Reach sean-nós",
+      "boundary": "Dense syllables drive a duple reel; the Rift has compound jig bounce and less packed delivery."
     },
     {
       "id": "falkreath",
       "kind": "region",
       "culture": "Nord",
       "name": "Falkreath",
-      "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
-      "lute": "simple plucked melody over open-string drones",
+      "voice": "plain syllabic English lines returning to the same five-beat melodic cell",
+      "lute": "sparse open strings reinforce each recurring five-beat cell",
       "flute": "plain modal melody, few ornaments",
-      "drum": "slow five-beat groups, a falling sequence of softer attacks and a gap after each cell",
-      "lute_instrumental": "short descending five-beat melody cells, sparse open strings and restrained repeats",
-      "reference": "Karelian laments and runo-song",
-      "dialect": "slow lament, narrow range within a fifth, perceptible five-beat repetition and short descending cells",
-      "tint": "slower and more mournful",
-      "core": "slow lament, narrow range within a fifth, perceptible five-beat repetition and short descending cells",
+      "drum": "steady walking pulse",
+      "reference": "Karelian runo-song",
+      "dialect": "mournful repeated narrative cells, narrow range within a fifth, short descending melody in a perceptible five-beat cycle",
+      "lute_instrumental": "short descending five-beat melody cells, narrow range, sparse open strings and restrained repeats",
+      "tint": null,
+      "core": "mournful repeated narrative cells, narrow range within a fifth, short descending melody in a perceptible five-beat cycle",
       "workshop": {
-        "plucked": "lute",
+        "plucked": "plucked kantele",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -793,26 +982,39 @@
         "note": ""
       },
       "audition_race": "nord",
-      "audition_region": "falkreath"
+      "audition_region": "falkreath",
+      "audition": {
+        "stage": "baseline",
+        "revision": "baseline-11-v2",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required.",
+        "arrangement": "lute_voice",
+        "vocal_mode": "lyrics"
+      },
+      "neighbor": "Eastmarch; Solstheim",
+      "boundary": "The recurring five-beat descending cell must be audible. Sadness alone does not distinguish it."
     },
     {
       "id": "rift",
       "kind": "region",
       "culture": "Nord",
       "name": "The Rift / Riften",
-      "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
-      "lute": "simple plucked melody over open-string drones",
+      "voice": "direct syllabic English singing, spacious enough to hear the compound jig bounce",
+      "lute": "bright chordal punctuation between compact repeating jig strains",
       "flute": "plain modal melody, few ornaments",
-      "drum": "bouncing six-pulse jig groups, alternating deep first and crisp fourth strokes",
-      "lute_instrumental": "catchy Mixolydian jig melody between bright chord strokes, bouncing compound pulse",
-      "reference": "Playford English country dance tunes and broadside ballads",
-      "dialect": "fast and bawdy, bouncing jig rhythm, major or Mixolydian mode, catchy strophic tune",
-      "tint": "faster and rowdier",
-      "core": "fast and bawdy, bouncing jig rhythm, major or Mixolydian mode, catchy strophic tune",
+      "drum": "steady walking pulse",
+      "reference": "Playford-style English country-dance jig",
+      "dialect": "bouncing 6/8 jig, major or Mixolydian melody, compact repeated strains and bright phrase-ending accents",
+      "lute_instrumental": "catchy repeated jig strains between bright chord strokes in bouncing 6/8",
+      "tint": null,
+      "core": "bouncing 6/8 jig, major or Mixolydian melody, compact repeated strains and bright phrase-ending accents",
       "workshop": {
         "plucked": "cittern",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -828,26 +1030,39 @@
         "note": ""
       },
       "audition_race": "nord",
-      "audition_region": "rift"
+      "audition_region": "rift",
+      "audition": {
+        "stage": "baseline",
+        "revision": "baseline-11-v2",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required.",
+        "arrangement": "lute_voice",
+        "vocal_mode": "lyrics"
+      },
+      "neighbor": "The Reach; Haafingar",
+      "boundary": "Compact strains in bouncing 6/8, distinct from a duple vocal reel or triple galliard."
     },
     {
       "id": "winterhold",
       "kind": "region",
       "culture": "Nord",
       "name": "Winterhold",
-      "voice": "plain wordless vocables, recurring intimate phrases",
-      "lute": "simple plucked melody over open-string drones",
+      "voice": "wordless vocables only, intimate recurring figures with small changes; no lyrics, sentences or spoken words",
+      "lute": "sparse plucked punctuation around the recurring vocal figure",
       "flute": "plain modal melody, few ornaments",
-      "drum": "sparse returning stroke figure with open pauses; avoid a closing flourish",
-      "lute_instrumental": "a sparse circular figure with returning small variations, open pauses and no grand cadence",
-      "reference": "Sámi joik",
-      "dialect": "sparse circular melody with recurring short figures and little sense of a beginning or final cadence",
-      "tint": "sparser, with more silence between phrases",
-      "core": "sparse circular melody with recurring short figures and little sense of a beginning or final cadence",
+      "drum": "steady walking pulse",
+      "reference": "Sámi joik, wordless adaptation",
+      "dialect": "short circular melodic figures return with small variations, open-ended phrasing without a closing chorus",
+      "lute_instrumental": "short circular plucked figures with small variations and no grand final cadence",
+      "tint": null,
+      "core": "short circular melodic figures return with small variations, open-ended phrasing without a closing chorus",
       "workshop": {
         "plucked": "lute",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -863,27 +1078,39 @@
         "note": ""
       },
       "audition_race": "nord",
-      "audition_region": "winterhold"
+      "audition_region": "winterhold",
+      "audition": {
+        "stage": "baseline",
+        "revision": "baseline-11-v2",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required.",
+        "arrangement": "lute_voice",
+        "vocal_mode": "wordless"
+      },
+      "neighbor": "The Pale; Eastmarch",
+      "boundary": "Short circular figures and changing vocables, without English verses or a closing pop chorus."
     },
     {
       "id": "pale",
       "kind": "region",
       "culture": "Nord",
       "name": "The Pale / Dawnstar",
-      "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
-      "lute": "widely separated low notes mark a slow rocking pulse",
-      "flute": "long clear calls with distinct endings and open gaps",
-      "drum": "widely spaced low strokes in a slow rocking compound pulse",
-      "lute_instrumental": "long complete melody calls above widely separated low plucks, slow rocking compound pulse",
-      "reference": "Scottish and Hebridean slow airs",
-      "reference_focus": "long complete phrases, a slow rocking compound pulse and open gaps rather than circular joik or an unmetered lament",
-      "dialect": "long exposed melodic calls, slow rocking compound pulse, broad register and silence between complete phrases",
-      "tint": "more space between complete phrases",
-      "core": "long exposed melodic calls, slow rocking compound pulse, broad register and silence between complete phrases",
+      "voice": "long clear English sung lines carried by the recurring rowing pulse",
+      "lute": "widely spaced low plucks mark the measured rowing pulse without filling every breath",
+      "flute": "plain modal melody, few ornaments",
+      "drum": "steady walking pulse",
+      "reference": "Hebridean iorram-inspired rowing song",
+      "dialect": "broad complete strophic lines over a measured slow 6/8 rowing pulse, natural breaths between phrases",
+      "lute_instrumental": "broad strophic melody over widely spaced low plucks marking a slow 6/8 rowing pulse",
+      "tint": null,
+      "core": "broad complete strophic lines over a measured slow 6/8 rowing pulse, natural breaths between phrases",
       "workshop": {
         "plucked": "lute",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -899,28 +1126,42 @@
         "note": ""
       },
       "audition_race": "nord",
-      "audition_region": "pale"
+      "audition_region": "pale",
+      "audition": {
+        "stage": "baseline",
+        "revision": "baseline-11-v2",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required.",
+        "arrangement": "lute_voice",
+        "vocal_mode": "lyrics"
+      },
+      "neighbor": "Whiterun; Winterhold; Reach sean-nós",
+      "boundary": "Broad sung lines over a measured rowing pulse, distinct from small circles or a free air."
     },
     {
       "id": "hjaalmarch",
       "kind": "region",
       "culture": "Nord",
       "name": "Hjaalmarch / Morthal",
-      "voice": "declaimed more than crooned, syllabic, storyteller's chest voice",
-      "lute": "melody shadowed a whole step away so the two lines grate",
-      "flute": "circles the same few notes, leaning on clashing neighbor tones",
+      "voice": "",
+      "lute": "alternating short figures overlap on ringing strings, producing audible seconds on one plucked kanklės",
+      "flute": "one reedless flute repeats short cells and successive neighboring notes, leaving brief gaps; no simultaneous parts",
       "drum": "steady walking pulse",
-      "lute_instrumental": "one melody shadowed a whole step away on the same instrument, lingering adjacent-tone friction",
-      "core_monophonic": "one hushed slowly reiterated melody with neighboring-note turns and lingering unstable endings",
-      "reference": "Lithuanian sutartinės",
-      "reference_focus": "repeated motifs, neighboring-tone friction and interlocking or canonic phrasing; a single-line reduction uses neighbor-note turns rather than hidden parts",
-      "dialect": "hushed slowly reiterated phrases, sustained neighboring-tone friction and lingering unstable endings",
-      "tint": "hushed, unresolved, with clashing seconds",
-      "core": "hushed slowly reiterated phrases, sustained neighboring-tone friction and lingering unstable endings",
+      "reference": "Lithuanian instrumental sutartinės",
+      "dialect": "short interlocking repeated figures with exposed neighboring-note clashes and unresolved returns on one plucked instrument",
+      "core_monophonic": "short repeated figures alternate neighboring notes with unresolved returns; a weaker single-line reduction without simultaneous seconds",
+      "core_instrumental_monophonic": "short repeated figures alternate neighboring notes with unresolved returns; a weaker single-line reduction without simultaneous seconds",
+      "lute_instrumental": "short interlocking figures and simultaneous adjacent-tone clashes on one plucked kanklės, repeated with unresolved returns",
+      "tint": null,
+      "core_instrumental": "short interlocking repeated figures, ringing adjacent-tone clashes and unresolved returns on one plucked instrument",
+      "core": "short interlocking repeated figures with exposed neighboring-note clashes and unresolved returns on one plucked instrument",
       "workshop": {
-        "plucked": "lute",
+        "plucked": "plucked kanklės",
         "flute": "flute",
         "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
         "allowed": [
           "lute_voice",
           "lute",
@@ -933,10 +1174,65 @@
           "trio": "Only Close-Circle currently defines a three-voice ensemble.",
           "voice": "A lone voice would lose the defining chordal or instrumental structure."
         },
-        "note": "Plucked strings can retain simultaneous neighboring tones; flute uses an explicitly weaker sequential reduction."
+        "note": "Canonical instrumental kanklės preserves interacting figures and neighboring-note clashes; the blind flute reduction uses successive neighboring notes and cannot reproduce simultaneous seconds."
       },
       "audition_race": "nord",
-      "audition_region": "hjaalmarch"
+      "audition_region": "hjaalmarch",
+      "audition": {
+        "stage": "baseline",
+        "revision": "baseline-11-v2",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required.",
+        "arrangement": "lute",
+        "vocal_mode": "instrumental"
+      },
+      "neighbor": "Winterhold; Falkreath",
+      "boundary": "One plucked kanklės retains interacting repeated figures and exposed seconds. Generic eerie arpeggios fail."
+    }
+  ],
+  "comparisons": [
+    {
+      "id": "reach_sean_nos",
+      "kind": "comparison",
+      "culture": "Nord",
+      "name": "The Reach · sean-nós comparison",
+      "audition_race": "nord",
+      "audition_region": "reach",
+      "reference": "Irish sean-nós singing",
+      "core": "free-rhythm air, slowly unfolding melody, connected grace-note ornaments and breath-led pauses",
+      "voice": "flowing ornamented solo line with clear English words and flexible text-shaped timing",
+      "lute": "sparse plucked notes following the vocal phrase, leaving room for its ornaments",
+      "lute_instrumental": "one unfolding air with connected picked graces and increasingly ornamented variations",
+      "workshop": {
+        "plucked": "lute",
+        "flute": "flute",
+        "drum": "hand drum",
+        "family_rules": {
+          "plucked": "No bowed strings.",
+          "flute": "No reed-driven sound."
+        },
+        "allowed": [
+          "lute_voice"
+        ],
+        "omitted": {
+          "drum": "A drum solo loses the defining melody, resonance or harmony; this recipe has no distinctive percussion-only reduction.",
+          "drum_voice": "Percussion would displace the defining free phrasing, chordal support or sustained tonal friction.",
+          "flute": "A flute alone loses the defining simultaneous chord responses.",
+          "flute_voice": "Alternating flute and voice would lose the defining continuous vocal or plucked-string treatment.",
+          "lute": "No plucked-string reduction preserves this recipe yet.",
+          "trio": "Only Close-Circle currently defines a three-voice ensemble.",
+          "voice": "A lone voice would lose the defining chordal or instrumental structure."
+        },
+        "note": "Sole admitted Reach challenger; compare against puirt-à-beul under the same arrangement."
+      },
+      "audition": {
+        "stage": "comparison",
+        "revision": "baseline-11-v2",
+        "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required.",
+        "arrangement": "lute_voice",
+        "vocal_mode": "lyrics"
+      },
+      "neighbor": "Reach puirt-à-beul; Eastmarch; The Pale; Solstheim",
+      "boundary": "Connected ornaments and breath-led free phrasing must remain recognizable in English. Prefer it if it passes and is more enjoyable."
     }
   ],
   "ideas": [
@@ -1269,39 +1565,55 @@
   ],
   "boundaries": [
     {
-      "pair": "Redguard / Khajiit",
-      "boundary": "Articulated repeated cycles and firm returns / sustained slides and gradually unfolding development",
-      "reserve": "A separately researched Redguard narrative-ostinato branch, including possible griot influences"
+      "pair": "Reach / Rift",
+      "boundary": "Dense duple vocal reel / spacious syllabic 6/8 jig",
+      "reserve": "Sean-nós is the sole admitted challenger, not an automatic alternate"
     },
     {
-      "pair": "Dunmer / Breton folk / Falkreath",
-      "boundary": "Long melisma and modal tension / syllabic text-led stanzas / short descending five-beat cells",
-      "reserve": "Rare convivial Dunmer condition later"
+      "pair": "Falkreath / Eastmarch",
+      "boundary": "Descending five-beat cells / speech-shaped narrative declamation",
+      "reserve": "Free lament and tvísöngur deferred"
     },
     {
-      "pair": "Imperial / Breton court / Haafingar",
-      "boundary": "Rhetorical solo melody and harmonic arrivals / restrained intimacy / clear triple dance motion",
-      "reserve": "Distinct local vernaculars, not a universal College override"
+      "pair": "Haafingar / Cyrodiil",
+      "boundary": "Triple galliard / expressive monody over moving harmony",
+      "reserve": "Court airs, frottola and villanella deferred"
     },
     {
-      "pair": "Argonian / Hjaalmarch",
-      "boundary": "Crisp continuous recurring cells / slow sustained adjacent-tone friction",
-      "reserve": "More varied communal Argonian responses after the core is audible"
+      "pair": "Pale / Whiterun / Winterhold",
+      "boundary": "Broad rowing-pulse lines / modal verses with short refrain / circular vocables",
+      "reserve": "Composite coastal airs and polska deferred"
     },
     {
-      "pair": "Winterhold / Pale",
-      "boundary": "Sparse circular vocables / long complete calls over slow rocking time",
-      "reserve": "A separately developed Skaal mode later"
+      "pair": "Hjaalmarch / Winterhold",
+      "boundary": "Instrumental interlocking figures and seconds / circular vocal melody",
+      "reserve": "Sung sutartinės deferred; replace the base if its instrumental test fails"
     },
     {
-      "pair": "Orsimer / Bosmer",
-      "boundary": "Held resonance or synchronized firm attacks / quick changing phrases, leaps and gaps",
-      "reserve": "Further social occasions only after the main audition distinguishes them"
-    },
-    {
-      "pair": "Altmer / Orsimer ensemble",
-      "boundary": "Independent moving/imitating lines / compact chord blocks that move and stop together",
-      "reserve": "Additional ensemble forms require their own visible roster"
+      "pair": "Reach sean-nós / Eastmarch / Pale / Solstheim",
+      "boundary": "Ornamented free air / declamation / measured rowing / Persian modal melisma",
+      "reserve": "Choose the preferred Reach base using listening evidence"
     }
-  ]
+  ],
+  "baseline": {
+    "revision": "baseline-11-v2",
+    "status": "listening_pending",
+    "gate": "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required.",
+    "profiles": [
+      "eastmarch",
+      "whiterun",
+      "reach",
+      "falkreath",
+      "rift",
+      "haafingar",
+      "hjaalmarch",
+      "winterhold",
+      "pale",
+      "dunmer",
+      "imperial"
+    ],
+    "comparisons": [
+      "reach_sean_nos"
+    ]
+  }
 }

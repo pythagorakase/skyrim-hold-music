@@ -92,12 +92,12 @@ def snapshot_date(value):
 
 NAMES = {
     "nord": ("Nord", "Nord ballads"),
-    "imperial": ("Imperial", "Imperial expressive solo song"),
+    "imperial": ("Imperial", "Cyrodiil · Italian monody"),
     "imperial_vernacular": ("Imperial", "Cyrodiil vernacular"),
     "breton_court": ("Breton", "Breton court song"),
     "breton_folk": ("Breton", "Breton folk lament"),
     "redguard": ("Redguard", "Redguard articulated cycles"),
-    "dunmer": ("Dunmer", "Dunmer modal lament"),
+    "dunmer": ("Dunmer", "Solstheim · Persian lament"),
     "altmer": ("Altmer", "Altmer counterpoint"),
     "khajiit": ("Khajiit", "Khajiit unfolding drone"),
     "argonian": ("Argonian", "Argonian interlocking cells"),
@@ -158,7 +158,7 @@ def build_dataset(spec_path=DEFAULT_SPEC, bank_path=DEFAULT_BANK, updated_at=DEF
     bank_text = Path(bank_path).read_text(encoding="utf-8-sig")
     doc = documents(spec_text)
     finalists = []
-    for row in rows(section(spec_text, "Orsimer and Bosmer finalists"))[1:]:
+    for row in rows(section(spec_text, "Orsimer and Bosmer Finalists"))[1:]:
         if len(row) != 5 or row[0] not in ("Orsimer", "Bosmer"):
             continue
         culture, name, audible, mood, role = row
@@ -191,6 +191,8 @@ def build_dataset(spec_path=DEFAULT_SPEC, bank_path=DEFAULT_BANK, updated_at=DEF
             existing.append({"id": ident, "kind": kind, "culture": culture,
                              "name": name, **instrument_defaults, **profile, "core": core})
 
+    comparisons = [{"id": ident, "kind": "comparison", **profile}
+                   for ident, profile in doc.get("comparison_profiles", {}).items()]
     ideas = []
     for row in rows(section(bank_text, "Orsimer candidate bank"))[1:]:
         if len(row) != 3:
@@ -232,7 +234,7 @@ def build_dataset(spec_path=DEFAULT_SPEC, bank_path=DEFAULT_BANK, updated_at=DEF
         ideas.append(item)
 
     boundaries = []
-    for row in rows(section(spec_text, "Palette boundaries and alternatives"))[1:]:
+    for row in rows(section(spec_text, "Palette Boundaries and Alternatives"))[1:]:
         if len(row) != 3:
             raise BuildError(f"Expected three columns in boundary row: {row}")
         boundaries.append(dict(zip(("pair", "boundary", "reserve"), row)))
@@ -240,15 +242,21 @@ def build_dataset(spec_path=DEFAULT_SPEC, bank_path=DEFAULT_BANK, updated_at=DEF
               "auditionContext": doc.get("audition_context", "").strip(),
               "auditionRaces": doc["audition_races"], "auditionRegions": doc["audition_regions"],
               "auditionVoices": doc["audition_voices"], "finalists": finalists,
-              "existing": existing, "ideas": ideas, "boundaries": boundaries}
+              "existing": existing, "comparisons": comparisons,
+              "ideas": ideas, "boundaries": boundaries}
     policies = doc.get("workshop_arrangements", {})
     omissions = doc.get("workshop_omissions", {})
-    expected = {item["id"] for item in finalists + existing}
+    family_rules = doc.get("workshop_instrument_rules", {})
+    all_profiles = finalists + existing + comparisons
+    expected = {item["id"] for item in all_profiles}
     if not isinstance(policies, dict) or set(policies) != expected:
         raise BuildError("workshop_arrangements must cover exactly the active palette profiles.")
     if not isinstance(omissions, dict) or set(omissions) != ARRANGEMENTS:
         raise BuildError("workshop_omissions must explain every arrangement family.")
-    for item in finalists + existing:
+    if (not isinstance(family_rules, dict) or set(family_rules) != {"plucked", "flute"}
+            or any(not isinstance(rule, str) or not rule.strip() for rule in family_rules.values())):
+        raise BuildError("workshop_instrument_rules must define plucked-string and reedless-woodwind exclusions.")
+    for item in all_profiles:
         policy = policies[item["id"]]
         if not isinstance(policy, dict):
             raise BuildError(f"Profile {item['id']} needs a workshop arrangement mapping.")
@@ -268,14 +276,15 @@ def build_dataset(spec_path=DEFAULT_SPEC, bank_path=DEFAULT_BANK, updated_at=DEF
         omitted = {key: reasons[key] for key in sorted(ARRANGEMENTS - set(allowed))}
         if any(not isinstance(reason, str) or not reason.strip() for reason in omitted.values()):
             raise BuildError(f"Profile {item['id']} needs explanations for omitted arrangements.")
-        item["workshop"] = {**instruments, "allowed": allowed, "omitted": omitted, "note": policy.get("note", "")}
-    for item in finalists + existing:
+        item["workshop"] = {**instruments, "family_rules": dict(family_rules), "allowed": allowed,
+                            "omitted": omitted, "note": policy.get("note", "")}
+    for item in all_profiles:
         item.setdefault("audition_race", "orc" if item["culture"] == "Orsimer" else item["culture"].lower())
         item.setdefault("audition_region", item["id"] if item.get("kind") == "region" else "skyrim")
         if item["audition_race"] not in doc["audition_races"] or item["audition_region"] not in doc["audition_regions"]:
             raise BuildError(f"Profile {item['id']} needs a known audition race and region.")
     seen = set()
-    for key in ("finalists", "existing", "ideas"):
+    for key in ("finalists", "existing", "comparisons", "ideas"):
         if not result[key]:
             raise BuildError(f"No {key} were extracted; check the source headings and tables.")
         for item in result[key]:
@@ -285,7 +294,7 @@ def build_dataset(spec_path=DEFAULT_SPEC, bank_path=DEFAULT_BANK, updated_at=DEF
             if "audition_casting" in item and not isinstance(item["audition_casting"], str):
                 raise BuildError(f"Profile {item['id']} audition_casting must be text.")
     finalist_ids = {item["id"] for item in finalists}
-    for item in finalists + existing:
+    for item in all_profiles:
         if not isinstance(item.get("reference"), str) or not item["reference"].strip():
             raise BuildError(f"Profile {item['id']} needs an explicit musical style reference.")
         for field in ("reference_focus", "reference_focus_monophonic", "drum_reference"):
@@ -299,6 +308,41 @@ def build_dataset(spec_path=DEFAULT_SPEC, bank_path=DEFAULT_BANK, updated_at=DEF
         missing = [key for key in required if not item.get(key)]
         if missing:
             raise BuildError(f"Finalist {item['id']} lacks: {', '.join(missing)}")
+    baseline = doc.get("workshop_baseline", {})
+    bases, challengers = baseline.get("profiles", {}), baseline.get("comparisons", {})
+    required_bases = set(doc["holds"]) | {"imperial", "dunmer"}
+    if not isinstance(bases, dict) or set(bases) != required_bases or len(bases) != 11:
+        raise BuildError("The provisional baseline must contain the nine holds, Cyrodiil and Solstheim.")
+    if not isinstance(challengers, dict) or set(challengers) != {"reach_sean_nos"}:
+        raise BuildError("Reach sean-nós is the sole admitted baseline comparison.")
+    if set(challengers) != {item["id"] for item in comparisons}:
+        raise BuildError("Comparison profiles must match the admitted comparisons.")
+    if baseline.get("status") != "listening_pending":
+        raise BuildError("Listening passes require an evidence-backed policy revision; no passes are recorded yet.")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", baseline.get("revision", "")) or not baseline.get("gate"):
+        raise BuildError("The baseline needs a prompt revision and listening-gate explanation.")
+    for item in all_profiles:
+        ident = item["id"]
+        admission = bases[ident] if ident in bases else challengers.get(ident)
+        item["audition"] = {"stage": "deferred", "gate": baseline["gate"]}
+        if admission is None:
+            continue
+        if not isinstance(admission, dict):
+            raise BuildError(f"Profile {ident} needs a baseline admission mapping.")
+        arrangement, mode = admission.get("arrangement"), admission.get("vocal_mode")
+        expected_mode = "instrumental" if ident == "hjaalmarch" else "wordless" if ident == "winterhold" else "lyrics"
+        if mode != expected_mode or arrangement != ("lute" if mode == "instrumental" else "lute_voice"):
+            raise BuildError(f"Profile {ident} must retain its canonical arrangement and vocal mode.")
+        if arrangement not in item["workshop"]["allowed"]:
+            raise BuildError(f"Profile {ident} has no supported canonical arrangement.")
+        if not all(isinstance(admission.get(key), str) and admission[key].strip() for key in ("neighbor", "boundary")):
+            raise BuildError(f"Profile {ident} needs its nearest-neighbor listening criteria.")
+        item["audition"] = {"stage": "baseline" if ident in bases else "comparison",
+                            "revision": baseline["revision"], "gate": baseline["gate"],
+                            "arrangement": arrangement, "vocal_mode": mode}
+        item["neighbor"], item["boundary"] = admission["neighbor"], admission["boundary"]
+    result["baseline"] = {key: baseline[key] for key in ("revision", "status", "gate")}
+    result["baseline"].update(profiles=list(bases), comparisons=list(challengers))
     provenance = {
         "spec_sha256": hashlib.sha256(spec_text.encode("utf-8")).hexdigest(),
         "bank_sha256": hashlib.sha256(bank_text.encode("utf-8")).hexdigest(),

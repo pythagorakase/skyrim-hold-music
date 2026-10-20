@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Loopback-only Lyria workshop, using the Python standard library.
 
-No generation happens until a user submits /api/generate with this session's
-CSRF token. Keys stay in the server process; generated takes stay on disk.
+Generation requires an explicit /api/generate or blind-session /next submission
+with this server's CSRF token. Keys and unrevealed blind targets stay on disk or
+in the server process; generated recordings stay on disk.
 """
 
 import argparse
@@ -27,8 +28,12 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 if __package__:
     from .skyrimnet_lyrics import load_catalog
+    from .workshop_blind import BlindSessions, StorageBusy, storage_lock
+    from .workshop_library import recipe_fingerprint, load_studies, snapshot_fingerprints, prompt_status, study_queue, read_json
 else:
     from skyrimnet_lyrics import load_catalog
+    from workshop_blind import BlindSessions, StorageBusy, storage_lock
+    from workshop_library import recipe_fingerprint, load_studies, snapshot_fingerprints, prompt_status, study_queue, read_json
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -107,8 +112,8 @@ def google_http_failure(error: HTTPError, key: str) -> WorkshopError:
         401: "Google did not accept the API key. Update your local key before trying again.",
         402: "Google requires payment or available credits. Check the project's billing and prepaid credit balance before trying again.",
         403: "Google denied access. Check the key's project, billing, API restrictions, and Lyria access.",
-        404: "Lyria 3.5 is unavailable for this API project or endpoint. Check model access and endpoint compatibility.",
-        422: "Google rejected the request format. Check that the endpoint and request settings support Lyria 3.5.",
+        404: "The requested music model is unavailable for this API project or endpoint. Check model access and endpoint compatibility.",
+        422: "Google rejected the request format. Check that the endpoint supports the requested music model and settings.",
         429: "Google's quota or rate limit was reached. Check the project's limits before trying again.",
         500: "Google reported an internal server error. Check Google's service status before manually trying again.",
         502: "Google reported a gateway error. Check Google's service status before manually trying again.",
@@ -118,7 +123,7 @@ def google_http_failure(error: HTTPError, key: str) -> WorkshopError:
     message = f"Google HTTP {error.code}: " + messages.get(error.code, "Google could not complete generation. Check the provider diagnostic before trying again.")
     selected = " ".join([details.get("message", ""), details.get("status", ""), details.get("code", ""), *details.get("reasons", [])])
     if error.code in (400, 405, 409) and re.search(r"(?i)\b(?:revision|version|model|unsupported)\b", selected):
-        message += " Check that the endpoint and request settings support Lyria 3.5."
+        message += " Check that the endpoint supports the requested music model and settings."
     if details.get("message"):
         message += " Provider: " + details["message"]
     labels = [details["status"]] if details.get("status") else []
@@ -150,10 +155,10 @@ class NoRedirects(HTTPRedirectHandler):
         return None
 
 
-def call_google(prompt: str, key: str) -> dict:
+def call_google(prompt: str, key: str, *, model: str = MODEL) -> dict:
     request = Request(
         GOOGLE_ENDPOINT,
-        data=json.dumps({"model": MODEL, "input": prompt, "store": False}).encode("utf-8"),
+        data=json.dumps({"model": model, "input": prompt, "store": False}).encode("utf-8"),
         headers={"Content-Type": "application/json", "x-goog-api-key": key},
         method="POST",
     )
@@ -227,7 +232,7 @@ def write_private(path: Path, content: bytes) -> None:
 
 class Workshop:
     def __init__(self, root: Path = ROOT, *, generator=call_google, key_reader=read_key, catalog_reader=None):
-        self.root = Path(root)
+        self.root = Path(root).resolve()
         self.data_dir = self.root / "auditions"
         self.generator = generator
         self.key_reader = key_reader
@@ -238,10 +243,14 @@ class Workshop:
         self.takes = {}
         self.active_id = None
         palette = json.loads((self.root / "dashboard" / "palette-data.json").read_text(encoding="utf-8"))
+        self.palette = palette
+        self.palette_stamp = (self.root / "dashboard" / "palette-data.json").stat().st_mtime_ns
         self.races = palette.get("auditionRaces", {race: race for race in ("nord", "imperial", "breton", "redguard", "dunmer", "altmer", "orc", "bosmer", "khajiit", "argonian")})
-        self.profiles = {item["id"]: item for group in ("finalists", "existing") for item in palette[group]}
+        self.profiles = {item["id"]: item for group in ("finalists", "existing", "comparisons") for item in palette.get(group, [])}
         self._load_takes()
         self._load_failures()
+        self.blind = BlindSessions(self, error=WorkshopError, writer=write_private,
+                                   parse_audio=parse_music, audio_formats=AUDIO_FORMATS)
 
     def _load_failures(self):
         for path in self.data_dir.glob("*/failure.json"):
@@ -289,6 +298,7 @@ class Workshop:
                 self.jobs[identifier]["diagnostic_saved"] = False
 
     def _load_takes(self):
+        self.takes = {}
         for path in self.data_dir.glob("*/take.json"):
             try:
                 if path.is_symlink() or path.parent.is_symlink() or not ID_PATTERN.fullmatch(path.parent.name):
@@ -310,7 +320,7 @@ class Workshop:
     @staticmethod
     def _public_take(take):
         result = {key: take[key] for key in ("id", "profile_id", "profile_name", "arrangement", "prompt", "model", "created_at", "lyrics", "mime_type")}
-        for field in ("direction_prompt", "supplied_lyrics", "performer_race", "instrument_name"):
+        for field in ("direction_prompt", "direction_draft", "recipe_fingerprint", "supplied_lyrics", "performer_race", "instrument_name", "recipe_revision", "audition_stage", "vocal_mode"):
             if isinstance(take.get(field), str) and len(take[field]) <= MAX_PROMPT:
                 result[field] = take[field]
         source = take.get("lyric_source")
@@ -338,7 +348,110 @@ class Workshop:
 
     def list_takes(self):
         with self.lock:
-            return deepcopy(sorted(self.takes.values(), key=lambda t: t["created_at"], reverse=True))
+            self.refresh_palette()
+            self._load_takes()
+            snapshots = snapshot_fingerprints(load_studies(self.root))
+            takes = deepcopy(sorted(self.takes.values(), key=lambda t: t["created_at"], reverse=True))
+            for take in takes:
+                take["prompt_status"] = prompt_status(take, self.profiles, self.palette, snapshots)
+            return takes
+
+    def refresh_palette(self):
+        path = self.root / "dashboard" / "palette-data.json"
+        stamp = path.stat().st_mtime_ns
+        if stamp != self.palette_stamp:
+            palette = json.loads(path.read_text(encoding="utf-8"))
+            self.palette = palette
+            self.profiles = {p["id"]: p for g in ("finalists", "existing", "comparisons") for p in palette.get(g, [])}
+            self.races = palette.get("auditionRaces", self.races)
+            self.palette_stamp = stamp
+
+    def listening(self):
+        with self.lock:
+            takes = {take["id"]: take for take in self.list_takes()}
+            reviews = read_json(self.data_dir / "listening-reviews.json") or {}
+            return study_queue(load_studies(self.root), takes, self.profiles, self.palette,
+                               reviews if isinstance(reviews, dict) else {})
+
+    def save_review(self, payload):
+        if not isinstance(payload, dict):
+            raise WorkshopError("Send a listening decision as an object.")
+        with self.lock:
+            comparison = next((c for c in self.listening()["comparisons"] if c["id"] == payload.get("id")), None)
+            if not comparison:
+                raise WorkshopError("Comparison not found.", 404)
+            if comparison["state"] in ("waiting", "obsolete") or payload.get("version") != comparison["version"]:
+                raise WorkshopError("These takes or their recipe changed. Refresh the listening queue before saving.", 409)
+            outcomes = ("consistent", "inconsistent", "uncertain") if comparison["kind"] == "repeatability" else ("distinct", "similar", "uncertain")
+            if payload.get("outcome") not in outcomes or payload.get("preference") not in ("both", "a", "b", "neither", "unsure"):
+                raise WorkshopError("Choose a listening result and an enjoyment rating.")
+            consistency = {}
+            if comparison["kind"] == "neighbor":
+                consistency = payload.get("consistency")
+                if not isinstance(consistency, dict) or set(consistency) != {"a", "b"} or any(
+                    value not in ("consistent", "inconsistent", "uncertain") for value in consistency.values()
+                ):
+                    raise WorkshopError("Record whether each style stays consistent across its takes.")
+            notes = payload.get("notes", "")
+            if not isinstance(notes, str) or len(notes) > 10_000:
+                raise WorkshopError("Keep listening notes within 10,000 characters.")
+            path = self.data_dir / "listening-reviews.json"
+            if path.is_symlink() or self.data_dir.is_symlink():
+                raise WorkshopError("Listening storage is not a regular local file.", 409)
+            reviews = read_json(path)
+            if path.exists() and not isinstance(reviews, dict):
+                raise WorkshopError("Existing listening notes could not be read. They have been preserved.", 409)
+            reviews = reviews or {}
+            previous = reviews.get(comparison["id"], {})
+            history = previous.get("history", []) if isinstance(previous, dict) else []
+            if previous:
+                history = history + [{k: v for k, v in previous.items() if k != "history"}]
+            reviews[comparison["id"]] = {"version": comparison["version"], "take_ids": comparison["evidence_take_ids"],
+                                        "scope": comparison["review_scope"], "consistency": consistency,
+                                        "outcome": payload["outcome"], "preference": payload["preference"],
+                                        "notes": notes, "saved_at": datetime.now(timezone.utc).isoformat(), "history": history}
+            self.data_dir.mkdir(parents=True, mode=0o700, exist_ok=True)
+            write_private(path, json.dumps(reviews, ensure_ascii=False, indent=2).encode())
+            return reviews[comparison["id"]]
+
+    def trash_takes(self):
+        with self.lock:
+            result = []
+            directory = self.data_dir / ".trash"
+            if directory.is_symlink() or self.data_dir.is_symlink():
+                return result
+            for path in directory.glob("*/take.json"):
+                take = read_json(path, 512_000)
+                if isinstance(take, dict) and take.get("id") == path.parent.name and ID_PATTERN.fullmatch(path.parent.name):
+                    try:
+                        result.append(self._public_take(take))
+                    except KeyError:
+                        continue
+            return sorted(result, key=lambda t: t["created_at"], reverse=True)
+
+    def move_take(self, identifier, *, restore=False):
+        """Move the whole take atomically. Never purge audio or its provenance."""
+        if not ID_PATTERN.fullmatch(identifier):
+            raise WorkshopError("Take not found.", 404)
+        with self.lock:
+            if self.active_id == identifier:
+                raise WorkshopError("Wait for this take to finish.", 409)
+            trash = self.data_dir / ".trash"
+            if self.data_dir.is_symlink() or trash.is_symlink():
+                raise WorkshopError("Take storage is not a regular local directory.", 409)
+            source = (trash if restore else self.data_dir) / identifier
+            target = (self.data_dir if restore else trash) / identifier
+            take = read_json(source / "take.json", 512_000)
+            if source.is_symlink() or not isinstance(take, dict) or take.get("id") != identifier or take.get("mime_type") not in AUDIO_FORMATS:
+                raise WorkshopError("Saved take not found.", 404)
+            if target.exists() or target.is_symlink():
+                raise WorkshopError("A take already exists at the destination; neither copy was changed.", 409)
+            if any(path.is_symlink() for path in source.iterdir()):
+                raise WorkshopError("This take contains linked files and was left unchanged.", 409)
+            trash.mkdir(mode=0o700, exist_ok=True)
+            source.rename(target)
+            self._load_takes()
+            return {"id": identifier, "trashed": not restore}
 
     def get_job(self, identifier):
         with self.lock:
@@ -400,6 +513,8 @@ class Workshop:
         return prompt, metadata
 
     def submit(self, payload):
+        with self.lock:
+            self.refresh_palette()
         if not isinstance(payload, dict):
             raise WorkshopError("The request must be a JSON object.")
         profile_id = payload.get("profile_id")
@@ -410,6 +525,11 @@ class Workshop:
         if not isinstance(arrangement, str) or arrangement not in ARRANGEMENTS:
             raise WorkshopError("Choose a supported performer arrangement.")
         profile = self.profiles[profile_id]
+        admission = profile.get("audition", {})
+        if admission.get("stage") == "deferred":
+            raise WorkshopError(admission["gate"])
+        if admission.get("arrangement") and arrangement != admission["arrangement"]:
+            raise WorkshopError("Only this style's canonical arrangement is admitted while the eleven-style listening tests are pending.")
         policy = profile.get("workshop")
         if policy and arrangement not in policy["allowed"]:
             raise WorkshopError(policy["omitted"][arrangement])
@@ -424,7 +544,23 @@ class Workshop:
             raise WorkshopError(f"Enter a prompt of 1 to {MAX_PROMPT:,} characters.")
         if any(ord(char) < 32 and char not in "\n\r\t" for char in prompt):
             raise WorkshopError("The prompt contains unsupported control characters.")
+        if admission.get("vocal_mode") == "wordless":
+            if any(key in payload for key in ("lyrics_song_id", "lyrics_sha256", "supplied_lyrics")) or LYRICS_HEADER.search(prompt):
+                raise WorkshopError("Winterhold's baseline uses wordless vocables; lyrical variations are deferred.")
+            wordless_instruction = "\nWordless vocables only; no lyrics, sentences or spoken words."
+            if not prompt.endswith(wordless_instruction):
+                prompt += wordless_instruction
+            if len(prompt) > MAX_PROMPT:
+                raise WorkshopError(f"The complete wordless prompt must fit within {MAX_PROMPT:,} characters.")
         prompt, lyric_metadata = self.compose_prompt(payload, arrangement, prompt)
+        lyric_metadata["recipe_fingerprint"] = recipe_fingerprint(profile, self.palette)
+        if "direction_draft" in payload:
+            draft = payload["direction_draft"]
+            if not isinstance(draft, str) or not draft.strip() or len(draft) > MAX_PROMPT or draft not in prompt:
+                raise WorkshopError("The saved musical direction must be part of the submitted prompt.")
+            lyric_metadata["direction_draft"] = draft
+        if admission.get("revision"):
+            lyric_metadata.update(recipe_revision=admission["revision"], audition_stage=admission["stage"], vocal_mode=admission["vocal_mode"])
         with self.lock:
             if self.active_id:
                 raise WorkshopError("A song is already generating. Wait for it to finish before starting another.", 409)
@@ -464,6 +600,7 @@ class Workshop:
             write_private(directory / ("audio" + AUDIO_FORMATS[mime]), audio)
             write_private(directory / "take.json", json.dumps(take, ensure_ascii=False, indent=2).encode("utf-8"))
             take = self._public_take(take)
+            take["prompt_status"] = prompt_status(take, self.profiles, self.palette, {})
             with self.lock:
                 self.takes[identifier] = take
                 self.jobs[identifier].update(status="completed", take=take)
@@ -561,6 +698,18 @@ class WorkshopHandler(BaseHTTPRequestHandler):
                 self.send_json(200, workshop.status(), head=head)
             elif self.path == "/api/takes":
                 self.send_json(200, {"takes": workshop.list_takes()}, head=head)
+            elif self.path == "/api/listening":
+                self.send_json(200, workshop.listening(), head=head)
+            elif self.path == "/api/blind":
+                self.send_json(200, workshop.blind.catalog(), head=head)
+            elif self.path == "/api/blind/stats":
+                self.send_json(200, workshop.blind.stats(), head=head)
+            elif re.fullmatch(r"/api/blind/sessions/[a-f0-9]{32}", self.path):
+                self.send_json(200, {"session": workshop.blind.get(self.path.rsplit("/", 1)[1])}, head=head)
+            elif re.fullmatch(r"/api/blind/trials/[a-f0-9]{32}/audio", self.path):
+                self.serve_audio(head=head, blind=True)
+            elif self.path == "/api/trash":
+                self.send_json(200, {"takes": workshop.trash_takes()}, head=head)
             elif self.path == "/api/lyrics":
                 self.send_json(200, workshop.lyric_catalog(), head=head)
             elif re.fullmatch(r"/api/jobs/[a-f0-9]{32}", self.path):
@@ -574,9 +723,10 @@ class WorkshopHandler(BaseHTTPRequestHandler):
         except OSError:
             self.send_json(500, {"error": "A local workshop file could not be read."}, head=head)
 
-    def serve_audio(self, *, head=False):
-        identifier = self.path.split("/")[3]
-        path, mime = self.server.workshop.audio_file(identifier)
+    def serve_audio(self, *, head=False, blind=False):
+        identifier = self.path.split("/")[4 if blind else 3]
+        path, mime = (self.server.workshop.blind.audio_file(identifier, expose=not head) if blind
+                      else self.server.workshop.audio_file(identifier))
         with path.open("rb") as stream:
             size = os.fstat(stream.fileno()).st_size
             start, end = 0, size - 1
@@ -627,13 +777,16 @@ class WorkshopHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             self.check_origin()
-            if self.path != "/api/generate":
+            blind_route = (self.path == "/api/blind/sessions" or
+                           re.fullmatch(r"/api/blind/sessions/[a-f0-9]{32}/next", self.path) or
+                           re.fullmatch(r"/api/blind/trials/[a-f0-9]{32}/(?:guess|reaction|played)", self.path))
+            if self.path not in ("/api/generate", "/api/listening/review") and not blind_route and not re.fullmatch(r"/api/takes/[a-f0-9]{32}/(?:trash|restore)", self.path):
                 raise WorkshopError("Not found.", 404)
             token = self.headers.get("X-Workshop-Token", "")
             if not token.isascii() or not secrets.compare_digest(token, self.server.workshop.token):
-                raise WorkshopError("Refresh the workshop page before generating.", 403)
+                raise WorkshopError("Refresh the workshop page before saving changes.", 403)
             if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
-                raise WorkshopError("Send the generation request as JSON.", 415)
+                raise WorkshopError("Send the workshop request as JSON.", 415)
             lengths = self.headers.get_all("Content-Length", [])
             if self.headers.get("Transfer-Encoding") or len(lengths) != 1 or len(lengths[0]) > 12 or not lengths[0].isdigit():
                 raise WorkshopError("A valid request length is required.", 411)
@@ -648,12 +801,30 @@ class WorkshopHandler(BaseHTTPRequestHandler):
                 payload = json.loads(body)
             except (ValueError, UnicodeError):
                 raise WorkshopError("The request contains invalid JSON.") from None
-            job = self.server.workshop.submit(payload)
-            self.send_json(202, {"job": job})
+            if self.path == "/api/generate":
+                job = self.server.workshop.submit(payload)
+                self.send_json(202, {"job": job})
+            elif self.path == "/api/listening/review":
+                self.send_json(200, {"review": self.server.workshop.save_review(payload)})
+            elif blind_route:
+                blind = self.server.workshop.blind
+                if self.path == "/api/blind/sessions":
+                    session = blind.create(payload)
+                elif self.path.endswith("/next"):
+                    session = blind.next(self.path.split("/")[4], payload)
+                elif self.path.endswith("/guess"):
+                    session = blind.guess(self.path.split("/")[4], payload)
+                elif self.path.endswith("/played"):
+                    session = blind.played(self.path.split("/")[4], payload)
+                else:
+                    session = blind.reaction(self.path.split("/")[4], payload)
+                self.send_json(200, {"session": session})
+            else:
+                self.send_json(200, self.server.workshop.move_take(self.path.split("/")[3], restore=self.path.endswith("/restore")))
         except WorkshopError as error:
             self.send_json(error.status, {"error": str(error)})
         except (TimeoutError, OSError):
-            self.send_json(408, {"error": "The local request did not finish. Refresh the page to check generation status."})
+            self.send_json(408, {"error": "The local request could not be confirmed. Refresh saved work to check its result before trying again."})
 
 
 def main():
@@ -662,8 +833,12 @@ def main():
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("port must be between 1 and 65535")
+    process_lock = storage_lock(ROOT)
     try:
+        process_lock.__enter__()
         server = WorkshopServer(args.port)
+    except StorageBusy as error:
+        parser.exit(1, str(error) + "\n")
     except OSError as error:
         if error.errno == errno.EADDRINUSE:
             parser.exit(1, f"Port {args.port} is already in use. If the workshop is running, open "
@@ -682,6 +857,7 @@ def main():
         pass
     finally:
         server.server_close()
+        process_lock.__exit__(None, None, None)
 
 
 if __name__ == "__main__":

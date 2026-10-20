@@ -88,6 +88,49 @@ class ControllerTests(unittest.TestCase):
                 v=VM(); v.actors['Mikael'][key]=value; v.enter(); v.advance(15)
                 self.assertFalse(any(x[0]=='play' for x in v.effects))
 
+    def test_dead_unregistered_actor_does_not_block_living_performer(self):
+        v=VM(); v.actors['Other']['dead']=True
+        v.candidates=['Other','Sven']; v.enter(); v.advance(15)
+        self.assertEqual([x for x in v.effects if x[0]=='play'],[('play',2,'Sven')])
+        self.assertEqual(self.traces(v,'candidate'),[
+            'id=sven owner=hold_music eligible=true region=whiterun cooled=true'])
+        self.assertFalse(v.receipts)
+
+    def test_dead_owned_actor_is_rejected_before_living_performer(self):
+        v=VM(); v.actors['Mikael']['dead']=True
+        v.candidates=['Mikael','Sven']; v.enter(); v.advance(15)
+        self.assertEqual(self.traces(v,'candidate'),[
+            'id=mikael owner=hold_music eligible=false region=whiterun cooled=true',
+            'id=sven owner=hold_music eligible=true region=whiterun cooled=true'])
+        self.assertEqual([x for x in v.effects if x[0]=='play'],[('play',2,'Sven')])
+        self.assertNotIn(('idle','Mikael','IdleLuteStart'),v.effects)
+        self.assertEqual(self.traces(v,'slot_chosen'),['id=sven slot=2 mode=instrumental'])
+        self.assertFalse(v.receipts)
+
+    def test_all_dead_candidates_leave_vanilla_and_audio_untouched(self):
+        v=VM(); v.candidates=['Other','Mikael','Sven']
+        for name in v.candidates: v.actors[name]['dead']=True
+        v.enter(); v.advance(15)
+        self.assertEqual(self.traces(v,'no_performer'),['scanned=3 matched=2'])
+        self.assertEqual(self.traces(v,'candidate'),[
+            'id=mikael owner=hold_music eligible=false region=whiterun cooled=true',
+            'id=sven owner=hold_music eligible=false region=whiterun cooled=true'])
+        self.assertFalse(any(x[0] in ('idle','stop_vanilla','play','stop') for x in v.effects))
+        self.assertFalse(v.receipts)
+        self.assertIsNone(v.state['hm_controller']['performer'])
+        self.assertFalse(v.state['hm_controller']['busy'])
+
+    def test_null_and_unloaded_candidates_preserve_name_only_matching(self):
+        v=VM(); v.actors['Mikael']['loaded']=False
+        row=next(r for r in v.files['../HoldMusic/registry.json']['performers'] if r['id']=='sven')
+        row['form']=None
+        v.candidates=[None,'Mikael','Sven']; v.enter(); v.advance(15)
+        self.assertEqual(self.traces(v,'candidate'),[
+            'id=mikael owner=hold_music eligible=false region=whiterun cooled=true',
+            'id=sven owner=hold_music eligible=true region=whiterun cooled=true'])
+        self.assertEqual([x for x in v.effects if x[0]=='play'],[('play',2,'Sven')])
+        self.assertNotIn(('idle','Mikael','IdleLuteStart'),v.effects)
+
     def test_performer_cooldown_and_single_performance(self):
         v=self.start(); v.run('hm_controller','OnUpdate')
         self.assertEqual(len([x for x in v.effects if x[0]=='play']),1)

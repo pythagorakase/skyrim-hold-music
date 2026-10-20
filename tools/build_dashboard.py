@@ -84,7 +84,7 @@ def write_html(html, path):
         stream.write(html)
 
 
-def parser():
+def parser(default_date=DEFAULT_DATE):
     cli = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -101,8 +101,9 @@ def parser():
         help="idea bank (default: docs/bard-musical-traditions-exploration.md)",
     )
     cli.add_argument(
-        "--date", type=snapshot_date, default=DEFAULT_DATE,
-        help=f"editorial snapshot date, not build time (default: {DEFAULT_DATE})",
+        "--date", type=snapshot_date, default=default_date,
+        help="editorial snapshot date, not build time (default: "
+             + (default_date or "the spec's ISO Reconciled field") + ")",
     )
     cli.add_argument(
         "--skip-node-check", action="store_true",

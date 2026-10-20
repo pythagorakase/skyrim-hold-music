@@ -43,7 +43,7 @@ class GameAdapter(unittest.TestCase):
         self.assertTrue(engine.context(incoming)['excluded'])
 
     def test_instrumental_and_wordless_requests_drop_all_lyric_material(self):
-        for location, mode in [("Dead Man's Drink",'instrumental'),('The Frozen Hearth','vocal')]:
+        for location, mode in [("Dead Man's Drink",'instrumental'),('The Frozen Hearth','vocal'),('Moorside Inn','vocal')]:
             outgoing=engine.transform(request(location=location,lyrics='SECRET_DRAFT'),mode)
             self.assertNotIn('SECRET_DRAFT',json.dumps(outgoing))
             self.assertNotIn('Lyrics:',json.dumps(outgoing))

@@ -1,28 +1,131 @@
 # Regional Bard Music Variation
 
-**Status:** Draft, palette development and phased implementation
+**Status:** Working spec; workshop implemented, palette auditions and phased game integration ongoing
 **Scope:** Musical traditions, performer context and prompt construction for generated bard performances
+**Reconciled:** 2026-10-19
 
-**Audition workspace:** [Hold Music listening dashboard](../dashboard/index.html) · [Full idea bank and independent reviews](bard-musical-traditions-exploration.md). Open the HTML file in a browser to compare profiles, edit prompts, attach local audio and keep listening notes. It is a portable snapshot of this spec; browser experiments do not change these source documents. Export notes to move them between computers. Audio attachments last only for the current page session.
+**Working document:** This file is the canonical spec in the project Obsidian vault. The project-root [SPEC.md](../SPEC.md) convenience symlink points to it. The former Home-vault copy now links here; edit this file directly in either Obsidian or a code editor. [Migration record](vault-migration-2026-10-13.md).
+
+**Build:** `python3 tools/rebuild_palette.py` from the project root generates the dashboard JSON/HTML and synchronizes the local game-package palette from these sources. The default editorial snapshot date comes from the ISO `Reconciled` field above. Generated artifacts are outputs; browser-edited directions are audition drafts, and saved takes preserve their historical prompts. Adopt a draft by updating the source recipe and rebuilding.
+
+**Audition workspace:** [Hold Music listening dashboard](../dashboard/index.html) · [Full idea bank and independent reviews](bard-musical-traditions-exploration.md). Open the HTML file to compare profiles, edit prompts, attach local audio and keep listening notes. For generation and saved takes, run `python3 tools/workshop_server.py` from the project root and open `http://127.0.0.1:8765/`. The workshop calls Google's Lyria 3.5 directly and never retries a generation automatically. Browser experiments do not change these source documents. Export notes to move them between computers. Attached audio lasts only for the page session; generated takes and their exact submitted prompts are saved separately on disk.
 
 ## Summary
 
 Bard music should vary by learned tradition, performer and place. Build a diverse, coherent and audibly distinct palette first. Each tradition may have a strong predominant mood; exceptions such as cheerful Dunmer songs can remain minority conditions developed later. Race supplies a fallback cultural association, while established biography and musical training can select a different repertoire.
 
-The regional scope includes Skyrim, Cyrodiil and Solstheim. Raven Rock and the Gray Quarter can share a Dunmeri foundation; Skaal traditions remain a separate cultural possibility. Cyrodiil needs its own local vernacular as well as court music.
+The initial scope is the nine holds, Cyrodiil and a Dunmeri/Raven Rock core for Solstheim. Gray Quarter can share that foundation; Skaal and a separate Cyrodiil vernacular are deferred.
 
-## Implementation baseline
+The named reference styles and their musical fingerprints are provisional targets. Reference-recording listening can change the chosen influence, phrase shape, meter or predominant mood; the first written palette is not a commitment to preserve a poor fit.
 
-- Solo Lute 0.1.0 changes the music-generation request. The NPC identity, biography, race and location connection assumed by the original draft is still to be built.
-- Performer and regional fragments below describe the proposed assembly contract. They are not evidence that these fields reach the current adapter.
-- The current SkyrimNet performance path uses the lute animation. First implementation therefore remains one lute performer, with or without voice; flute, drum, voice-only and ensemble control need separate integration work.
+**Development decision, 2026-10-19:** the user's listening validation does not gate project progress. Engineering proceeds against explicitly versioned provisional recipes, with listening confidence recorded separately. Continue performer/context integration, library and job durability, controller work and migration preparation using existing recordings or synthetic fixtures without requiring new paid audio. Preserve the current eleven-style baseline, Reach comparison, deferred catalog and vocal constraints. New workshop admission remains an intentional source change, not an automatic unlock or a claim that a style has passed. See the [development roadmap](development-roadmap.md).
+
+## Provisional Eleven-Style Baseline
+
+**Adopted for auditions: 2026-10-13. Listening validation: pending for all eleven styles.** This replaces the broad workshop palette as the active starting set. Target selection is not evidence of Lyria fidelity or production approval. Reach sean-nós is the sole admitted challenger, not a twelfth regional base.
+
+| Region | Predominant reference | Audible identity |
+|---|---|---|
+| Eastmarch | Icelandic rímur | Narrow syllabic narrative declamation; sparse plucked punctuation |
+| Whiterun | Scandinavian medieval narrative ballad | Substantial modal verses; short returning refrain |
+| The Reach | Reel-based puirt-à-beul | Dense articulated syllables driving a duple reel |
+| Falkreath | Karelian runo-song | Short descending cells, narrow range, recurring five-beat cycle |
+| The Rift | Playford-style English country-dance jig | Bouncing 6/8, compact repeated strains, bright chordal punctuation |
+| Haafingar | Renaissance galliard | Triple dance motion, shaped cadences, developed lute passagework |
+| Hjaalmarch | Instrumental sutartinės on one plucked kanklės | Interlocking repeated figures; exposed neighboring-note clashes |
+| Winterhold | Sámi joik, wordless adaptation | Circular short figures, small changes, vocables |
+| The Pale | Hebridean iorram-inspired rowing song | Broad sung lines over a measured rowing pulse |
+| Solstheim | Persian āvāz-inspired lament | Long modal melismas, flexible timing; initial Dunmeri/Raven Rock core |
+| Cyrodiil | Italian early Baroque monody | Expressive solo singing over moving harmony and strong harmonic arrivals |
+
+These are narrow fictional adaptations, not universal definitions of the traditions. Five-beat Falkreath, reel-based Reach and the Pale's slow 6/8 are authored constraints. Hjaalmarch is the least secure candidate: generic eerie arpeggios fail. [UNESCO documents instrumental plucked-zither sutartinės](https://www.unesco.org/archives/multimedia/document-1666), and the [Lithuanian National Culture Centre identifies kanklės as a plucked instrument with a sutartinės repertoire](https://www.lnkc.lt/eknygos/eka/instrum/chordoph.html); the workshop tests one such player.
+
+Use one canonical arrangement per style: **one singer accompanying themself on the recipe's named plucked instrument**, with **wordless vocables for Winterhold** and **instrumental kanklės for Hjaalmarch**. Reach sean-nós uses the same voice-and-lute arrangement as puirt-à-beul. The 16 October instrument-family policy permits suitable named plucked strings, including zithers; the 19 October reconciliation retains all eleven style targets and vocal modes while adopting the limited instrument mappings below. Blind recognition may compare admitted styles within a shared supported instrumental family. Broader side-by-side arrangements, ensembles, alternate moods, stylistic tints, court/folk branches, other cultures and Skaal differentiation remain deferred. Casting and venue controls may hold comparison conditions constant; they add no musical style layer.
+
+### Listening Evidence and Intentional Recipe Revisions
+
+1. Freeze the recipe, canonical arrangement, exact prompt, model/provider route and comparison conditions. Every audible source must match the visible solo performer.
+2. Hear several independent, unselected takes per style. Record defining features, missing features, enjoyment and failures separately. One attractive take proves possibility only.
+3. Blind-test nearest neighbors, then shuffle the eleven bases together and record confusions. Priorities: Reach/Rift, Falkreath/Eastmarch, Haafingar/Cyrodiil and Pale/Whiterun/Winterhold. Compare sean-nós against Reach puirt-à-beul, Eastmarch, Pale and Solstheim.
+4. Repeat with fresh English lyrics where applicable. Shared text is a diagnostic; also test suitable syllable density for each form. Winterhold stays wordless and Hjaalmarch instrumental. Interleave fresh A/B/A requests to check switching and repeatability; preserve every attempt and exact prompt.
+5. Assess **each** base separately when listening: defining structure, separation from neighbors, repeatability across texts/takes, enjoyable listening and correct sound sources. An aggregate score cannot establish an untested region's fidelity. Revise or replace weak recipes as evidence arrives; pending or unsuccessful listening does not stop engineering.
+6. Keep the active workshop bounded through deliberate source revisions. A revision may admit one provisional experiment or replace a recipe with its rationale, technical constraints and available evidence recorded here; all eleven listening passes are not a prerequisite. Browser verdicts do not unlock anything. Sean-nós remains a separate challenger until an explicit decision replaces the Reach base.
+
+**Evidence ledger:** no baseline has passed yet; no numeric success threshold has been adopted. Record take IDs, prompts, model/route, lyric IDs or wordless/instrumental mode, blind guesses/confusions, enjoyment, failures and decisions in workshop notes; retain the audio with saved takes. Software checks, reference recordings and successful generation are not listening evidence.
+
+The source policy below controls both the UI and workshop server. Deferred profiles retain notes, earlier edited directions and historical takes, but cannot submit new generations. Earlier browser edits are preserved separately and do not override the new baseline defaults. Increment `workshop_baseline.revision` whenever an adopted recipe changes so saved drafts from the prior revision remain historical.
+
+```yaml
+workshop_baseline:
+  revision: "baseline-11-v2"
+  status: "listening_pending"
+  gate: "The eleven bases, Reach comparison and supported blind instrument-family comparisons remain admitted. Listening validation does not gate engineering. Further workshop admission requires a deliberate source revision with rationale and any available evidence; all eleven listening passes are not required."
+  profiles:
+    eastmarch: {arrangement: lute_voice, vocal_mode: lyrics, neighbor: "Falkreath; Reach sean-nós", boundary: "Speech-shaped narrow declamation must differ from repeated five-beat cells and flowing ornamented airs."}
+    whiterun: {arrangement: lute_voice, vocal_mode: lyrics, neighbor: "The Pale; Cyrodiil", boundary: "Substantial modal verses and a short refrain, without jig bounce or moving continuo harmony."}
+    reach: {arrangement: lute_voice, vocal_mode: lyrics, neighbor: "The Rift; Reach sean-nós", boundary: "Dense syllables drive a duple reel; the Rift has compound jig bounce and less packed delivery."}
+    falkreath: {arrangement: lute_voice, vocal_mode: lyrics, neighbor: "Eastmarch; Solstheim", boundary: "The recurring five-beat descending cell must be audible. Sadness alone does not distinguish it."}
+    rift: {arrangement: lute_voice, vocal_mode: lyrics, neighbor: "The Reach; Haafingar", boundary: "Compact strains in bouncing 6/8, distinct from a duple vocal reel or triple galliard."}
+    haafingar: {arrangement: lute_voice, vocal_mode: lyrics, neighbor: "Cyrodiil; Whiterun", boundary: "Maintain the triple galliard dance and shaped lute passagework, not flexible monody or plain ballad."}
+    hjaalmarch: {arrangement: lute, vocal_mode: instrumental, neighbor: "Winterhold; Falkreath", boundary: "One plucked kanklės retains interacting repeated figures and exposed seconds. Generic eerie arpeggios fail."}
+    winterhold: {arrangement: lute_voice, vocal_mode: wordless, neighbor: "The Pale; Eastmarch", boundary: "Short circular figures and changing vocables, without English verses or a closing pop chorus."}
+    pale: {arrangement: lute_voice, vocal_mode: lyrics, neighbor: "Whiterun; Winterhold; Reach sean-nós", boundary: "Broad sung lines over a measured rowing pulse, distinct from small circles or a free air."}
+    dunmer: {arrangement: lute_voice, vocal_mode: lyrics, neighbor: "Reach sean-nós; Falkreath", boundary: "Long modal melismas and flexible timing, distinct from short metrical cells or Gaelic ornaments."}
+    imperial: {arrangement: lute_voice, vocal_mode: lyrics, neighbor: "Haafingar; Whiterun", boundary: "Expressive melody over moving bass and changing harmony, without regular dance or modal drone ballad."}
+  comparisons:
+    reach_sean_nos: {arrangement: lute_voice, vocal_mode: lyrics, neighbor: "Reach puirt-à-beul; Eastmarch; The Pale; Solstheim", boundary: "Connected ornaments and breath-led free phrasing must remain recognizable in English. Prefer it if it passes and is more enjoyable."}
+comparison_profiles:
+  reach_sean_nos:
+    culture: "Nord"
+    name: "The Reach · sean-nós comparison"
+    audition_race: nord
+    audition_region: reach
+    reference: "Irish sean-nós singing"
+    core: "free-rhythm air, slowly unfolding melody, connected grace-note ornaments and breath-led pauses"
+    voice: "flowing ornamented solo line with clear English words and flexible text-shaped timing"
+    lute: "sparse plucked notes following the vocal phrase, leaving room for its ornaments"
+    lute_instrumental: "one unfolding air with connected picked graces and increasingly ornamented variations"
+```
+
+## Deferred Cultural Palette
+
+These directions are retained as future research, **unavailable for new workshop generations** under the current bounded baseline. An intentional source revision may admit a specific candidate without waiting for every regional style to pass. Their instrumental-first vocal-credibility constraints still apply if they are admitted later; engineering can already support their metadata and capabilities.
+
+The initial cultural rollout should use **instrumental-only Orsimer, Khajiit and Argonian performances**, deferring their vocal styles until generated voices are credible. This is a delivery decision based on listening results, not a claim that these peoples cannot sing. Orsimer vocal finalists remain deferred research; Khajiit and Argonian recipes and performer casts currently exclude singing in the workshop. No production Orsimer or Bosmer core has been selected.
+
+| Repertoire | Current direction | Deferred work |
+|---|---|---|
+| Orsimer | Compare Seven-Step's deliberate 2+2+3 instrumental phrasing and Close-Circle's plucked chord blocks; keep Resonant Name-Songs as an explicitly reduced resonance study | Production vocals, including khöömei/throat singing; require credible vocal weight and an audible moving overtone melody before promoting that finalist |
+| Khajiit | Hindustani instrumental raga on sitar or solo bansuri; **Hindustani tabla solo** on one player's dayan/bayan pair is also a full option | Beastfolk vocals; flute/drum game integration and caravan scenes remain later phases |
+| Argonian | Sundanese kacapi suling influence adapted to solo kacapi or suling, with recurring kotekan-inspired cells | Beastfolk vocals; no drum-only reduction yet because the current identity depends on pitched cells; dock/Assemblage scenes remain later phases |
+| Bosmer | Leaping tales, Hunting-call airs and Spinner's tales remain distinct auditions with appropriate instrumental and vocal reductions | Production core selection, additional visible performers and any unsupported arrangement |
+
+The workshop retains arrangement-specific prompt definitions, real-world style references for every recipe, explicit performer race and target region, and optional saved SkyrimNet lyrics. Default complete music prompts fit Suno's **1,000-character budget excluding lyrics**. Copying exports the whole assembled music prompt, with lyrics available separately; the complete Google request remains available too. Plucked strings can be cittern, oud, sitar, biwa, kacapi or lute as appropriate. Bowed strings are excluded. Unsupported combinations have a stated musical reason rather than a generic reduction that loses the style.
+
+The retained research catalog is wider than the active workshop baseline and game release. Instrumental-only cultural repertoire still needs a selected recording, a registered capable performer and the appropriate game animation/controller path; it is not automatically enabled by an audition or by this document.
+
+## Reference Listening and Palette Revisions
+
+The companion [reference listening guide](skyrim-hold-music-listening-notes.md) now lives beside this spec in the project vault. It contains the playlists, listening cues, comparisons and possible revisions migrated from `Home/Skyrim/hold_music/`. The user is ear-testing these influences against the recordings. The guide's written criteria and catalog matches are not themselves scores from listening to generated takes. This guide owns the listening research; this spec owns the current prompt fragments. Both are edited directly in the same repository, rather than maintained as separate Home-vault copies.
+
+Keep the **current recipe**, a **proposed listening variant** and an **adopted revision** distinct. Record the reason for a change, representative recordings and the audible features to test. Compare the candidate with the existing recipe and its nearest regional neighbor using the same performer, arrangement, region and lyrics where appropriate. A better fit can justify changing the musical target itself, not only making the generator obey the old wording. After adopting a revision, update the named reference, arrangement reductions and neighboring comparison criteria together, then rebuild the dashboard; the game palette is a separate integration step. Preserve earlier takes and their exact prompts as historical comparisons.
+
+The rímur-only Eastmarch and iorram-inspired Pale candidates were adopted into the **provisional audition baseline on 2026-10-13**. This is target selection, not a listening pass. The guide's older mixed targets are superseded by the eleven-style table. Reach sean-nós has a separate comparison ID, prompt and take history.
+
+## Implementation Baseline
+
+- The current [Hold Music 0.2.2 request adapter](game-adapter.md) applies Nord recipes for all nine holds to new compositions using a model-copied bard/location marker. Lurbuk retains the legacy treatment. This pilot does not implement race-aware repertoire selection, and SkyrimNet still controls scheduling, its shared cache and playback. A Nord performance is documented in the [9 October in-game verification](game-adapter-verification.md#first-in-game-performance-through-hold-music--9-october-2026-1114-central); that is not validation of the wider palette.
+- The workshop supplies explicit race, region and arrangement context to Lyria 3.5. These controls are audition inputs, not proof that the game adapter receives the same fields. The game adapter and offline executor currently use a separate OpenRouter/Lyria route. Rebuilding synchronizes the repository's local package only; it does not deploy this baseline to a running game. The shared regional helper keeps Hjaalmarch instrumental and Winterhold's vocal requests wordless.
+- The current SkyrimNet performance path uses the lute animation. Phase 1 therefore remains one plucked-string performer, with voice only for an eligible repertoire; flute, drum, voice-only and ensemble control need separate integration work. New Orsimer and beastfolk repertoire follows the instrumental-first release gate above, not the pilot's generic vocal probability.
 - A visible lute can represent a family of plucked-string sounds. Other instruments likewise use plausible animation families rather than a single literal timbre, subject to listening and visual tests.
 - Audience clapping has been observed during the Olaf festival and the corresponding applause assets were located. Repeatable start, timing and stop control still need a prototype; stomping remains unverified.
 - The [bard roster and biography audit](bard-roster-and-biography-audit.md) supplies the installed-profile baseline and candidate musicians. Static record eligibility is distinct from current save state.
+- The owned game controller is installed on HALCYON. Its 15 October test crashed in PapyrusUtil VR's native dead filter during candidate discovery; a targeted workaround passed 52 package tests and the recorded VFS checks and was installed. Successful owned playback and cleanup after the fix remain unverified. SkyrimNet's bard feature was disabled for that session. See the [RCA and retest](sven-crash-2026-10-15.md).
+- The planned next stack target is MGO RC5 with SkyrimNet beta 27 or its verified successor, upgraded together. The [migration plan](stack-migration-rc5-beta27.md) retains the existing stack as a reference and compares native imports against Hold Music's ownership requirements. Neither the upgrade nor palette listening blocks portable engineering.
 
-## Proposed architecture: Hold Music owns performances
+## Target Architecture: Hold Music Owns Performances
 
-**Status: proposed direction, not implemented or enabled.** A complete performance controller is a plausible successor to the current request adapter. Hold Music would own repertoire selection, scheduling, its song library, conditional lyric composition, music generation and performance lifecycle. SkyrimNet would remain the source of character context and, where the supported integration permits, on-demand text generation. Its ordinary dialogue, biographies and memories remain useful independently of its bard manager.
+**Status: offline components implemented; independent controller installed, successful owned playback still unverified after the 15 October fix.** Hold Music is intended to own repertoire selection, scheduling, its song library, conditional lyric composition, music generation and performance lifecycle. SkyrimNet remains a source of character context. The [ownership design](performance-ownership-design.md), [library contract](library-format.md), [executor](executor.md) and [game-package verification](game-package-verification.md) describe the implemented pieces and remaining integration gates. Installation and offline tests do not establish synchronized playback.
 
 - Choose the performer, repertoire and actual arrangement, then check for an eligible cached recording before requesting new content. An instrumental or wordless-vocal piece needs no lyric-writing call. A repeat performance can reuse its recording; a new arrangement can reuse a suitable existing lyric. Generate new words for a requested/upcoming lyrical performance that needs a new composition or topic.
 - Build the lyric brief from knowledge available to that bard. The shipped lyric template uses identity, location, voice, memories, witnessed events, recent dialogue and previous song titles. A generic call to the template does not populate these values automatically.
@@ -30,13 +133,13 @@ The regional scope includes Skyrim, Cyrodiil and Solstheim. Raven Rock and the G
 - Generate asynchronously ahead of playback where possible. A waiting or failed provider request must not leave an actor trapped in a performance pose. Prefer an eligible existing recording when one is available.
 - Coordinate audio, animation objects, start/stop, dialogue/combat interruptions, cell changes and cleanup. Preserve authored vanilla/mod quest scenes through explicit ownership rules. Existing animation assets may be reusable without starting complete scenes that also control their own audio.
 
-Static feasibility evidence: the installed beta26 DLL exports general memory/event/dialogue query and custom-prompt functions. The Papyrus custom-prompt callback documents a 750-character response cap; the native route is a candidate for full lyrics, with response-length and worker-thread handoff behavior still to verify. Exact equivalence to the built-in bard manager's witnessed-event and conversation selection is also unresolved.
+The earlier native-route investigation found general memory/event/dialogue query and custom-prompt exports, with a documented 750-character Papyrus callback cap. The implemented [offline knowledge bridge](knowledge-bridge.md) instead reads actor-scoped memories and qualifying events from SQLite in read-only mode; its lyrical executor uses a separate text-model call. It does not reproduce the built-in bard manager's dialogue selection, runtime knowledge conditions or gossip propagation. Live context acquisition and playback handoffs still need validation.
 
-The bard enable switch is not an established lyrics-only mode: installed disabled-feature messages cover song-topic requests and compose/play-song commands. Prove the independent context/lyric route and one cached replacement performance with correct cleanup, then validate turning off SkyrimNet's bard feature. Its effects on existing playback, vanilla suppression and reload requirements remain unverified. No runtime configuration has been changed for this proposal.
+The bard enable switch is not a lyrics-only mode: installed disabled-feature messages cover song-topic requests and compose/play-song commands. The independent offline knowledge/lyric route is implemented; it does not depend on enabling SkyrimNet's bard manager. SkyrimNet's bard feature was disabled for the 15 October owned-controller test. Keep mutually exclusive ownership for the retest and verify cached playback, vanilla suppression, interruption and reload cleanup. Earlier static assumptions that SkyrimNet would ignore Sven were disproved by his cached playback on 13 October.
 
-## Repertoire logic: first offline implementation
+## Repertoire Logic and Offline Preparation
 
-The first decision engine is implemented in `hold_music/repertoire.py`, with synthetic quest-success and scandal examples. It plans from an explicit snapshot of a bard's knowledge, known compositions and compatible recordings. The live SkyrimNet knowledge bridge, persistent library, generation executor and playback controller are still pending. See [repertoire logic and runnable examples](repertoire-logic.md) for the contract and tuning defaults.
+The decision engine in `hold_music/repertoire.py` plans from an explicit snapshot of a bard's knowledge, known compositions and compatible recordings. The authored performer registry, durable recording library, read-only offline knowledge bridge and bounded generation executor are also implemented. The executor supports instrumental, Winterhold wordless and actor-scoped lyrical preparation; its current recipes are the Nord regional pilot, not the full cultural workshop palette. Live scheduling and independent game playback remain integration work. See [repertoire logic and runnable examples](repertoire-logic.md), [library format](library-format.md), [knowledge bridge](knowledge-bridge.md) and [executor](executor.md).
 
 - A successful quest, a scandalous affair circulating as gossip, and ordinary local news are all valid subjects. No heroic framing is required. Select from what the bard knows; hearing gossip does not mean learning a pre-existing song about it.
 - Keep direct knowledge and hearsay distinct. Wit, teasing and exaggerated imagery are appropriate artistic choices; repetition does not turn an allegation into a confirmed event. Preserve occurrence and knowledge-acquisition times instead of treating retrieval time as freshness.
@@ -50,46 +153,50 @@ The first decision engine is implemented in `hold_music/repertoire.py`, with syn
 - Nord bards in different holds sound different.
 - No fragment implies an instrument or performer that is not visible.
 
-## Non-goals
+## Non-Goals
 
-- Changing which instrument a bard plays, until Phase 2.
-- Full lyric generation, live knowledge ingestion and performance ownership in this offline planning milestone.
+- Changing a bard's visible game instrument or animation family through palette edits alone. Later instrument support needs Phase 2's animation/controller work and runtime checks; that work does not wait for regional listening results.
+- Enabling live knowledge ingestion or independent performance ownership through palette edits. Offline lyric preparation is a separate implemented tool; the audition workshop can optionally reuse saved SkyrimNet words without invoking its lyric generator.
 
-## Design principles
+## Design Principles
 
 1. **Performer first.** The visible animation fixes an instrument family and the roster fixes the number of performers. Variation can use related timbres, mode, meter, articulation, ornament and vocal technique without introducing an unseen player.
 2. **Learned tradition sets the idiom.** Race is a fallback when individual training is unknown. Region provides a compatible local influence. Established character identities, such as Ogmund’s Nordic skald tradition, remain meaningful away from their place of origin.
-3. **Features over labels.** Tradition names alone tend to collapse into generic fantasy tavern music. Every fragment carries concrete musical features; the tradition name is an optional prefix.
+3. **Named influences plus features.** Every complete recipe names its real-world style reference and gives concrete musical features. A label alone tends to collapse into generic fantasy tavern music; omitting the name also loses useful direction. Describe the actual solo or ensemble adaptation.
 4. **Distinct palette before nuance.** Give each core a recognizable rhythmic, melodic and textural identity with a predominant mood. Do not flatten the palette by giving every culture an equal share of every mood.
-5. **Draft selection is not audio validation.** Orsimer and Bosmer finalists will become provisional defaults and alternatives for listening tests; generation fidelity and animation feasibility remain separate checks.
+5. **Draft selection is not audio validation.** Orsimer and Bosmer finalists are explicit listening candidates, not production defaults. Generation fidelity and animation feasibility remain separate checks; deferred vocals do not block development of a credible instrumental repertoire.
+6. **Reference listening can revise the target.** Use recordings to reassess the named influence and the features borrowed from it. Update the prompt and its comparisons when the musical direction changes; do not treat earlier reviews or playlist labels as fixed requirements. Performer identity, setting, visible sound sources and supported arrangements remain constraints.
 
 ## Phasing
 
+Engineering through these integration phases can proceed with versioned provisional recipes and existing or synthetic test audio. Listening confidence develops independently; no phase requires all eleven styles to pass. Wider recipe definitions do not automatically grant workshop or production availability. Preserve each phase's actual performer, animation, ownership and lifecycle requirements.
+
 | Phase | Adds | Depends on |
 |---|---|---|
-| 1 | Regional idioms on solo lute, with or without voice | Performer context connection and a selected palette |
+| 1 | Regional idioms on solo plucked strings; eligible repertoires may add one voice | Performer context connection, explicit provisional recipes and cultural vocal constraints |
 | 2 | Flute and drum | Overriding SkyrimNet's lute-only animation |
 | 3 | Visible accompanists recruited from the audience | Phase 1 for voice roles, Phase 2 for instrumental roles |
 | 4 | Ambient music at caravan camps and the Windhelm docks | Phase 1; richer with Phases 2 and 3 |
 
-### Phase 1: lute only
+### Phase 1: Plucked Strings Using the Lute Animation
 
-SkyrimNet forces the lute animation, so every performance is solo lute or lute with voice.
+SkyrimNet forces the lute animation, so every performance uses one lute-family player. The recipe may name a compatible plucked timbre such as cittern rather than lute. Orsimer, Khajiit and Argonian cultural rollout starts instrumental only; supported vocal repertoires may add that same performer's voice. This target policy is separate from the existing Nord pilot's 50% instrumental choice.
 
 - Planned Phase 1 fields: `core`, arrangement reductions, `dialect`, compatible `tint`, `voice`, `lute`, `phase_modes` and explicit audition selection.
 - Later-phase fields: flute/drum arrangements and additional performer roles; reductions already matter for Phase 1 lute-only comparisons.
-- Orsimer and Bosmer now have auditionable musical profiles. Their selected production cores remain unset until listening comparisons; an audition explicitly names its candidate.
-- Khajiit and Argonian profiles become usable when an existing or nominated NPC is explicitly registered as capable of the requested role; ancestry alone does not assign new skills.
-- Done when the acceptance criteria pass with `instrument` fixed to lute.
+- Orsimer and Bosmer have defined candidate profiles. Their selected production cores remain unset; engineering fixtures explicitly name a candidate without selecting a production winner or admitting it to the workshop. A future source revision can select a provisional core with its rationale and confidence recorded. Orsimer vocals, including Resonant Name-Songs' specialist technique, stay outside the initial release while vocal credibility is unresolved.
+- Khajiit and Argonian instrumental profiles become usable when an existing or nominated NPC is explicitly registered as capable of the requested role; ancestry alone does not assign new skills. Their proposed ambient scenes still belong to Phase 4.
+- Done when the acceptance criteria pass with the visible instrument family fixed to plucked strings.
 
-### Phase 2: instruments
+### Phase 2: Instruments
 
 - Enable the flute and drum arrangement lines after their animation/controller paths are validated.
+- Khajiit solo bansuri and tabla, and Argonian solo suling, are retained research recipes requiring intentional admission and this phase's game support. Supporting their instrument families does not depend on regional listening passes. Tabla means one player using a two-drum pair; it does not add a second performer. Argonian drum solo remains omitted until a distinctive rhythmic repertoire is designed.
 - Instrument material preferences can be assigned to particular Bosmer characters. There is no blanket racial lute ban; the visible prop and established biography remain authoritative.
 - Decide who picks the instrument: fixed per NPC or selected per performance from the chosen repertoire and the performer’s capabilities.
 - Done when the acceptance criteria pass across all three instruments.
 
-### Phase 3: accompanists
+### Phase 3: Accompanists
 
 Audience members are recruited into visible accompanying roles.
 
@@ -97,6 +204,7 @@ Audience members are recruited into visible accompanying roles.
 - New input `accompanists`: a list of visible performers, each with a role (voice, drum, flute, clapping).
 - The selected learned tradition chooses the idiom. Accompanists supply only the roles present in the arrangement; they do not automatically receive professional bard skills.
 - Plural-performer language becomes legal, but only when it matches the accompanist list exactly.
+- Ensemble support does not clear a deferred vocal style's fidelity gate. Initial beastfolk community arrangements remain instrumental, and Orsimer vocal ensembles still require credible voices before production use.
 - This unlocks the multi-voice forms that Phases 1 and 2 imitate on one instrument:
 
 ```yaml
@@ -117,24 +225,24 @@ ensemble:               # appended only when accompanists are present
 - A singer's fundamental and audible upper overtones can belong to one voice. This does not authorize adding recorded backing voices. One flute player alternates playing and singing; simultaneous sustained flute and voice require separate performers.
 - Done when the performers described in every prompt match the visible performers one for one.
 
-### Phase 4: ambient scenes outside the walls
+### Phase 4: Ambient Scenes Outside the Walls
 
 Occasional music from nominated community performers at the Khajiit caravan camps and Windhelm docks/Assemblage. These are the first target scenes, not an absolute claim that every Khajiit or Argonian must remain outside cities. A New Gnisis Cornerclub resident is another proposed community musician; existing quest-dependent performances there need coordination.
 
 | Scene | Profile | When | Notes |
 |---|---|---|---|
 | Caravan camp | `khajiit` | Night, while the caravan is camped | Mode follows `moon_phase` |
-| Windhelm docks | `argonian` | Day, during work | Work rhythm |
-| Argonian Assemblage | `argonian` | Occasional evenings | Community response or a small social performance |
+| Windhelm docks | `argonian` | Day, during work | Pitched repeating-cell instrumental repertoire; no implied work chorus |
+| Argonian Assemblage | `argonian` | Occasional evenings | Instrumental social performance; ensemble responses deferred |
 
 - These community scenes default to their own repertoire. A location tint applies only when chosen for that audience and compatible with the core.
 - Needs a trigger (location, time of day, a free NPC to perform) and a frequency cap so it stays occasional.
-- A visible performer is still required. In Phase 1 that means a lute.
+- A visible performer is still required. The Phase 1 instrument family is plucked strings; flute and tabla scenes depend on Phase 2. Community participation must not reintroduce deferred beastfolk vocals.
 - NPC nominations, scenes and triggers remain proposed; the inventory records the candidates.
 
 ## Inputs
 
-These are proposed context fields; they are not yet connected to the Solo Lute adapter.
+These are the full target context fields. The workshop supplies audition race, region and arrangement; the current game pilot receives bard/location text, and the offline library supplies authored identity and region. Neither path yet establishes this complete live, race-aware contract.
 
 | Input | Values | Required | Notes |
 |---|---|---|---|
@@ -154,18 +262,20 @@ These are proposed context fields; they are not yet connected to the Solo Lute a
 | `moon_phase` | new, waxing, full, waning | No | Khajiit condition; initially Masser, if its phase is available |
 | `accompanists` | Exact visible performers and roles | For ensembles | Includes response voices, instrument players and clappers |
 
-## Resolution rules
+## Resolution Rules
 
-1. **Select a learned repertoire.** An explicit audition or known performer tradition takes priority. Otherwise use a mapped cultural fallback. For cultures with `selected_core: null`, require an explicit audition candidate; do not silently ship the shortlist as random variants or fall back to a missing culture layer. Production selection remains pending.
+The current workshop selects exactly one admitted recipe and its canonical arrangement, without tints, alternate moods or cultural branches. The following broader rules describe deferred architecture.
+
+1. **Select a learned repertoire.** An explicit audition or known performer tradition takes priority. Otherwise use a mapped cultural fallback. For cultures with `selected_core: null`, explicitly name the candidate in an admitted audition or engineering fixture; do not silently ship the shortlist as random variants or fall back to a missing culture layer. Production selection remains pending and does not prevent selector implementation or offline tests.
 2. **Resolve the occasion and region.** Use current region/community and available repertoire. Breton court/folk and Imperial court/vernacular are distinct choices. College training makes learned forms available; it does not replace the location or erase personal tradition. The new Cyrodiil vernacular is independently selectable.
 3. **Apply regional dialects deliberately.** A Nord regional performance may use the matching dialect as its core. A biography-selected or named tradition retains its core away from home. Thus Ogmund does not automatically become a Reachfolk musician, and a Bosmer trained in Nordic ballads retains that option.
 4. **Apply only compatible tints.** Tints may adjust density, ornament or local phrasing. Drop a tint that erases the chosen meter, articulation, predominant mood or defining technique. No Hjaalmarch neighboring-tone requirement is added to a stable Orsimer overtone fundamental.
 5. **Khajiit.** Keep the existing hold-tint exemption and append the selected moon condition when available. A condition changes the course within the family; it does not replace the musical identity.
-6. **Check the actual arrangement.** Append only the chosen instrument-family line and, if singing, an eligible voice line. A flute player alternates vocal/instrumental phrases. Specialist technique and ensemble descriptions require affirmative capability and the matching visible roster. An ordinary novice does not acquire overtone mastery from race.
+6. **Check the actual arrangement and vocal gate.** Initial Orsimer, Khajiit and Argonian cultural releases are instrumental only; do not attach lyrics or vocal clauses. Experimental Orsimer vocal auditions remain outside the active baseline. The workshop excludes singing for either a Khajiit/Argonian recipe or performer cast, even when the other selection is a different culture. For eligible sung arrangements append only the chosen instrument-family line and voice line. A flute player alternates vocal/instrumental phrases. Specialist technique and ensemble descriptions require affirmative capability and the matching visible roster. An ordinary novice does not acquire overtone mastery from race.
 7. **Use the right reduction.** For drum-only performances without singing omit pitched material and use the rhythmic line. A drum-and-voice arrangement can retain the pitched vocal structure. Where a lone flute, voice, or drum-and-voice arrangement cannot support a drone, chord blocks or simultaneous counterpoint, replace the ordinary core with `core_monophonic`; adding an instrument line does not cancel an incompatible core. For other instrumental performances use the explicitly described instrumental arrangement. Instrument-only clauses describe melodic phrases, not an absent singer; remove any voice-dependent answer/accompaniment wording. During comparisons, audition the candidate's honest reduction; do not conceal weakness by switching styles. In eventual production, an unavailable reduction may select an explicitly designated instrumental repertoire, with the actual repertoire recorded in the cache identity.
-8. **Fallback and caching.** Unknown culture and unknown region preserve existing behavior. Record performer/repertoire, actual instrument family, vocal or instrumental mode, technique, roster and relevant location/moon conditions in future cache identity so a track cannot imply a different arrangement. This connection is planned. Preserve Solo Lute's existing 50/50 composition policy unless separately changed.
+8. **Fallback and caching.** Unknown culture and unknown region preserve existing behavior. Record performer/repertoire, actual instrument family, vocal or instrumental mode, technique, roster and relevant location/moon conditions in the complete cache identity so a track cannot imply a different arrangement. The offline library has explicit recording identity; the SkyrimNet pilot's shared native cache does not enforce this cultural contract. Its existing 50/50 composition policy remains the pilot baseline. A future cultural selector applies vocal eligibility first, so that probability never overrides the instrumental-only release gate.
 
-## Prompt assembly
+## Prompt Assembly
 
 Order:
 
@@ -175,7 +285,7 @@ Order:
 4. Arrangement-compatible `core` or `dialect`, voice technique and selected instrument treatment
 5. One instruction tying generated lyrics to the performer and setting; supplied lyrics instead remain a separate, verbatim block
 
-The workshop adds performer and region context to every complete request, including saved custom musical directions. Race defaults to the profile's provisional audition cast and can be overridden separately for A and B. Target region defaults to the named hold for regional profiles, Cyrodiil for its vernacular profile, and otherwise Skyrim with no specific settlement assigned. A shared region override lets both auditions use the same place.
+The workshop adds performer and region context to every complete request, including saved custom musical directions. Race defaults to the profile's provisional audition cast and can be overridden separately for A and B. Target region defaults to the named hold for regional profiles, Cyrodiil for monody and Raven Rock for the Solstheim lament. Deferred cultural profiles retain their historical defaults. A shared region override lets both auditions use the same place.
 
 Every workshop recipe names a real-world musical reference, including original fictional candidates and requests with saved custom directions. The compact complete prompt leads with that name and labels the selected adaptation. The arrangement-compatible musical clauses supply the concrete features; `reference_focus` remains editorial rationale rather than another repeated prompt paragraph. Instrumental and rhythmic reductions retain the name and their actual sound sources. These are audition influences, not claims that the invented Tamrielic forms are authentic versions of the source traditions.
 
@@ -213,44 +323,53 @@ audition_voices:
   khajiit: "warm, husky, throaty voice with subtle rumbling grain, clear consonants and supple phrasing"
 ```
 
-The Orc finalists' `audition_casting` fields and the Khajiit voice direction specify provisional vocal characters for listening tests. They are casting choices, not definitions of a tradition or rules for every member of a race. They do not select a gender or confer technique proficiency. A race override selects the matching vocal character instead of carrying the repertoire's Orc cast into another performer. In eventual NPC integration, the actual performer's `voice_character` replaces these audition defaults. Instrumental prompts still name race and place but omit vocal casting and technique; a three-singer arrangement retains its exact roles.
+The Orc finalists' `audition_casting` fields describe provisional voices for experimental listening tests, with production vocals deferred. The retained Khajiit voice direction is reserved for future work and is not used by current instrumental-only prompts. These are casting choices, not definitions of a tradition or rules for every member of a race. They do not select a gender or confer technique proficiency. An eligible race override selects the matching vocal character instead of carrying the repertoire's Orc cast into another performer. In eventual NPC integration, the actual performer's `voice_character` replaces audition defaults. Instrumental prompts still name race and place but omit vocal casting and technique; a three-singer experimental arrangement retains its exact roles.
 
-Performer and region controls, a context summary and the exact-request preview expose the complete audition context. Existing custom musical directions are preserved; **Reset to recipe** explicitly adopts revised musical defaults. Context instructs newly generated lyrics to keep the performer identity and venue consistent without announcing the race or inventing a birthplace. With no named settlement selected, lyrics avoid naming the current venue. Supplied SkyrimNet lyrics remain unchanged: their characters and locations are song subjects, not authority to recast or relocate the audition. Saved takes retain the exact prompt originally sent to Google.
+Performer and region controls, a context summary and the exact-request preview expose the complete audition context. Existing custom musical directions are preserved in their historical prompt set. Only current-baseline edits override defaults; **Reset to recipe** clears the current edit without deleting the historical set. Context instructs newly generated lyrics to keep the performer identity and venue consistent without announcing the race or inventing a birthplace. With no named settlement selected, lyrics avoid naming the current venue. Supplied SkyrimNet lyrics remain unchanged: their characters and locations are song subjects, not authority to recast or relocate the audition. Saved takes retain the exact prompt originally sent to Google.
+
+Saved lyrics are optional: the shared picker reads existing `bard_songs` drafts from configured SQLite sources in read-only mode and supplies identical words to both panels. Refreshing it invokes neither SkyrimNet's lyric generator nor Google. **Let Lyria write lyrics** leaves a supported sung request without a saved draft; a custom `Lyrics:` block is another explicit source. Instrumental Hjaalmarch and wordless Winterhold omit the selected draft and reject inline lyric blocks. Selecting an archived lyric does not install that composition into the game.
 
 Google's [Lyria prompt guide](https://ai.google.dev/gemini-api/docs/lyria-prompt-guide#vocal-delivery-and-singer-profiles) recommends explicit vocal range and timbre. Setting names provide context; the casting and technique clauses describe the sound to audition. Their effectiveness still requires listening.
 
-Example, Nord with lute and voice in Windhelm, tradition names on:
+Example, Nord with lute and voice in Windhelm:
 
 ```
-[setting] [performer block] [voice character] In the style of Icelandic rímur: austere chanted
-heroic verse, narrow melodic range, close to unaccompanied. Voice: declaimed more
-than crooned, syllabic, storyteller's chest voice. Lute: bare fifths and single
-notes shadowing the voice. [acoustic production constraint]
+Style: Icelandic rímur (solo adaptation).
+Tamriel (Elder Scrolls): Eastmarch, around Windhelm, Skyrim.
+One adult Nord performer singing with plucked lute.
+Intimate live acoustic room; only this performer and lute.
+Austere chanted verse, narrow melodic range and long pauses.
+Voice: syllabic chest-register declamation.
+Lute: bare fifths and single notes shadowing the voice.
+Lyrics fit the performer and region; keep race implicit.
 ```
 
-Example, Redguard with lute, not singing, in Dawnstar, tradition names on:
+Example, Redguard with solo oud in Dawnstar, instrumental:
 
 ```
-[performer block] In the style of Arab-Andalusian and Spanish Renaissance song:
-Phrygian color, clearly articulated melodic phrases in a recurring rhythmic cycle,
-ornamental runs returning to firm cadence notes, leaving more space between phrases.
-Lute: an oud-like single melodic line, distinct plucked attacks and brief runs.
-[acoustic production constraint]
+Style: Arab-Andalusian song and Spanish Renaissance vihuela (solo oud reduction).
+Tamriel (Elder Scrolls): the Pale, around Dawnstar, Skyrim.
+One adult Redguard performer; solo oud instrumental, plucked strings.
+Intimate live acoustic room; only this performer and oud.
+Phrygian color, recurring rhythmic cycle, ornamental runs returning to firm cadences.
+Oud: distinct plucked attacks, brief melodic runs and spacious phrase endings.
 ```
 
-## Culture profiles
+## Culture Profiles
+
+Only `imperial` (Cyrodiil) and `dunmer` (Solstheim) are currently admitted from this section. Other definitions remain deferred research.
 
 These are selective compositional references, not complete descriptions of the real traditions or claims of canonical Tamrielic music. Predominant moods are intentional. `orc` remains the internal key for Orsimer.
 
 | ID             | Reference tradition                                    | Why                                                                 |
 | -------------- | ------------------------------------------------------ | ------------------------------------------------------------------- |
 | `nord`         | Scandinavian medieval ballad                           | Strophic, modal, drone-heavy storytelling                           |
-| `imperial`     | Italian frottola, early Baroque monody (Caccini)       | Expressive solo melody with strong harmonic arrivals |
+| `imperial`     | Italian early Baroque monody       | Expressive solo melody with strong harmonic arrivals |
 | `imperial_vernacular` | Italian frottola and Renaissance villanella, adapted as an original vernacular | Firm pulse, short refrain and clear cadences for Cyrodiil |
 | `breton_court` | French air de cour                                     | High Rock's feudal courts                                           |
 | `breton_folk`  | Breton gwerz                                           | Narrative lament for the folk register                              |
 | `redguard`     | Arab-Andalusian song, Spanish vihuela (Milán, Narváez) | The lute played like the oud it descends from                       |
-| `dunmer`       | Armenian and Persian modal lament                      | Exile music for the Gray Quarter                                    |
+| `dunmer`       | Persian āvāz-inspired lament                      | Exile music for the Gray Quarter                                    |
 | `altmer`       | Ricercar, fantasia                                     | Learned counterpoint, the most "Baroque" of the set                 |
 | `orc`          | Three original finalists; khöömei provides one vocal-technique reference | Resonance, deliberate grouping and collective precision; see shortlist |
 | `bosmer`       | Three original finalists                               | Agile discontinuous phrases, clear attacks, register contrast and purposeful gaps |
@@ -270,13 +389,14 @@ cultures:
     drum: "steady walking pulse"
 
   imperial:
-    lute_instrumental: "upper-string melody with ornamental runs over arpeggiated bass, clear cadences"
-    reference: "Italian frottola and early Baroque monody"
-    core: "clear major or minor tonality, flexible expressive tempo, strong cadences"
-    voice: "lyrical solo line with ornamental runs and cadential trills"
-    lute: "arpeggiated chordal accompaniment under the melody, continuo style"
-    flute: "singing, vocal-style melody with cadential trills"
-    drum: "light, even dance pulse"
+    audition_region: cyrodiil
+    reference: "Italian early Baroque monody"
+    core: "expressive solo melody, flexible speech-shaped timing over moving bass and changing harmony, pronounced harmonic arrivals"
+    voice: "intimate rhetorical singing with brief ornamental runs and clear English words"
+    lute: "changing chordal support and moving bass, with arpeggiated answers at cadences"
+    lute_instrumental: "expressive upper melody over moving bass and changing chords, flexible timing and strong harmonic arrivals"
+    flute: "expressive vocal-style melody with cadential ornaments"
+    drum: "restrained pulse following the expressive phrases"
 
   imperial_vernacular:
     lute_instrumental: "short refrain melody between crisp chord strokes, regular pulse and strong cadence returns"
@@ -318,14 +438,15 @@ cultures:
     drum: "cyclic hand-drum pattern mixing deep and sharp strokes"
 
   dunmer:
-    lute_instrumental: "long sorrowful melody with slow ornaments over the same instrument’s low drone strings"
-    core_monophonic: "slow free-rhythm lament, long sorrowful single-line phrases and augmented-second color"
-    reference: "Armenian and Persian modal lament"
-    core: "slow lament, minor mode with augmented-second color, free rhythm, long sorrowful phrases over a sustained low drone"
-    voice: "mournful, restrained, long-breathed, slow melisma"
-    lute: "sparse plucked notes over a low drone string"
-    flute: "low, breathy tone with slow pitch bends"
-    drum: "slow, sparse pulse"
+    audition_region: raven_rock
+    reference: "Persian āvāz-inspired lament"
+    core: "slow modal lament, long ornamented phrases with flexible unmetered timing and gradual melodic development"
+    core_monophonic: "slow modal lament, long ornamented single-line phrases with flexible timing"
+    voice: "mournful long-breathed solo line, connected melismas and clear English words"
+    lute: "sparse plucked support and short echoes of the vocal melody, little chordal movement"
+    lute_instrumental: "long sorrowful modal melody with connected picked ornaments and flexible timing"
+    flute: "long breathy modal phrases with slow ornaments"
+    drum: "slow sparse punctuation"
 
   altmer:
     lute_instrumental: "two or three independently moving plucked lines, precise imitation and balanced cadences"
@@ -375,15 +496,17 @@ cultures:
     drum: "interlocking two-handed pattern, steady and unchanging"
 ```
 
-## Orsimer and Bosmer finalists
+## Orsimer and Bosmer Finalists
+
+**Deferred under the current bounded workshop baseline.** Historical finalists retain IDs, recipes, notes and takes; new generations are blocked until intentional admission. Their deferred status does not block supporting engineering.
 
 The exploration produced **18 Orsimer candidates and 22 Bosmer candidates**, with an independent palette review adding eight alternatives and challenges. The [complete idea bank](bard-musical-traditions-exploration.md) retains the options and rejection reasons. The names below are working names for invented traditions. They are audition finalists, not six equally frequent production modes.
 
 | Culture | Finalist | Audible identity | Predominant mood | Role in the shortlist |
 |---|---|---|---|---|
-| Orsimer | **Resonant Name-Songs · throat singing** | One sustained vocal fundamental with a moving upper overtone melody, long vowels, sparse plucked punctuation | Grave, concentrated, enduring | Favorite vocal identity; individual technique required; instrumental reduction is weaker |
-| Orsimer | **Seven-Step Oath-Songs** | Deliberate 2+2+3 grouping, compact four-note material, clipped words, damped instrumental answers and decisive rests | Resolute, exacting, communal | Most portable candidate across the existing lute/voice and instrumental grammar |
-| Orsimer | **Close-Circle Songs** | Plain lead phrases with compact chord blocks that change and stop together | Solemn solidarity, intimate warmth | Ensemble finalist; current solo version explicitly gives chord work to the lute |
+| Orsimer | **Resonant Name-Songs · throat singing** | One sustained vocal fundamental with a moving upper overtone melody, long vowels, sparse plucked punctuation | Grave, concentrated, enduring | Experimental vocal identity; production vocals deferred; instrumental contour reduction is weaker |
+| Orsimer | **Seven-Step Oath-Songs** | Deliberate 2+2+3 grouping, compact four-note material, clipped words, damped instrumental answers and decisive rests | Resolute, exacting, communal | Portable instrumental release candidate; vocal version remains experimental |
+| Orsimer | **Close-Circle Songs** | Plain lead phrases with compact chord blocks that change and stop together | Solemn solidarity, intimate warmth | Plucked chord-block release candidate; three-voice form is a deferred ensemble study |
 | Bosmer | **Leaping tales** | Quick five-pulse 3+2 grouping, wide angular leaps, dry attacks, shortened answers and sudden gaps | Mischievous, alert, slightly uncanny | Preferred broadly usable Bosmer candidate |
 | Bosmer | **Hunting-call airs** | Brief sharply defined calls, separated registers, complete pauses and clean endings | Watchful, restrained, faintly predatory | Strong flute and quiet-instrumental candidate |
 | Bosmer | **Spinner's tales** | Conversational singing, a recurring three-note tag, elastic phrase lengths and character changes by one voice | Intimate, absorbing, uncanny | Narrative finalist; weaker as a drum-only or purely instrumental identity |
@@ -392,7 +515,7 @@ The exploration produced **18 Orsimer candidates and 22 Bosmer candidates**, wit
 
 The initial Bosmer proposal shared the Orsimer candidate's seven-pulse grouping. The selected Bosmer audition brief uses **five pulses grouped 3+2** instead. Its fast, angular, broken delivery also separates it from Falkreath's slow descending five-beat lament. Meter is a listening target, not a verified model capability.
 
-### Candidate fragments
+### Candidate Fragments
 
 These fragments use the same core/voice/instrument contract as the existing profiles. Every finalist now has a named audition influence, with a `reference_focus` that preserves its fictional fingerprint and identifies the reduction. A named audition resolves through `traditions`; no candidate is implicitly activated for every NPC of that ancestry.
 
@@ -469,15 +592,15 @@ traditions:
     drum: "short muted strokes in changing phrase lengths, a recurring three-stroke tag and deliberate pauses"
 ```
 
-For `orc_close_circle`, append `ensemble_clause` only when the three specified singers are visibly participating. The solo lute supplies the chordal reduction; a lone flute or drum uses only its declared reduced line and omits the chordal `core`. For `orc_resonant_names`, require `solo_overtones` only for the sung technique, and label the instrumental version as a reduction. For `bosmer_spinners_tales`, an instrumental render uses the tag/phrase structure without pretending that characters are speaking. The same physical roster constraints apply to every profile.
+For `orc_close_circle`, append `ensemble_clause` only when the three specified singers are participating in the experimental study. Solo plucked strings supply the chordal reduction. Its retained monophonic sketches do not authorize flute or drum choices: the current workshop omits those because they lose the defining chord responses. For `orc_resonant_names`, require `solo_overtones` only for the experimental sung technique, and label the instrumental version as a contour reduction rather than throat singing. For `bosmer_spinners_tales`, an instrumental render uses the tag/phrase structure without pretending that characters are speaking. The same physical roster constraints apply to every profile; game ensembles additionally need validated visible roles.
 
-### What to audition first
+### What to Audition First
 
-The first live Resonant Name-Songs take (2026-10-08) received listener feedback that its voice was too light and delicate to fit the intended Orc performer. Its submitted prompt omitted Skyrim, Orc identity and explicit vocal weight, and the technique clause omitted the earlier draft's low fundamental. The revised recipe adds setting, separate audition casting and a stronger low-fundamental instruction. This is a prompt correction awaiting another listening comparison, not a claim that the model will now obey it. Retain the original take as the comparison baseline.
+The first live Resonant Name-Songs take (2026-10-08) received listener feedback that its voice was too light and delicate to fit the intended Orc performer. Its submitted prompt omitted Skyrim, Orc identity and explicit vocal weight, and the technique clause omitted the earlier draft's low fundamental. The revised recipe adds setting, separate audition casting and a stronger low-fundamental instruction. Subsequent discussion still identified vocal credibility and convincing throat singing as unresolved model-fidelity problems. These prompt changes do not establish success. Retain the original take as the comparison baseline and defer production vocals while developing instrumental options.
 
-1. Compare Resonant Name-Songs and Seven-Step with the same one-singer/one-lute arrangement and recording perspective. Then compare each one's honest lute-only version. Their portability matters under the existing roughly 50/50 instrumental composition policy.
+1. Compare the Orsimer instrumental candidates first: Seven-Step's deliberate grouping, Close-Circle's chord blocks and Resonant Name-Songs' honest contour reduction. Use the same performer, region and recording perspective. No winner is selected by this document update. Keep one-singer Resonant/Seven-Step tests as experiments; successful transport or a low chant does not satisfy the vocal release gate.
 2. Compare Leaping tales, Hunting-call airs and Spinner's tales on the same performer. Leaping tales is the first default candidate; the other two must earn space by audible distinction.
-3. Compare Close-Circle's solo lute reduction now; its three-singer form waits for a matching visible ensemble. The three-person adaptation is not labeled authentic Sardinian tenore, which is a four-part tradition.
+3. Compare Khajiit sitar, bansuri and unaccompanied tabla as separate arrangements; compare Argonian kacapi and suling for recognizable recurring pitched cells. Do not ask a tabla solo to reproduce a raga melody or add an unseen melodic accompanist. Close-Circle's three-singer study stays experimental and game deployment waits for a matching visible ensemble; the three-person adaptation is not labeled authentic four-part Sardinian tenore.
 4. Listen without labels. Score the actual meter, phrase shape, articulation, timbre, source count and identity against the nearest existing neighbor. Overall production polish does not substitute for distinctness.
 5. Preserve failed renders as failed auditions: an ordinary low chant is not successful overtone singing; a choir is not one singer; flattened meter has not met the rhythmic target. A simpler core can still win if it remains distinctive.
 
@@ -485,116 +608,149 @@ Real technique references: [UNESCO on solo khoomei](https://ich.unesco.org/en/RL
 
 The explicit-name audition revision adds provisional anchors to the original fictional forms: Bulgarian rachenitsa for Seven-Step, Balkan aksak dance music for Leaping tales, Swedish kulning for Hunting-call airs, and Japanese biwa narrative song for Spinner's tales. These choices borrow selected features and preserve the existing recipes; they are not retrospective claims that the forms were modeled completely on those traditions. [University of Arizona's meter guide](https://opentextbooks.library.arizona.edu/folkdance/chapter/chapter-28/) documents the 2+2+3 rachenitsa grouping; Leaping tales retains its separately specified 3+2. [Sweden's Institute for Language and Folklore](https://www.isof.se/folkminnen/amnesomraden/folklig-sang-musik-och-dans/lar-dig-mer-om-folklig-sang-och-musik/fabodarnas-toner) describes kulning and short herding melodies. [Smithsonian's biwa program notes](https://asia-archive.si.edu/podcast/voice-of-the-biwa-junko-tahara-ensemble/) describe narrative song with plucked-lute accompaniment. The Pale's original coastal air uses a provisional Scottish/Hebridean slow-air anchor; the [Scottish Music Centre's Highland-air collection](https://www.scottishmusiccentre.com/shop-all/p/musica-scotica-vol-vii-original-highland-airs-collected-at-raasay-in-1812-by-elizabeth-jane-ross) provides a named song-air and instrumental repertoire for comparison.
 
-### Bosmer materials and learning
+### Bosmer Materials and Learning
 
 Keep personal instrument material/observance choices separate from musical idiom. The installed bios give Yarbrough and Daenlyn lute skills and Nordic training; the new Bosmer candidates do not automatically replace their learned repertoire. Imported materials and differing interpretations of the Pact also have textual support: [official Y'ffre Q&A, preserved transcript](https://elderscrolls.fandom.com/wiki/Loremaster%27s_Archive%3A_Y%27ffre%27s_Beckoning) and [The Green Pact and the Dominion, game-book transcript](https://teso.mmorpg-life.com/the-green-pact-and-the-dominion-lorebook/). These are not a blanket ruling on every character's instrument. Bone, hide or imported materials are optional individual details when the prop and characterization support them.
 
-## Hold profiles
+## Hold Profiles
 
 `dialect` supplies the selected regional Nord repertoire. `tint` is a compatible local influence on another selected tradition, never an unconditional overwrite. These are compositional adaptations of the references, not claims that an entire real tradition has these exact properties.
 
+The table and YAML describe the provisional baseline recipes. Sean-nós is separate in `comparison_profiles`; former mixed targets and wider reductions are deferred.
+
 | ID | Capital | Reference tradition | Why |
 |---|---|---|---|
-| `haafingar` | Solitude | Danish court of Christian IV, where Dowland was lutenist | A northern court importing southern polish |
-| `eastmarch` | Windhelm | Icelandic rímur and tvísöngur | Oldest city, most traditionalist |
-| `whiterun` | Whiterun | Swedish and Danish ballads, polska | The baseline |
-| `reach` | Markarth | Gaelic sean-nós, puirt à beul, pibroch | Reachman influence |
-| `falkreath` | Falkreath | Karelian lament and runo-song | A graveyard town's music |
-| `rift` | Riften | Playford dance tunes, broadside ballads | Tavern town |
+| `haafingar` | Solitude | Renaissance galliard | A northern court importing southern polish |
+| `eastmarch` | Windhelm | Icelandic rímur | Oldest city, most traditionalist |
+| `whiterun` | Whiterun | Scandinavian medieval narrative ballad | The baseline |
+| `reach` | Markarth | Reel-based puirt-à-beul | Reachman influence |
+| `falkreath` | Falkreath | Karelian runo-song | A graveyard town's music |
+| `rift` | Riften | Playford-style English country-dance jig | Tavern town |
 | `winterhold` | Winterhold | Sámi joik | Far north, sparse |
-| `pale` | Dawnstar | Original northern coastal air, auditioned with Scottish and Hebridean slow-air influences | Long exposed calls over a slow rocking pulse, distinct from Winterhold’s circular vocables |
-| `hjaalmarch` | Morthal | Lithuanian sutartinės | Haunted marsh, hold run by a seer. Mirrors Windhelm: the grating second against the hollow fifth |
+| `pale` | Dawnstar | Hebridean iorram-inspired rowing song | Broad sung lines over a measured rowing pulse |
+| `hjaalmarch` | Morthal | Lithuanian sutartinės | Interlocking instrumental figures and exposed seconds |
 
 ```yaml
 holds:
   haafingar:
-    lute_instrumental: "refined upper melody over spacious chord answers, a clear triple dance pulse"
-    core_monophonic: "polished triple dance motion, refined single-line phrases and clear cadence returns"
-    reference: "the Danish court of Christian IV and Dowland's lute airs"
-    dialect: "polished courtly style, recognizable triple dance pulse, refined airs and spacious instrumental answers"
-    tint: "polished, courtly phrasing"
+    reference: "Renaissance galliard"
+    dialect: "clear triple galliard dance, balanced phrases, shaped cadences and developed lute passagework"
+    voice: "measured syllabic singing that preserves the triple dance pulse"
+    lute: "refined passagework and spacious chord answers within the triple dance"
+    lute_instrumental: "refined galliard melody and developed passagework over spacious chords in clear triple time"
+    tint: null
 
   eastmarch:
-    drum: "isolated low strokes at the ends of declaimed phrases; leave speech-paced gaps"
-    core_instrumental: "austere heroic melody, narrow range, irregular declamatory phrase lengths and complete pauses"
-    lute_instrumental: "austere narrow melody punctuated by bare fifths and clean pauses"
-    reference: "Icelandic rímur and tvísöngur"
-    reference_focus: "austere narrative declamation and open-fifth color; a single melodic line replaces the second singer in a solo reduction"
-    dialect: "austere speech-shaped heroic phrases, narrow melodic range and exposed single melody"
-    tint: "sparser and more austere"
-    lute: "bare fifths between phrases and single notes following the lead melody"
+    reference: "Icelandic rímur"
+    dialect: "austere syllabic narrative declamation, narrow range and speech-shaped phrases with clear pauses"
+    voice: "articulated English narrative verse, speech-shaped and restrained with few ornaments"
+    lute: "isolated plucked notes and bare fifths punctuate vocal phrases"
+    lute_instrumental: "austere narrow melody, irregular declamatory phrases, bare fifths and clean pauses"
+    tint: null
 
   whiterun:
-    drum: "broad three-pulse groups with a weighted first beat and a lighter turning third"
-    lute_instrumental: "plain modal refrain above open tonic and fifth strings, a broad triple dance lilt"
-    core_monophonic: "strophic Dorian or Mixolydian melody, short refrain, plain ornaments and broad triple sway"
-    reference: "Swedish and Danish ballads and polska dance tunes"
-    dialect: "strophic ballad with a short refrain, Dorian or Mixolydian mode, steady drone on the tonic and fifth, triple-meter dance lilt in livelier pieces"
+    reference: "Scandinavian medieval narrative ballad"
+    dialect: "substantial strophic narrative verses and a short returning refrain, plain Dorian or Mixolydian melody"
+    voice: "plain syllabic storytelling, sustained complete verses and a short refrain"
+    lute: "restrained modal support on tonic and fifth, simple plucked answers"
+    lute_instrumental: "plain modal verse melody and a short returning refrain over sparse tonic and fifth strings"
     tint: null
 
   reach:
-    lute_instrumental: "one unfolding air with connected picked graces and increasingly ornamented variations"
-    reference: "Gaelic sean-nós song and pibroch"
-    dialect: "free-rhythm air with connected grace-note ornament and a slowly unfolding melody"
-    dance_dialect: "quick flowing mouth-music dance, connected ornamental runs and a recurring lively pulse"
-    tint: "extra grace-note ornament"
-    flute: "a plain theme followed by increasingly ornamented variations"
+    reference: "Scottish puirt-à-beul, reel-based mouth music"
+    dialect: "duple reel pulse, compact repeating dance strains and dense articulated syllables driving the rhythm"
+    voice: "quick clearly articulated English syllables, tightly fitted to the duple reel, voice driving the dance"
+    lute: "light plucked support following the vocal rhythm, brief picked ornaments"
+    lute_instrumental: "compact reel strains in clear duple time, tightly packed articulated notes and light ornaments"
+    tint: null
 
   falkreath:
-    drum: "slow five-beat groups, a falling sequence of softer attacks and a gap after each cell"
-    lute_instrumental: "short descending five-beat melody cells, sparse open strings and restrained repeats"
-    reference: "Karelian laments and runo-song"
-    dialect: "slow lament, narrow range within a fifth, perceptible five-beat repetition and short descending cells"
-    tint: "slower and more mournful"
+    reference: "Karelian runo-song"
+    dialect: "mournful repeated narrative cells, narrow range within a fifth, short descending melody in a perceptible five-beat cycle"
+    voice: "plain syllabic English lines returning to the same five-beat melodic cell"
+    lute: "sparse open strings reinforce each recurring five-beat cell"
+    lute_instrumental: "short descending five-beat melody cells, narrow range, sparse open strings and restrained repeats"
+    tint: null
 
   rift:
-    drum: "bouncing six-pulse jig groups, alternating deep first and crisp fourth strokes"
-    lute_instrumental: "catchy Mixolydian jig melody between bright chord strokes, bouncing compound pulse"
-    reference: "Playford English country dance tunes and broadside ballads"
-    dialect: "fast and bawdy, bouncing jig rhythm, major or Mixolydian mode, catchy strophic tune"
-    tint: "faster and rowdier"
+    reference: "Playford-style English country-dance jig"
+    dialect: "bouncing 6/8 jig, major or Mixolydian melody, compact repeated strains and bright phrase-ending accents"
+    voice: "direct syllabic English singing, spacious enough to hear the compound jig bounce"
+    lute: "bright chordal punctuation between compact repeating jig strains"
+    lute_instrumental: "catchy repeated jig strains between bright chord strokes in bouncing 6/8"
+    tint: null
 
   winterhold:
-    drum: "sparse returning stroke figure with open pauses; avoid a closing flourish"
-    lute_instrumental: "a sparse circular figure with returning small variations, open pauses and no grand cadence"
-    reference: "Sámi joik"
-    dialect: "sparse circular melody with recurring short figures and little sense of a beginning or final cadence"
-    voice: "plain wordless vocables, recurring intimate phrases"
-    tint: "sparser, with more silence between phrases"
+    reference: "Sámi joik, wordless adaptation"
+    dialect: "short circular melodic figures return with small variations, open-ended phrasing without a closing chorus"
+    voice: "wordless vocables only, intimate recurring figures with small changes; no lyrics, sentences or spoken words"
+    lute: "sparse plucked punctuation around the recurring vocal figure"
+    lute_instrumental: "short circular plucked figures with small variations and no grand final cadence"
+    tint: null
 
   pale:
-    drum: "widely spaced low strokes in a slow rocking compound pulse"
-    lute_instrumental: "long complete melody calls above widely separated low plucks, slow rocking compound pulse"
-    reference: "Scottish and Hebridean slow airs"
-    reference_focus: "long complete phrases, a slow rocking compound pulse and open gaps rather than circular joik or an unmetered lament"
-    dialect: "long exposed melodic calls, slow rocking compound pulse, broad register and silence between complete phrases"
-    tint: "more space between complete phrases"
-    lute: "widely separated low notes mark a slow rocking pulse"
-    flute: "long clear calls with distinct endings and open gaps"
+    reference: "Hebridean iorram-inspired rowing song"
+    dialect: "broad complete strophic lines over a measured slow 6/8 rowing pulse, natural breaths between phrases"
+    voice: "long clear English sung lines carried by the recurring rowing pulse"
+    lute: "widely spaced low plucks mark the measured rowing pulse without filling every breath"
+    lute_instrumental: "broad strophic melody over widely spaced low plucks marking a slow 6/8 rowing pulse"
+    tint: null
 
   hjaalmarch:
-    lute_instrumental: "one melody shadowed a whole step away on the same instrument, lingering adjacent-tone friction"
-    core_monophonic: "one hushed slowly reiterated melody with neighboring-note turns and lingering unstable endings"
-    # A compatible tint may affect Lurbuk; neither this region nor his race grants new mastery.
-    reference: "Lithuanian sutartinės"
-    reference_focus: "repeated motifs, neighboring-tone friction and interlocking or canonic phrasing; a single-line reduction uses neighbor-note turns rather than hidden parts"
-    dialect: "hushed slowly reiterated phrases, sustained neighboring-tone friction and lingering unstable endings"
-    tint: "hushed, unresolved, with clashing seconds"
-    lute: "melody shadowed a whole step away so the two lines grate"
-    flute: "circles the same few notes, leaning on clashing neighbor tones"
+    reference: "Lithuanian instrumental sutartinės"
+    dialect: "short interlocking repeated figures with exposed neighboring-note clashes and unresolved returns on one plucked instrument"
+    core_monophonic: "short repeated figures alternate neighboring notes with unresolved returns; a weaker single-line reduction without simultaneous seconds"
+    core_instrumental_monophonic: "short repeated figures alternate neighboring notes with unresolved returns; a weaker single-line reduction without simultaneous seconds"
+    voice: ""
+    flute: "one reedless flute repeats short cells and successive neighboring notes, leaving brief gaps; no simultaneous parts"
+    lute: "alternating short figures overlap on ringing strings, producing audible seconds on one plucked kanklės"
+    lute_instrumental: "short interlocking figures and simultaneous adjacent-tone clashes on one plucked kanklės, repeated with unresolved returns"
+    tint: null
+    core_instrumental: "short interlocking repeated figures, ringing adjacent-tone clashes and unresolved returns on one plucked instrument"
 ```
 
-## Workshop instrument adaptations
+## Blind Recognition Auditions
+
+**Accepted direction (16 October 2026), reconciled with the eleven-style baseline on 19 October 2026.** This mode tests the provisional palette; a completed software session does not establish a listening pass.
+
+**Current interaction policy (19 October 2026):** the dashboard uses an open-ended **Play → playback ends → judge → Play** loop. A radio choice selects **Clip** (roughly thirty-second Lyria Clip recordings) or **Full** (complete Lyria 3.5 songs). The listener decides when to stop; remove fixed session-size controls. Enable style judging only after playback ends. Give every style choice a concise musical description through a hover/focus tooltip, without target-specific emphasis. Hide the intended target, prompt, metadata and other answer cues until the listener chooses a style or "I'm Not Sure," then reveal the intended style and one short audible-signature cue. Written reviews remain optional. Use Title Case consistently for UI and document headings.
+
+The original seed configuration is three independent clips for each of the eleven canonical styles, or **33 clips**. Preserve those cached recordings, exact prompts and exposure history. Seeding establishes available listening material, not musical approval. **Play** first selects eligible matching audio according to the replay policy. If no eligible saved recording remains, that explicit action may start at most one new paid generation, cache it and play the result. Disclose the paid fallback before the action. Settings changes, reloads, playback completion and judging must never start a generation. Failure or interruption must not trigger an automatic retry. Separate batch preparation remains explicitly bounded by its disclosed request limit.
+
+**Three-Choice Judging (19 October 2026):** each question offers the intended style and exactly two distinct distractors sampled from the eligible style pool, plus **I'm Not Sure**. Shuffle the three style options without giving the target a fixed position. Save the offered options and their order with the trial; reloads and service restarts must not reroll them. Accept only an offered style or unsure. Preserve completed historical questions and their original options. Move an existing unanswered question to the three-choice format without replacing its audio. Use a one-in-three chance baseline for these questions and keep their scores separate from earlier full-palette results. This presentation change must preserve the existing recording pool and prompt cohort.
+
+Replay has three choices. **None** consumes the unseen compatible queue, then allows the one-generation fallback on **Play**. **All Cached** first selects a cached recording after the configurable interval in hours since its last exposure. **Incorrect Only** first selects previously missed recordings after that same interval, using the latest saved judgment, including practice corrections; unsure counts as a miss. Every audio play, including history playback, resets that recording's interval. When no replay is due, both replay modes fall back to unseen compatible stock, then the one-generation fallback. Replayed audio is always practice; returning to the queue or a new session does not create another first encounter. Balance fresh style exposure across the frozen choice set without changing historical first answers.
+
+Track first-encounter recognition separately from practice and replays. Report overall and per-style accuracy, attempt counts, the chance baseline for the actual choice set, and which pairs are confused. "I'm Not Sure" remains in the recognition denominator but is not an additional target style for the chance baseline. Freeze the format/model/provider route, prompt version, exact prompt, arrangement, actual instrument, neutral lyrics and active choice set for each pool cohort and preserve them with each result. A judging session must use its matching cohort; changed recipes or test conditions cannot silently borrow another pool's recordings or scores. Clip and Full remain distinct through their model and prompt identity; adding the format selector must not rewrite the existing Clip cohort. Keep/rework reactions capture musical suitability separately from recognition. Preserve saved takes and earlier results when the prompt revision changes.
+
+The default target and distractor pool is the eleven bases; each question displays only three of them. Reach sean-nós is an optional comparison with its own identity and history. Deferred cultures are excluded. Neutral supplied lyrics or instrumental auditions must avoid naming the target culture or region in the recording. Winterhold remains wordless in its canonical arrangement and Hjaalmarch remains instrumental. Instrument identity is a legitimate part of a style; also offer comparisons within a shared supported instrument family to check that traditions survive the same animation grammar. The shared family chooses one actual recipe instrument per performer; it does not require every tradition to use the same literal lute.
+
+Blind shared-family studies use only the admitted profiles whose `workshop_arrangements.allowed` contains the selected instrumental arrangement (`lute`, `flute` or `drum`). Each target pool must contain at least three supported styles to supply the intended style and two distractors; a single-style drum study cannot measure recognition. Record the resulting choice set and its chance baseline rather than substituting an unsupported arrangement or silently retaining excluded styles. These explicitly bounded studies do not unlock deferred profiles, broader side-by-side arrangements or new game animations. Honest monophonic reductions retain their limitation in the reveal. Keep canonical and shared-family scores separate.
+
+Use independent fresh generations, whether prepared in a bounded batch or requested once through **Play**, to distinguish recognition of a tradition from memorization of individual recordings. Replaying an answered take is practice; moving a recording between sessions or cohorts does not create a new first encounter. Keep the side-by-side workshop for investigating confused pairs. Short-clip results do not establish full-length Lyria 3.5 behavior; use Full and the intended longer arrangements to confirm finalists. Preserve browser custom directions without silently reusing them as the current blind recipe; show any conflict with a newly selected instrument before a normal workshop request.
+
+## Workshop Instrument Adaptations
+
+**Instrument policy confirmed (16 October 2026):** the lute prop permits any plucked string instrument, including plucked zithers; it does not require a European lute. The flute prop permits any reedless woodwind, including recorder, fife, bansuri and suling. Choose one specific instrument appropriate to the recipe and foreground its name in the outgoing prompt. Do not ask for a literal lute alongside an oud, biwa or another selected substitute. Explicitly exclude bowed-string sound from plucked arrangements and reed-driven sound from flute-family arrangements; a reference tradition does not authorize those additional sound sources.
+
+**Active instrument audit (19 October 2026):** the previous build forced every admitted profile to literal lute, overriding the authored cittern mappings. The reconciled eleven bases use cittern for Whiterun and the Rift, plucked kantele for Falkreath, plucked kanklės for Hjaalmarch, Persian setar for Solstheim, and lute for the six remaining bases. The Reach sean-nós challenger shares the Reach base's lute. These are provisional audition choices and remain unvalidated by generated listening. The [Met identifies setār as a plucked lute used with singing](https://www.metmuseum.org/art/collection/search/747200); [Uniarts' research connects the kantele with Finnish-Karelian runosong](https://www.uniarts.fi/en/projects/kantele-of-the-runosong-culture-and-the-dialogue-of-creativity/) and [identifies its plucked strings](https://www.uniarts.fi/en/events/isme-veila/). The Lithuanian source above supports Hjaalmarch's plucked kanklės. Their use here is an authored adaptation, not a claim of historical authenticity or a new game prop.
+
+`workshop_baseline` retains each style's canonical arrangement and vocal mode. Wider definitions below supply supported reductions for the explicitly admitted blind shared-family comparisons; they do not enable deferred cultures or broader side-by-side generations. Saved custom directions keep their original wording and can conflict with updated names; preserve them as historical drafts, flag the mismatch and offer an explicit reset to the current recipe.
 
 The shared selector chooses an arrangement family; each recipe names its actual instrument. Cittern supplies a bright plucked attack for selected dance/ballad reductions, oud for Redguard, sitar for Khajiit, biwa for Spinner’s tales, and kacapi plucked zither for the new Argonian audition. Other recipes retain lute. All strings are plucked; no bowed-string arrangement is offered. These are provisional timbral choices for fictional repertoire, not claims of historical authenticity or new game props. The [Met’s cittern](https://www.metmuseum.org/art/collection/search/504210) and [sitar](https://www.metmuseum.org/art/collection/search/500759) document those plucked families. [Smithsonian’s Sundanese collection](https://folkways.si.edu/java-sundanese-folk-music/world/music/album/smithsonian) provides the instrumental zither/flute reference for Argonian; the earlier gamelan sketch is retained as repeating-cell inspiration rather than requesting its ensemble.
 
 Khajiit and Argonian recipes are instrumental only. Choosing either race for another recipe also excludes sung arrangements. This is a workshop audition policy motivated by the current model’s voice limitations, not a statement that those peoples cannot sing. Existing vocal takes and edited directions remain stored. Supplied lyrics stay selected but are omitted from instrumental requests.
 
-Solo percussion is offered for Seven-Step, Leaping tales, Redguard cycles, Rift jigs and Khajiit tabla solos, where the rhythm has a specific signature. The Khajiit percussion variant names Hindustani tabla solo rather than requesting a reduction of a raga melody: one player uses the dayan/bayan pair, teental, bass slides, quick finger variations and a concluding tihai. No melodic accompanist or spoken drum syllables are requested. [Darbar’s tabla guide](https://darbar.org/tabla/) describes the paired drums and solo repertoire; its [teental recital](https://player.darbar.org/videos/dch339-tabla-solo-by-satyajit-talwalkar) documents the 16-beat cycle, and its [concert guide](https://player.darbar.org/packages/indian-music-appreciation-course/videos/concert-performance-sukhdeep-dhanjal-and-harmeet-virdee) explains the threefold tihai resolution. Solo voice is retained for vocal-led forms; chordal court/counterpoint and neighboring-tone recipes omit it. Close-Circle keeps plucked-string reductions and its explicit three-voice study. Flute reductions are single lines; voice with flute alternates. Unsupported choices show a reason before a request can be sent.
+Orsimer sung and throat-singing finalists are deferred research, while the eventual initial cultural game-release target remains instrumental only. Baseline admission must precede any new audition; an enabled audition is not production approval. Promote an Orsimer vocal style only after convincing voice and technique comparisons; defer beastfolk vocals until the same credibility problem is solved. Phase 1 can audition the plucked-string reductions; flute, drum and voice-only deployment require their later integration gates.
+
+The deferred solo-percussion definitions cover Seven-Step, Leaping tales, Redguard cycles, Rift jigs and Khajiit tabla solos, where the rhythm has a specific signature. The Khajiit percussion variant names Hindustani tabla solo rather than requesting a reduction of a raga melody: one player uses the dayan/bayan pair, teental, bass slides, quick finger variations and a concluding tihai. No melodic accompanist or spoken drum syllables are requested. [Darbar’s tabla guide](https://darbar.org/tabla/) describes the paired drums and solo repertoire; its [teental recital](https://player.darbar.org/videos/dch339-tabla-solo-by-satyajit-talwalkar) documents the 16-beat cycle, and its [concert guide](https://player.darbar.org/packages/indian-music-appreciation-course/videos/concert-performance-sukhdeep-dhanjal-and-harmeet-virdee) explains the threefold tihai resolution. Solo voice is retained for vocal-led forms; chordal court/counterpoint and neighboring-tone recipes omit it. Close-Circle keeps plucked-string reductions and its explicit three-voice study. Flute reductions are single lines; voice with flute alternates. Unsupported choices show a reason before a request can be sent.
 
 `lute` and `lute_voice` remain the stored arrangement keys so older notes and takes remain readable; their workshop labels now mean the plucked-string family.
 
 ```yaml
+workshop_instrument_rules:
+  plucked: "No bowed strings."
+  flute: "No reed-driven sound."
 workshop_omissions:
   lute_voice: "No sung plucked-string arrangement is defined for this instrumental recipe."
   lute: "No plucked-string reduction preserves this recipe yet."
@@ -605,6 +761,10 @@ workshop_omissions:
   voice: "A lone voice would lose the defining chordal or instrumental structure."
   trio: "Only Close-Circle currently defines a three-voice ensemble."
 workshop_arrangements:
+  reach_sean_nos:
+    plucked: "lute"
+    allowed: [lute_voice]
+    note: "Sole admitted Reach challenger; compare against puirt-à-beul under the same arrangement."
   orc_resonant_names:
     plucked: "lute"
     allowed: [lute_voice, lute, flute, drum_voice, voice]
@@ -645,7 +805,7 @@ workshop_arrangements:
     plucked: "oud"
     allowed: [lute_voice, lute, flute, flute_voice, drum, drum_voice, voice]
   dunmer:
-    plucked: "lute"
+    plucked: "Persian setar"
     allowed: [lute_voice, lute, flute, flute_voice, voice]
   altmer:
     plucked: "lute"
@@ -677,7 +837,7 @@ workshop_arrangements:
   haafingar:
     plucked: "lute"
     allowed: [lute_voice, lute, flute, flute_voice]
-    note: "The flute versions are melodic reductions of the court air; plucked strings retain its harmonic answers."
+    note: "The baseline keeps one voice and lute in a triple galliard. Other arrangements remain deferred."
   eastmarch:
     plucked: "lute"
     allowed: [lute_voice, lute, flute, flute_voice, drum_voice, voice]
@@ -688,7 +848,7 @@ workshop_arrangements:
     plucked: "lute"
     allowed: [lute_voice, lute, flute, flute_voice, voice]
   falkreath:
-    plucked: "lute"
+    plucked: "plucked kantele"
     allowed: [lute_voice, lute, flute, flute_voice, drum_voice, voice]
   rift:
     plucked: "cittern"
@@ -700,74 +860,83 @@ workshop_arrangements:
     plucked: "lute"
     allowed: [lute_voice, lute, flute, flute_voice, drum_voice, voice]
   hjaalmarch:
-    plucked: "lute"
+    plucked: "plucked kanklės"
     allowed: [lute_voice, lute, flute, flute_voice]
-    note: "Plucked strings can retain simultaneous neighboring tones; flute uses an explicitly weaker sequential reduction."
+    note: "Canonical instrumental kanklės preserves interacting figures and neighboring-note clashes; the blind flute reduction uses successive neighboring notes and cannot reproduce simultaneous seconds."
 ```
 
-## Regions beyond the nine holds
+## Regions Beyond the Nine Holds
 
 | Region or community | First palette decision | Distinctive role |
 |---|---|---|
-| Cyrodiil | `imperial_vernacular` for an appropriate local/learned popular repertoire; `imperial` remains the court/expressive solo option | Firm pulse, short refrain and clear harmonic arrivals; further Colovian/Nibenese subdivision can follow |
+| Cyrodiil | `imperial`, Italian early Baroque monody | Moving harmony and expressive solo singing; vernacular and subregions deferred |
 | Gray Quarter and Raven Rock | Shared `dunmer` core | Predominant mournful modal repertoire; local song choices and arrangement density may diverge later |
 | Skaal community | Separate northern tradition slot; no default assigned yet | Do not apply Raven Rock's Dunmeri mapping to all Solstheim residents or duplicate every northern mode |
 | Other added regions | Explicit available repertoire, then known character culture, otherwise unknown-region fallback | Preserve individual learning and avoid false location guesses |
 
-Overtone singing is concentrated in the Orsimer specialist finalist for the first audition palette. A later named Skaal or other performer could learn it, but adding it to every northern region now would weaken the new distinction.
+Overtone singing is reserved for a deferred Orsimer specialist finalist. A later named Skaal or other performer could learn it, but adding it to every northern region now would weaken the new distinction.
 
-## Palette boundaries and alternatives
+## Palette Boundaries and Alternatives
 
-The objective is distinctness of sound, not equal emotional coverage. Dunmer remains predominantly mournful. These boundaries are now reflected in the fragments above; alternatives are held for later auditions rather than silently merged into the core.
+The objective is distinctness of sound, not equal emotional coverage. Dunmer currently remains predominantly mournful. These working boundaries are reflected in the fragments above; alternatives are auditioned separately rather than silently merged into the core. Revise the comparison criteria when reference listening changes a profile's target, while retaining a clearly distinguishable palette.
 
 | Neighbors | Boundary to preserve | Alternative held in reserve |
 |---|---|---|
-| Redguard / Khajiit | Articulated repeated cycles and firm returns / sustained slides and gradually unfolding development | A separately researched Redguard narrative-ostinato branch, including possible griot influences |
-| Dunmer / Breton folk / Falkreath | Long melisma and modal tension / syllabic text-led stanzas / short descending five-beat cells | Rare convivial Dunmer condition later |
-| Imperial / Breton court / Haafingar | Rhetorical solo melody and harmonic arrivals / restrained intimacy / clear triple dance motion | Distinct local vernaculars, not a universal College override |
-| Argonian / Hjaalmarch | Crisp continuous recurring cells / slow sustained adjacent-tone friction | More varied communal Argonian responses after the core is audible |
-| Winterhold / Pale | Sparse circular vocables / long complete calls over slow rocking time | A separately developed Skaal mode later |
-| Orsimer / Bosmer | Held resonance or synchronized firm attacks / quick changing phrases, leaps and gaps | Further social occasions only after the main audition distinguishes them |
-| Altmer / Orsimer ensemble | Independent moving/imitating lines / compact chord blocks that move and stop together | Additional ensemble forms require their own visible roster |
+| Reach / Rift | Dense duple vocal reel / spacious syllabic 6/8 jig | Sean-nós is the sole admitted challenger, not an automatic alternate |
+| Falkreath / Eastmarch | Descending five-beat cells / speech-shaped narrative declamation | Free lament and tvísöngur deferred |
+| Haafingar / Cyrodiil | Triple galliard / expressive monody over moving harmony | Court airs, frottola and villanella deferred |
+| Pale / Whiterun / Winterhold | Broad rowing-pulse lines / modal verses with short refrain / circular vocables | Composite coastal airs and polska deferred |
+| Hjaalmarch / Winterhold | Instrumental interlocking figures and seconds / circular vocal melody | Sung sutartinės deferred; replace the base if its instrumental test fails |
+| Reach sean-nós / Eastmarch / Pale / Solstheim | Ornamented free air / declamation / measured rowing / Persian modal melisma | Choose the preferred Reach base using listening evidence |
 
-## Fragment-writing rules
+
+## Fragment-Writing Rules
 
 - Describe features (mode, meter, ornament, delivery), not just a tradition name.
-- Name only sound sources represented by the visible animation family. A lute-family line may request related plucked-string timbres such as oud, vihuela, cittern or sarod; these are alternatives for that player, never additional instruments. Apply the same discipline to flute and drum families. Timbral plausibility must be auditioned.
+- Name only sound sources represented by the visible animation family. A lute-family line may request any plucked string instrument, such as oud, vihuela, cittern, sarod, biwa, sitar or a plucked zither; these are alternatives for that player, never additional instruments. A flute-family line may request any reedless woodwind. Name the selected instrument directly, exclude bowed-string and reed-driven substitutes respectively, and apply the same source-count discipline to drum families. Timbral plausibility must be auditioned.
 - In solo prompts, omit any implication of another performer. Describe voice/instrument exchange by the one musician explicitly. In ensemble prompts, every additional voice, instrument or clap must match a visible role and a source count.
 - Name the musical source even when adapting an ensemble tradition. Label the reduction and retain the concrete compositional description; the source name never authorizes absent voices or instruments.
-- Keep each fragment to one clause list. Proposed budget: at most 400 characters for the selected reference/core-or-dialect/tint layer, with separately bounded voice and instrument clauses. Enforce the limit after assembly without cutting off a defining feature; exact voice/instrument limits remain an implementation decision.
+- Keep each fragment to one concise clause list. The workshop's implemented contract is at most 1,000 characters for the complete default music prompt, excluding lyrics; shorten repetitive source prohibitions and editorial rationale before removing the defining musical features. Flag longer custom directions without truncating them. A 400-character musical-layer budget is an editorial guide, not a replacement for checking the complete assembled prompt.
 
 ## Config
+
+These are target controller settings, not the current workshop or game-pilot configuration. The earlier optional-name proposal is superseded: current workshop recipes always name their real-world style reference.
 
 | Setting | Default | Effect |
 |---|---|---|
 | `regional_variation_enabled` | false | Master toggle. Off means output identical to current behavior |
-| `include_tradition_names` | true | Adds the `In the style of {reference}:` prefix |
 | `hold_tint_enabled` | true | Lets non-Nords pick up hold tints |
 | `college_repertoire_enabled` | true | Allows established learned repertoire; never forces Haafingar or court music |
 | `audition_tradition` | unset | Explicit candidate selection during comparisons; never an automatic six-way mixture |
 
-## Acceptance criteria
+## Acceptance Criteria
+
+The current workshop must admit exactly eleven bases plus Reach sean-nós, reject deferred profiles and unsupported arrangements before provider access, exclude lyrics from Winterhold and Hjaalmarch, preserve historical records, and label every base as awaiting listening tests. Normal side-by-side generations retain the canonical arrangements; blind studies may additionally use the supported shared instrumental families described above. Blind recognition follows the open-ended Clip/Full Play-and-judge loop, enables choices after playback ends, consumes eligible cached audio first and permits only one disclosed paid fallback per explicit Play. It hides answer cues until guessing, balances fresh exposure, records the exact choice set, includes unsure answers in accuracy, and separates practice and frozen recipe cohorts. Replay eligibility respects the configured hours and selected policy. Seeding and replenishment retain explicit bounded paid authorization and no automatic retries. The broader eventual integration criteria below remain deferred.
 
 - An explicitly selected Nord regional performance can produce distinct Solitude, Windhelm and Falkreath prompts without erasing a biography-selected tradition.
 - A Nord and Redguard with different selected traditions in the same inn produce audibly distinct intended structures, not merely different labels.
 - Orsimer and Bosmer each have an explicit selected audition candidate while their production core is unset. Bosmer receives a musical layer with a lute; no race-wide material ban removes it.
+- The initial Orsimer, Khajiit and Argonian cultural release uses instrumental recordings only. Deferred vocal experiments do not enter the production pool merely because they generated successfully; the current Nord pilot's legacy behavior is a separate boundary.
+- Khajiit includes an unaccompanied tabla-pair solo with a distinct rhythmic brief. Argonian uses its revised pitched-cell instrumental identity and does not receive a generic drum solo that erases it.
 - The near-neighbor pairs in the boundary table are distinguishable in blind listening, including when their predominant moods match.
 - Across region, tradition, instrument, singing and roster combinations, every audible source has a matching visible role. One flutist never supplies simultaneous independent sung and blown parts.
 - Specialist overtone singing requires an assigned technique; ancestry, low voice or a College flag is insufficient. Lurbuk's existing limitations remain meaningful.
 - Drum-only and reduced flute arrangements contain no impossible pitched/chordal instructions. Instrumental fallback identifies its actual selected repertoire.
 - Unknown culture with unknown region preserves the existing behavior; the master switch off remains byte-identical to the current implementation.
-- The assembled regional layer respects its character limit; voice/instrument clauses preserve the defining features and source constraints.
-- Authored motifs, meters and overtone effects remain proposed until heard in generated output. This document does not claim in-game or audio validation.
+- Every workshop music prompt names the reference, actual performer race, target region and chosen sound sources, including when custom musical directions are used. Complete defaults stay within 1,000 characters excluding lyrics; copied music contains the whole assembled direction, and optional lyrics are copied separately and preserved verbatim.
+- Authored motifs, meters and overtone effects remain proposed until heard in generated output. The documented Nord pilot playback does not validate these cultural recipes, deferred vocal techniques or later-phase animations.
 
-## Open questions
+## Open Questions
 
-1. **Orsimer winner.** Does Resonant Name-Songs produce true one-singer overtones and remain worthwhile beside its instrumental reduction, or should the portable Seven-Step candidate supply the initial core?
+The immediate engineering priorities are deterministic controller handoff, the repeatable preparation/playback loop, durable jobs and deployment, and explicit performer/recipe identity in the [development roadmap](development-roadmap.md). Listening can answer the questions below as time permits. Additional workshop cultures, arrangements, modes and minority moods remain deferred until intentionally admitted, without requiring all eleven bases to pass first.
+
+1. **Orsimer winner and deferred vocals.** Which instrumental finalist is most distinctive and portable for the initial release? Keep the production core unset until comparison. Later, can Resonant Name-Songs produce a credible Orc voice with true one-singer overtones, rather than ordinary low singing?
 2. **Bosmer winner.** Does Leaping tales retain its quick 3+2 spring, articulation and gaps reliably? Do Hunting-call airs and Spinner's tales deserve immediate additional repertoire or later expansion?
-3. **Performer connection.** Which actor/context data reaches the request and cache? Implement stable identity, known repertoire, capabilities and actual arrangement before automatic selection.
+3. **Performer connection.** Extend beyond the pilot's bard/location marker and the offline authored registry to a live contract with stable identity, known repertoire, capabilities and actual arrangement before automatic cultural selection. Enforce instrumental-only eligibility before any vocal probability or cached-track choice.
 4. **Animation and synchronization.** Validate voice-only, flute/drum choices, clapping control and ensemble handoffs. Stomping has no confirmed asset/control path yet.
 5. **Moon phase.** The phase-mode map remains a starting guess using Masser. Decide whether Secunda should matter and confirm phase data is available.
 6. **Pitch and meter fidelity.** Test overtone melody, 7-pulse/5-pulse patterns, modal tuning and clean silences. Do not assume model fidelity from prompt wording.
 7. **Regional development.** Develop Skaal and further Cyrodiil local forms after the first distinct palette. Keep Raven Rock and the Gray Quarter connected through the Dunmeri core.
 8. **Rare conditions.** Add cheerful Dunmer and other minority moods after the core palette succeeds. Predominant moods do not need equal balancing now.
+9. **Beastfolk voices.** Revisit singing only when a generated Khajiit or Argonian voice is convincing for the intended performer. Keep sitar/bansuri/tabla and kacapi/suling development useful independently of that gate; another prompt wording alone is not evidence that it has been passed.
+10. **Baseline fidelity and Reach choice.** Can Lyria preserve and switch among all eleven selected styles across fresh takes and English texts? Does the sole sean-nós challenger remain distinct from Eastmarch, Pale and Solstheim, and prove enjoyable enough to replace puirt-à-beul? Rímur-only Eastmarch and iorram-inspired Pale are already provisional targets; their repeatability and separation still need listening evidence.
