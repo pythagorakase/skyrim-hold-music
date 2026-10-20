@@ -310,12 +310,16 @@ class Library:
 
     def add_recording(self, wav_path, *, performer_id, region, mode, gender,
                       composition_id, recipe_id, model_id, source, lyrics=None,
-                      slot=None, created_at=None, generation_receipts=(), **extra):
+                      slot=None, created_at=None, generation_receipts=(),
+                      require_unoccupied=False, **extra):
         """Publish a WAV and optional lyrics, then atomically replace the manifest.
 
         Explicit slot replacement requires a session boundary and no session lock.
         Serial writer API: the caller must pause the game writer during replacement.
+        require_unoccupied forbids replacement even when a session boundary exists.
         """
+        if type(require_unoccupied) is not bool:
+            raise ValueError('require_unoccupied must be boolean')
         self.load()
         if self._write_errors:
             raise ValueError('Cannot write invalid library: ' + '; '.join(self._write_errors))
@@ -331,6 +335,8 @@ class Library:
         existing = next((r for r in self.recordings if r['slot'] == slot), None)
         target = self.root / f'hm_slot_{slot:02d}.wav'
         sidecar = target.with_suffix('.lyrics.txt')
+        if require_unoccupied and (existing or target.exists() or sidecar.exists()):
+            raise ValueError('Import requires an unoccupied slot; replacement is forbidden')
         if (existing or target.exists() or sidecar.exists()) and self.session_receipt_index is None:
             raise ValueError('slot replacement requires session_receipt_index')
         if lyrics is not None and (mode != 'vocal' or not _text(lyrics)):
@@ -371,9 +377,16 @@ class Library:
             staged_wav = stage / 'new.wav'
             shutil.copyfile(wav_path, staged_wav)
             wav_info(staged_wav)
+            if require_unoccupied:
+                fresh = Library(self.root, session_receipt_index=self.session_receipt_index,
+                                receipts_path=self.receipts_source)
+                if slot not in fresh.free_slots() or fresh.manifest != self.manifest:
+                    raise ValueError('Library changed before unoccupied-slot publication')
             backups = {}
             for path in (target, sidecar):
                 if path.exists():
+                    if require_unoccupied:
+                        raise ValueError('Import requires an unoccupied slot; replacement is forbidden')
                     backup = stage / (path.name + '.bak')
                     shutil.copyfile(path, backup)
                     backups[path] = backup

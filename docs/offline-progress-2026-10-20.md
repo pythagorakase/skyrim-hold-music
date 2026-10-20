@@ -269,16 +269,81 @@ recovery boundaries. Empty parent directories may remain after rollback; there
 is no recursive directory deletion or arbitrary historical rollback command.
 Library merging, profile enablement and actual runtime compatibility remain
 separate requirements. This checkpoint changes no musical recipe or audition.
+Source checkpoint `4a020e9` is synchronized across GitHub, Halcyon and Echo;
+`local/static-promotion-publish-20261020/verification.json` records the identities
+and unchanged audition inventory.
+
+## Sixth checkpoint: reviewed imports and additive library planning
+
+- Existing-audio import now defaults to read-only CLI review. Explicit apply
+  binds the source, raw lyrics, complete optional metadata, converter and current
+  library/receipt state. Source bytes are frozen for conversion and inputs are
+  checked again before publication. Fixtures use a fake converter and no provider.
+- New imports without asserted provenance use an unknown model rather than the
+  former Lyria placeholder. Historical rows are unchanged. Explicit metadata
+  includes recipe revision, named instrument, family, arrangement and voice,
+  with file hashes and performer/region/mode/gender cross-checks. It records
+  operator assertions; no current palette values or provider evidence are inferred.
+- Import remains an offline source-library operation. Destinations carrying
+  `runtime_selection` are rejected; staging must explicitly derive the playback
+  contract from a planner request. Import publication uses the existing serial
+  writer and does not claim the static transaction's crash-recovery guarantees.
+- A separate read-only merge planner compares two explicit flattened libraries,
+  validates projected incoming identity/assets and proposes deterministic free
+  slot remapping. Existing rows, history, receipt reservations and orphan assets
+  are preserved. Incoming generation/performance history is not copied.
+- Conflicting contracts and implicit activation over an existing legacy performer
+  block additive planning. New-performer contract additions remain proposed
+  actions only. Snapshot tokens identify the review; there is no merge apply
+  command, and static package promotion still rejects library merging.
+- Independent review distinguished compatibility from individual audio takes:
+  different renditions may share a recipe and composition, while exact matching
+  content can be recognized as already present. Existing duplicate destination
+  rows remain untouched. The complete proposed manifest is validated after
+  combination; nullable legacy fields are preserved and any resulting projection
+  incompatibility blocks the proposal instead of rewriting historical metadata.
+- Import publication explicitly requires an unoccupied slot, including a fresh
+  check after conversion/staging. A competing publication injected after final
+  import preflight was preserved and caused the import to stop. Other library
+  writers must still be stopped; this is not an arbitrary-writer transaction.
+
+Sixth-checkpoint validation:
+
+- **672 general tests on Windows:** 667 passed, five expected platform/capability
+  skips, including unavailable Windows fixture symlinks.
+- **672 general tests on macOS:** 671 passed, one expected platform skip.
+  The source-bound converter-symlink and library-alias cases ran there.
+  This checkpoint adds 76 cases across import, slot protection, merge planning,
+  CLI, independent safety and end-to-end integration.
+- **1,274 workshop prompt contracts on each host** passed. Dashboard SHA256
+  remains `baf0aaf094f70f3cf79c8ea6115cbfba724d47c9c00d7e30a70df86268679133`.
+- The retained synthetic proof at
+  `local/import-merge-fixture-proof-20261020/proof.json` passed all six checks.
+  It links reviewed import, exact repertoire selection, staged source provenance
+  and a proposed slot-1-to-slot-5 remap after preserving occupied, interrupted
+  and orphaned slots. The real merge CLI also printed the fixture review without
+  writing either library.
+- Echo tested source commit `3a147c4` in
+  `/tmp/holdmusic-import-merge-20261020.nlhy2o/source`; subsequent edits only
+  record validation. Logs and synchronization evidence are retained in
+  `local/import-merge-publish-20261020/`. Windows full-suite log:
+  `local/import-merge-checkpoint-20261020-tests-final.log`.
+- The compiled candidate and measured capability inputs are unchanged; compiled
+  package tests were not repeated for this Python-only checkpoint. Installed
+  controller PEX/source hashes retain the prior workaround, and no real promotion
+  control directory was created. No installed files, active configuration,
+  musical recipes, auditions or paid provider state were changed.
 
 ## Next bounded work
 
-1. Add explicit reviewed import metadata where needed. The old importer model
-   label is only a placeholder; it must not be used to infer a current recipe
-   revision or sound source for historical audio. Use synthetic/existing fixture
-   recordings and no paid provider calls.
-2. Design the separate reviewed library merge/promotion boundary: slot ownership,
-   exact recording identity, current receipts, interrupted playback locks and
-   stale-input guards. Static promotion deliberately cannot merge libraries.
+1. Resolve the effective installed library layout in a read-only projection:
+   manifest/lyrics and WAV files occupy separate MO2 paths, and winning overrides
+   must be observed explicitly. Do not treat a flattened source-library review
+   as an installed-library deployment plan.
+2. Design explicit performer-contract migration and durable library publication:
+   show which retained recordings become ineligible, preserve unknown historical
+   provenance, and coordinate assets/manifest recovery with current receipts.
+   Use fixtures only; static promotion deliberately cannot merge libraries.
 3. Keep the candidate unapplied and real actor/controller evidence separate. Actual
    MO2-injected ownership observation and the Sven runtime retest still need
    the relevant local/game session; they do not stop offline engineering.

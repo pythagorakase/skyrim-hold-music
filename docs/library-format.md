@@ -198,7 +198,11 @@ allocation preserves; multi-file crash recovery is not claimed.
   and filters by exact values. Returned rows include computed asset/session flags.
 - `add_recording(wav_path, *, performer_id, region, mode, gender, composition_id,
   recipe_id, model_id, source, lyrics=None, slot=None, created_at=None,
-  generation_receipts=(), **extra)` validates, copies and publishes an entry.
+  generation_receipts=(), require_unoccupied=False, **extra)` validates, copies
+  and publishes an entry. Import uses `require_unoccupied=True` to forbid the
+  replacement API and recheck availability before publication. This guard does
+  not make arbitrary concurrent writers safe; the serial-writer requirement
+  still applies.
 - `snapshot(performer_id, save_id, world_id, now_hours, request)` returns a dict
   accepted by `hold_music.repertoire.Snapshot.from_dict` and `plan`.
 
@@ -260,13 +264,49 @@ python tools/import_recording.py --library /path/to/library \
   --ffmpeg /path/to/ffmpeg
 ```
 
-The importer runs ffmpeg with `-ac 1 -ar 44100 -sample_fmt s16 -c:a pcm_s16le`,
-validates the output, records original source path/hash and a content-derived
-composition ID, and prints the entry. It uses the T0 recipe naming convention
-`region/mode` and model label `google/lyria-3-pro-preview`; this label describes
-the imported fixture contract, not verification of an arbitrary MP3's provider.
-Missing ffmpeg produces a message naming `--ffmpeg`. Temporary conversion files
-stay under the chosen library root. No paid requests are made.
+This command now prints a read-only review. Repeat the same arguments with
+`--apply --review-token <returned-token>` to convert and publish into the
+explicitly selected offline library. Review does not run ffmpeg or create the
+library. A changed source, sidecar, metadata, converter or destination state
+requires another review.
+
+Without a metadata sidecar, new imports retain the unversioned `region/mode`
+classification and use `model_id: "unknown"`. The former hardcoded
+`google/lyria-3-pro-preview` label was not provider evidence. Existing rows retain
+their historical bytes and are not silently relabeled or upgraded.
+
+Use `--metadata /path/to/recording-metadata.json` only when the recording's
+original identity is known. Its exact fields are:
+
+- `version`: integer `1`.
+- `source_sha256`: SHA-256 of the original source bytes.
+- `lyrics_sha256`: SHA-256 of the supplied raw lyrics file, or null when omitted.
+- `performer_id`, `region`, `mode`, `gender`: must match the command arguments.
+- `recipe_id`, `recipe_revision`, `model_id`, `instrument_family`,
+  `instrument_name`, `arrangement`, `voice`: explicit nonempty identity fields.
+
+The metadata is an operator assertion bound to specific files. It does not
+verify a provider or musical style. Never copy today's palette revision onto
+historical audio merely to satisfy a strict request. Duplicate keys, partial
+identity and contradictory arguments are rejected. Other named instrument
+families can remain offline library metadata; their runtime compatibility
+requires separate staging validation. Import rejects destinations already
+carrying `runtime_selection`; it neither creates nor extends playback contracts.
+Use a source library followed by explicit staging and merge review.
+
+Application uses frozen source bytes and runs ffmpeg with
+`-ac 1 -ar 44100 -sample_fmt s16 -c:a pcm_s16le`, validates the output, records
+original source path/hash and a content-derived composition ID, then rechecks
+reviewed inputs before publication. Missing ffmpeg produces a message naming
+`--ffmpeg`. Temporary conversion files stay under the chosen library root.
+Optional `--receipts` and `--session-receipt-index` describe current slot
+reservations; they do not establish a real process-session boundary.
+No paid requests are made.
+
+This uses the existing offline single-writer publication API. It is not an
+installed-game updater or a multi-file crash-recovery transaction. The separate
+[library merge review](library-merge-review.md) plans slot remapping and contract
+conflicts without writing either library.
 
 Unit tests create tiny WAVs with `wave` and substitute the subprocess call; they
 never execute ffmpeg. The separate Halcyon proof uses only the existing Mikael

@@ -98,6 +98,12 @@ must recheck reviewed hashes and preserve these same runtime boundaries. The
 separate transaction path follows those boundaries without adding library
 merging or profile enablement.
 
+The separate [library merge review](library-merge-review.md) can compare two
+explicit flattened libraries and propose additive slot/contract changes. It is
+read-only and does not remove this planner's `library_promotion_not_supported`
+blocker. Effective MO2 paths, runtime capability and an interrupted-write
+recovery design remain requirements for an eventual library deployment.
+
 ## Offline Tests
 
 ```sh
