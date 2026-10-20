@@ -35,6 +35,10 @@ those recordings could become ineligible. That requires a separate explicit
 migration decision and blocks this additive plan. A different contract for an
 already configured performer also blocks review. A matching existing contract
 can be retained; a new performer's contract is only a proposed action.
+The separate [contract-migration review](contract-migration-review.md) can audit
+explicit performer-contract upserts against the installed projection, including
+the retained rows that lose compatibility. It does not bypass this planner's
+blockers or apply either proposal.
 
 Composition identity, recording compatibility and individual takes are distinct.
 Conflicting immutable composition content cannot be merged under one ID.

@@ -395,16 +395,70 @@ Seventh-checkpoint validation:
   no installed files or active configuration were changed, and no paid audio
   or audition was generated or discarded.
 
+Source checkpoint `043afe8` is synchronized across GitHub, Halcyon and Echo;
+`local/installed-library-publish-20261020/verification.json` records matching
+source trees, unchanged inspected inputs and the preserved audition inventory.
+
+## Eighth checkpoint: explicit performer-contract migration review
+
+- Added a read-only migration review based on a fresh installed-library
+  projection and an explicit proposal. Proposals upsert complete performer
+  contracts only; unmentioned contracts remain in order and all recordings,
+  historical metadata, generation history and unknown manifest fields survive.
+- Each retained row has before/after candidate identity compatibility and
+  concrete exclusion reasons. Valid assets, stored playback flags, receipt/slot
+  reservations, unknown live locks and actual selection remain separate.
+  The candidate's legacy path and strict path are identified explicitly.
+- Malformed current contract blocks cannot be silently repaired by a proposal.
+  Partial or explicitly nullable identity remains untouched and can block the
+  complete prospective manifest. Case-only performer changes are ambiguous.
+  Changed performers without matching valid asset candidates are blocked.
+- This is a candidate identity audit, not a claim that the installed controller
+  enforces those rules or a prediction of ranking, save knowledge or playback.
+  There is no apply option, recording import, identity backfill or provider call.
+- The [publication design](library-publication-design.md) records the next
+  boundary: explicit split destinations, shared-profile impact, fresh ownership
+  and process evidence, assets first, manifest last, and recovery that preserves
+  later gameplay history. The existing static transaction and full installer
+  retain their separate limits.
+
+Eighth-checkpoint validation:
+
+- **769 general tests on Windows:** 761 passed, eight expected platform/capability
+  skips. **769 on macOS:** 767 passed, two expected platform/filesystem skips.
+  This adds 41 migration, independent safety, CLI and integration cases.
+- **1,274 workshop prompt contracts on each host** passed.
+- All eight retained proof checks passed at
+  `local/contract-migration-fixture-proof-20261020/proof.json`. The fixture
+  changes only Sven's proposed contract: his revision-1 recording loses identity
+  compatibility, revision 2 gains it, legacy metadata stays unknown, and both
+  unmentioned strict and legacy performers remain unchanged.
+- Four fixture selections also matched the unchanged compiled candidate:
+  Sven before/after selected slots 1/2, and the unmentioned strict/legacy
+  performers kept slots 4/5. This used the Windows disassembly VM with mocked
+  natives and a freshly revalidated artifact capability receipt, not Skyrim.
+  Verification hash remains
+  `f9e5a94742927917a9ee0cfc267024740e58418fea0291285504cf9fa146d0de`.
+- Echo tested source commit `d1bd8db` in
+  `/tmp/holdmusic-contract-migration-20261020.en7cXF/source`; later edits only
+  record validation. Logs and synchronization evidence are retained in
+  `local/contract-migration-publish-20261020/`. Windows suite log:
+  `local/contract-migration-checkpoint-20261020-tests-final.log`.
+- A fresh read-only installed inspection matched the seventh checkpoint's
+  snapshot token and single missing-lyrics blocker. No real performer proposal
+  was invented or applied. Installed controller, configuration, recordings,
+  recipes and auditions remain unchanged; paid provider calls remain zero.
+
 ## Next bounded work
 
-1. Bind the installed-library projection to an explicit performer-contract
-   migration review. Show which retained recordings become ineligible, preserve
-   unknown historical provenance and report missing assets before proposing
-   destination routing. Do not infer full identity from current palette defaults.
-2. Design durable library publication:
-   bind explicit destination routing and coordinate assets/manifest recovery
-   with current receipts. Use fixtures only; static promotion deliberately
-   cannot merge libraries.
+1. Build the first fixture-only split-library publication plan/transaction for
+   one new instrumental recording in a genuinely free slot. Bind explicit
+   destinations, staged identity, migration decisions, profile impact and
+   current receipts without widening the static-file allowlist.
+2. Prove manifest-last commit and conservative recovery across real subprocess
+   crash boundaries. Preserve later receipts/trace/history and newly played
+   assets, block third-party manifest changes, and recover without source files.
+   No live apply command until the routing/ownership review is concrete.
 3. Keep the candidate unapplied and real actor/controller evidence separate. Actual
    MO2-injected ownership observation and the Sven runtime retest still need
    the relevant local/game session; they do not stop offline engineering.

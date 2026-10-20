@@ -88,6 +88,8 @@ The deterministic snapshot/review token identifies inspected inputs, not
 permission to mutate them. No apply option consumes it. The
 [flat-library merge planner](library-merge-review.md) and
 [static package transaction](game-promotion-transactions.md) retain their
-separate limits. A future library deployment must bind the effective inputs,
+separate limits. The [contract-migration review](contract-migration-review.md)
+uses this projection for explicit upserts and retained-recording impact reports.
+A future library deployment must bind the effective inputs,
 explicit contract changes, destination routing and durable rollback in its own
 review.

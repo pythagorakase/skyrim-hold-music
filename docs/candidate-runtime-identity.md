@@ -32,6 +32,9 @@ and the recording key from its own fields, then requires agreement.
 `hold_music/runtime_contract.py` validates readable fields against the key.
 `tools/verify_offline_loop.py` adds the extension only to its new staged copy and
 receipt. It does not rewrite the source library or infer identity for old audio.
+The [contract-migration review](contract-migration-review.md) separately audits
+explicit changes against existing split-layer library files, retaining all
+historical rows and unmentioned contracts without publishing its projection.
 
 ## Candidate selection
 

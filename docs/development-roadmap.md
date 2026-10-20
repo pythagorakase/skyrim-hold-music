@@ -136,8 +136,14 @@ manifest, receipts, lyrics and audio independently across the selected profile's
 loose-file layers, retaining shadowed copies and current-input observations.
 Historical file-handle captures can corroborate those candidates but cannot
 establish current injection, archive resolution or write destinations.
-Next bind that explicit view to contract-migration review and durable library
-publication without inferring historical identity or writable VFS routing.
+The [contract-migration review](contract-migration-review.md) now compares
+candidate identity eligibility before and after explicit performer-contract
+upserts. It preserves every retained recording and unmentioned contract,
+reports unknown identity and missing assets, and does not publish changes.
+Next implement the first fixture-only
+[library publication transaction](library-publication-design.md), with explicit
+split destinations, shared-profile impact, manifest-last commit and recovery
+that preserves later gameplay history. Do not infer writable VFS routing.
 Continue portable
 work while following the [RC5 / SkyrimNet migration plan](stack-migration-rc5-beta27.md).
 Evaluate native song import as an alternative delivery route when its actual
