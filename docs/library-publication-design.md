@@ -118,6 +118,41 @@ Reuse the static transaction's atomic-write, locking and process-check patterns,
 but keep its static allowlist and restoration policy separate from this
 history-preserving library transaction.
 
+## Smaller first step: source-independent preparation
+
+Before implementing a destination writer, add a fixture-only
+`prepare_library_publication_bundle(...)` using the same explicit publication
+inputs plus a required fresh `output_dir`. Preparation recomputes a blocker-free,
+nonempty route plan and exclusively creates an output directory outside every
+source and installation root. Existing, overlapping or aliased outputs are
+rejected before writing.
+
+Freeze the routed assets and exact proposed manifest, preserving two distinct
+before states: the **physical target** (possibly absent) and the **effective
+winner** (possibly a different lower mod). Retain both exact byte sets when
+present and both absence states. Restoring an originally absent target means
+removing the new override under appropriate guards, not copying the lower
+winner into that target. Changed lower winners must invalidate recovery review.
+
+Copy and verify retained payloads, then recompute the original plan. Only after
+all hashes and reviewed inputs still match may preparation publish its final
+descriptor. Missing/invalid final descriptors identify incomplete output.
+The descriptor binds routes, original plan token, both before states and a
+strict relative payload inventory. Return an external bundle token.
+
+A separate read-only `inspect_publication_bundle(bundle_dir,
+expected_bundle_token=...)` must verify the complete inventory, strict JSON,
+relative paths, absence of aliases/hardlinks and every hash without following
+original absolute paths. It must work after source deletion. Recalculating a
+tampered bundle's internal hashes cannot satisfy the externally retained token;
+do not describe ordinary files as OS-immutable.
+
+This artifact is preparation, not durable transaction intent, a writer lock or
+recovery authority. Keep `can_apply` and every ownership, capability, process,
+write-readiness and runtime flag false. Test no-op/existing-output preservation,
+interrupted preparation, input drift, distinct before states, source deletion,
+payload/descriptor tampering and unsafe output paths before adding any writer.
+
 ## First bounded fixture milestone
 
 Start with one instrumental recording in a free slot, explicit effective target

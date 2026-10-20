@@ -562,16 +562,20 @@ Tenth-checkpoint validation:
 
 ## Next bounded work
 
-1. Build the first fixture-only split-library publication transaction for one
-   new instrumental recording in a genuinely free slot, consuming the explicit
-   route evidence without widening the existing static-file allowlist. Retain
-   the blocker for affected profiles whose libraries differ; general projection
-   of those libraries is separate work.
-2. Prove manifest-last commit and conservative recovery across real subprocess
+1. Build a fixture-only source-independent publication preparation bundle and
+   strict external-token verifier. Freeze exact payloads and distinguish the
+   physical target's prior state from the effective winning file's prior state.
+   Incomplete output must never pass verification. This smaller lifecycle is
+   specified in the [transaction design](library-publication-design.md).
+2. Build the fixture-only split-library transaction for one new instrumental
+   recording in a genuinely free slot, consuming fresh reviewed evidence without
+   widening the existing static-file allowlist. Retain the blocker for affected
+   profiles whose libraries differ; general projection is separate work.
+3. Prove manifest-last commit and conservative recovery across real subprocess
    crash boundaries. Preserve later receipts/trace/history and newly played
    assets, block third-party manifest changes, and recover without source files.
    No live apply command until the routing/ownership review is concrete.
-3. Keep the candidate unapplied and real actor/controller evidence separate. Actual
+4. Keep the candidate unapplied and real actor/controller evidence separate. Actual
    MO2-injected ownership observation and the Sven runtime retest still need
    the relevant local/game session; they do not stop offline engineering.
 

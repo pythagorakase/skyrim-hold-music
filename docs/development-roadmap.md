@@ -150,8 +150,9 @@ snapshot to fresh installed files, concrete split destinations and shared-profil
 effects while retaining the additive merge blockers. Affected profiles with
 valid complete before/after content equivalence to the selected library can
 pass the bounded shared-library review; different libraries remain blocked.
-Next implement the first
-fixture-only [library publication transaction](library-publication-design.md):
+Next implement a source-independent preparation bundle and its strict external-
+token verifier, then the first fixture-only
+[library publication transaction](library-publication-design.md):
 manifest-last commit and recovery that preserves later gameplay history.
 Do not infer writable VFS routing.
 Continue portable
