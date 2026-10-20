@@ -21,6 +21,10 @@ command does not discover or flatten that effective installation.
 The separate [installed-library inspector](installed-library-inspection.md)
 can review those split loose-file paths without copying them or changing this
 planner's flat-library input contract.
+The [publication route planner](library-publication-plan.md) can bind an explicit
+flat destination snapshot to fresh installed-file hashes, then propose physical
+routes and shared-profile effects. It does not create the snapshot or write
+either library.
 
 ## Identity and contract decisions
 

@@ -1,7 +1,9 @@
 # Library publication: next implementation boundary
 
-Design checkpoint, 20 October 2026. This document describes the next fixture-only
-work after the [contract migration review](contract-migration-review.md).
+Design checkpoint, 20 October 2026. The
+[read-only route planner](library-publication-plan.md) now makes explicit
+destinations and shared-profile effects reviewable. This document describes
+the remaining fixture-only transaction work.
 There is no library publication writer or live apply command.
 
 The existing static transaction protects runtime libraries; keep that boundary.
@@ -10,10 +12,10 @@ It is not an additive publication helper.
 
 ## Bind explicit routes and effects
 
-A publication plan must name each virtual path, physical target, role, prior
+The publication plan names each virtual path, physical target, role, prior
 presence/hash and source hash. Audio belongs under `Sound/fx/holdmusic`; lyrics
 and `library.json` belong under `SKSE/Plugins/StorageUtilData/HoldMusic`.
-Require explicit target roots. Captured opened paths prove historical reads,
+It requires explicit target roots. Captured opened paths prove historical reads,
 not permission or routing for writes.
 
 Use the installed projection to simulate the proposed winner for every file.
@@ -30,7 +32,9 @@ change priorities, relocate overwrite files or select a different destination.
 ## Commit point and recovery
 
 The first transaction should support only additive recordings in absent,
-unreserved slots plus explicitly reviewed contract changes. Preserve old
+unreserved slots and contracts for genuinely new performers. Keep the route
+planner's existing-performer migration blockers; a separate migration review
+does not authorize combining those operations. Preserve old
 recordings, unknown provenance, receipts, trace, generation accounting and
 orphan reservations. Closing Skyrim does not authorize rewriting its history.
 
@@ -39,7 +43,10 @@ writers to the same physical library. Recompute and recheck the reviewed inputs
 under that lock. Unknown process state is not proof of quiescence; the tool's
 lock cannot exclude arbitrary external editors.
 
-Persist intent and exact recovery information before writing. Publish and
+Persist intent and exact recovery information before writing. Retain exact
+original manifest bytes, canonical proposed manifest bytes and every new asset
+in transaction storage; verify their hashes and durability before touching any
+destination. Recovery must not require the original staged source. Publish and
 verify new WAVs and lyrics first. Atomically replace `library.json` **last**:
 that replacement is the commit point. Recovery must distinguish the before and
 after manifest hashes, including a crash between replacement and its journal
@@ -50,10 +57,66 @@ Rollback must unpublish or restore the manifest before touching added assets.
 Remove only transaction-added bytes that still match recorded hashes and are
 not referenced by current state. A later manifest edit or third-state asset
 must block automatic restoration. Later receipts, traces and generation
-accounting must survive. If gameplay has already used a newly introduced slot,
-the first implementation should retain its assets or block rollback explicitly,
-rather than erase that history's audio. Recovery must work after staging/source
-files have disappeared.
+accounting must survive. For the first implementation, committed rollback should
+always retain added assets as reserved orphans. Report
+`rolled_back_with_retained_assets` distinctly. Removal may be considered only for
+a proven uncommitted transaction with unchanged, unreferenced assets and
+sufficient current history evidence. Missing or malformed history is not proof
+that a slot was never played.
+
+## Fixture transaction contract
+
+Recompute the route plan from its explicit input paths; never execute actions
+from a caller-edited report. Keep every current blocker, including incomplete
+other-profile validation. A clean route review has all execution prerequisites
+false and cannot serve as an apply authorization.
+
+The fixture transaction needs a separate operation-bound review token, covering
+the route token, current prerequisites, canonical roots and current journal.
+Capability for the winning controller bytes, performer/configuration ownership,
+physical destinations, stopped helper writers and process quiescence require
+separate evidence. Fixture evidence must be explicitly labeled synthetic.
+
+Use a lock shared across profiles and target combinations for the same canonical
+MO2 root. Under it, reject unresolved prior transactions and recheck the plan and
+prerequisites. Permit only unique allowlisted routes for absent new WAV/lyrics
+and one manifest. Bind all route before-states, protected histories and original
+absence; keep private configuration contents out of the journal.
+
+After retaining verified payloads/backups and durable intent, publish assets in
+deterministic order with same-filesystem atomic replacement, expected-before
+checks, verification and checkpoints. Recheck processes, profile/override state,
+prerequisites and protected history at each boundary. Persist manifest commit
+intent before the final manifest replacement, then verify exact bytes and the
+complete current effective library before recording a committed state.
+
+Status remains read-only. Explicit recovery has its own fresh review token and
+classifies actual before/after/third-state hashes independently of journal phase.
+Never automatically resume a partially applied transaction. Preserve current
+receipts and trace during rollback; bind their latest bytes into that review
+instead of trying to restore apply-time history.
+
+## Crash and interference matrix
+
+| Observed boundary | Required result |
+| --- | --- |
+| Before payloads and intent are durable | No destination writes; preview/status creates nothing. |
+| Durable intent, no asset written | Existing library unchanged; source deletion cannot prevent recovery. |
+| Asset replaced, checkpoint lost | Recognize its after hash; retain/reserve the orphan until explicit recovery. |
+| Assets ready, manifest still before | Uncommitted; process restart, disk/permission failure or drift blocks commit without retry. |
+| Manifest replaced, commit checkpoint lost | After manifest plus expected assets means committed content; never delete referenced assets. |
+| A path has a third-state hash | Block mutation and retain all evidence and third-party bytes. |
+| New override/profile, priority change, alias, writer contention or unknown process state | Block; do not repair or relocate files to make the plan work. |
+| Committed rollback with unchanged after manifest | Restore/unpublish manifest first; retain added assets as reserved orphans. |
+| Later manifest rows or generation accounting | Block whole-manifest rollback rather than overwrite those edits. |
+| Later receipts/trace, including interrupted playback in any save/world | Preserve latest bytes and retain introduced assets. |
+| Crash during rollback | Infer actual manifest state; recognize completed restoration idempotently and never clean referenced assets. |
+| Missing/corrupt retained payload or backup | Block operations needing those bytes; do not reconstruct from mutable source. |
+
+Inject real subprocess exits after each replacement and journal checkpoint.
+Reuse the static transaction's atomic-write, locking and process-check patterns,
+but keep its static allowlist and restoration policy separate from this
+history-preserving library transaction.
 
 ## First bounded fixture milestone
 

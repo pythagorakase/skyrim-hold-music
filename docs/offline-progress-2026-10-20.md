@@ -449,12 +449,64 @@ Eighth-checkpoint validation:
   was invented or applied. Installed controller, configuration, recordings,
   recipes and auditions remain unchanged; paid provider calls remain zero.
 
+Source checkpoint `0372d95` is synchronized across GitHub, Halcyon and Echo.
+`local/contract-migration-publish-20261020/verification.json` records matching
+source trees, unchanged inspected inputs and the preserved audition inventory.
+
+## Ninth checkpoint: explicit library publication route plan
+
+- Added a read-only plan that binds an explicit flat destination snapshot to
+  fresh installed loose winners. It compares presence and raw hashes for all
+  51 mapped paths, including optional receipts/trace and orphaned slot assets.
+  It never creates that snapshot or substitutes missing installed files.
+- Existing additive merge validation determines identity compatibility and
+  slot reservations. Explicit managed mods route audio independently from
+  metadata. Every route has a concrete physical target, before-state and
+  proposed content hash; the manifest route follows the new asset routes.
+- Every profile list, profile-directory inventory and relevant override path
+  participates in the review. Disabled and fully shadowed targets are reported
+  separately from effective changes. Effective changes in another profile
+  remain blocked pending complete validation of that profile's proposed library.
+- Installed inputs, staged sources, flat evidence and profile observations are
+  checked again before returning. Controller/configuration/ownership evidence
+  is bound by hashes only and is not treated as proof of capability or control.
+- No writer, apply command, process launch, flattened copy, paid generation or
+  runtime claim was added. The integration fixture preserves all input bytes
+  and mtimes while planning around occupied, receipt-reserved and orphan slots.
+
+Ninth-checkpoint validation:
+
+- **813 general tests on Windows:** 804 passed, nine expected platform/capability
+  skips. **813 on macOS:** 811 passed, two expected platform/filesystem skips.
+  This adds 44 route-planner, independent safety, CLI and integration cases.
+- **1,274 workshop prompt contracts on each host** passed.
+- All nine retained proof checks passed at
+  `local/publication-plan-fixture-proof-20261020/proof.json`. The fixture binds
+  exact installed/snapshot bytes, preserves occupied/receipt/orphan slots and
+  retained metadata, carries cittern/recipe identity to free slot 3, and resolves
+  distinct audio/manifest targets with the manifest route last.
+- Echo tested source `c791a18` in
+  `/tmp/holdmusic-publication-plan-20261020.QBtvky/source`. Later edits only record
+  validation and the reviewed transaction/recovery design. Windows suite log:
+  `local/publication-plan-checkpoint-20261020-tests-final.log`. Logs and
+  synchronization evidence are under `local/publication-plan-publish-20261020/`.
+- A fresh installed inspection still has the identical snapshot token and
+  missing slot-1 lyrics blocker. Inspected file bytes/mtimes, installed
+  controller/source, workshop and Echo audition inventory are preserved.
+  The compiled candidate is unchanged; no additional compiled test run was
+  needed for this Python-only planner.
+- The next transaction design now specifies retained source-independent payloads,
+  explicit prerequisite evidence, lock scope, before/after/third-state recovery
+  and a concrete crash matrix. Committed rollback initially retains new assets
+  as reserved orphans; it never rewinds later receipts or trace.
+
 ## Next bounded work
 
-1. Build the first fixture-only split-library publication plan/transaction for
-   one new instrumental recording in a genuinely free slot. Bind explicit
-   destinations, staged identity, migration decisions, profile impact and
-   current receipts without widening the static-file allowlist.
+1. Extend shared-profile review to validate each affected profile's complete
+   prospective library. Then build the first fixture-only split-library
+   publication transaction for one new instrumental recording in a genuinely
+   free slot, consuming the explicit route evidence without widening the
+   existing static-file allowlist.
 2. Prove manifest-last commit and conservative recovery across real subprocess
    crash boundaries. Preserve later receipts/trace/history and newly played
    assets, block third-party manifest changes, and recover without source files.
