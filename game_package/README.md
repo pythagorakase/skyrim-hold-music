@@ -69,6 +69,13 @@ This is an offline build tool, not an installer or rollback tool. The current
 installer still reads the reviewed `game_package/build` location; a successful
 candidate build is not automatically promoted there or installed.
 
+Use the separate [read-only promotion planner](../docs/game-promotion.md) to
+compare an explicit candidate against an existing installation. It verifies
+source and package hashes, preserves runtime data and audio, and reports static
+changes without applying them. The current installer is not an incremental
+promotion mechanism. Versioned libraries remain blocked until the compiled
+controller enforces their full recording identity.
+
 ## Install and rollback
 
 Use the separate installer only after the adapter's in-game test and with both

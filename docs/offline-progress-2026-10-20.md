@@ -94,17 +94,67 @@ Second-checkpoint validation:
   No compiled game-controller code changed in this checkpoint; the first
   checkpoint's separately tested portable build remains a candidate only.
 
+## Third checkpoint: reviewed retained jobs and promotion planning
+
+- Added a read-only review of retained, versioned lyric jobs. Continuation uses
+  the original scope, parsed saved lyrics, frozen instrument/recipe identity and
+  prompt. A token binds retained state, budget, cap, ffmpeg option, receipt source
+  and session boundary. Apply consumes that authorization and reserves the first
+  music call atomically; repeating it cannot resubmit. Historical lyric cost is
+  separate from the additional music budget.
+- Added reviewed operator reconciliation for a single uncertain call with no
+  response or audio. A private billing/request attestation can close the attempt
+  without contacting a provider. Append-only review records preserve original
+  calls, context and accounting; reports distinguish operator evidence from
+  provider verification and redact evidence text. This does not discard malformed
+  returned results or create automatic retries.
+- Added a read-only game-package promotion planner. It verifies package and
+  source provenance, compares allowed static files and inventories protected
+  runtime JSON, receipts, audio, settings, profile lists and saves. It has no
+  apply operation. Versioned libraries are blocked while the Papyrus pilot lacks
+  the corresponding selection contract.
+- Two real read-only plans observed identical hashes/timestamps across 696 paths,
+  including 634 preservation entries. They proposed three PEX replacements;
+  eight other static files were unchanged, and user settings were preserved.
+  No changes were applied. Existing legacy recordings did not trigger the
+  versioned-library blocker; that is not runtime compatibility evidence.
+- Focused CLI tests use fake responses to exercise lyric continuation,
+  idempotence, operator closure, redaction and explicit authorization flags.
+  Known composition/receipt collisions and malformed topic, source and clock
+  fields now block before paid dispatch. Independent review reran those
+  reproductions and found no remaining blockers.
+
+Third-checkpoint validation:
+
+- **523 general tests on Windows:** 520 passed, three expected skips
+  (two symlink-privilege cases and the existing platform-specific case).
+- **523 general tests on macOS:** 522 passed, one expected platform-specific
+  skip. Both symlink rejection cases ran successfully there.
+- **1,274 workshop prompt contracts** passed on both hosts. The dashboard
+  remains at SHA256
+  `baf0aaf094f70f3cf79c8ea6115cbfba724d47c9c00d7e30a70df86268679133`.
+- Windows log: `local/reviewed-jobs-checkpoint-20261020-tests-final.log`.
+  Echo tested source commit `ca8a96448008c54dbccf7529ff4adda7a32f7a89` in
+  `/tmp/holdmusic-reviewed-jobs-20261020.YpUSKB/source`. Only this verification
+  documentation changed afterwards. Logs and synchronization receipt belong in
+  `local/reviewed-jobs-publish-20261020/`.
+- Actual read-only promotion report:
+  `local/game-promotion-review-20261020.json`; observed snapshot SHA256
+  `8f58bc814082ac686a6837e05fff20450edce7cc84a7230f3e4527ff533fa3b5`.
+- Installed controller PEX/source hashes still match the 15 October workaround.
+  No controller code, installed files, active configuration, recipes or
+  audition data were changed. Paid provider calls: zero. The candidate build
+  and three proposed PEX replacements remain unapplied.
+
 ## Next bounded work
 
-1. Add explicit reviewed continuation for retained lyrics and reconciliation
-   of unknown provider outcomes. Keep paid dispatch separate, explicitly
-   authorized and bounded; test with fake providers only. Do not delete journal
-   records to bypass a pending result. Preserve the frozen production identity
-   and prompt while continuing an already reviewed job.
-2. Extend portable deployment/promotion plans without changing installed game
-   files. Preserve runtime JSON, receipts, saves and existing audio. Inspect how
-   a candidate Papyrus controller should enforce the versioned selection fields;
-   accepting arbitrary library metadata is not runtime compatibility.
+1. Implement the [candidate Papyrus selection contract](candidate-runtime-identity.md)
+   and build capability receipt for the versioned fields. Verify it with isolated compilation and synthetic
+   fixtures before permitting a versioned library promotion. Keep the installed
+   controller and existing audio unchanged.
+2. Extend the read-only promotion plan toward a reviewed apply/rollback design
+   that rechecks hashes and preserves runtime JSON, receipts, saves and audio.
+   The existing complete-mod installer is not an incremental promotion path.
 3. Add explicit reviewed import metadata where needed. The old importer model
    label is only a placeholder; it must not be used to infer a current recipe
    revision or sound source for historical audio.

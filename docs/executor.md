@@ -205,12 +205,107 @@ An existing vocal recording must also retain the original lyrics hash, title,
 topic, source observations and creation/save scope; a structurally valid edited
 recording is not silently accepted as the saved job's result.
 
-Unknown requests require external provider reconciliation. Lyrics-only results
-(including a budget stop between lyrics and music), malformed provider metadata
-and rejected lyrics remain retained and block new spending. This version has
-no automatic resume, cancellation/reconciliation UI or provider resubmission for
-those states. Do not delete the journal to bypass them. The next queue step is
-an explicit reviewed reconciliation/continuation contract, not a retry timer.
+Unknown requests require external provider reconciliation. Saved lyrics can now
+continue through the explicit review below, and an uncertain call can be closed
+using a recorded operator attestation. Neither operation retries an existing
+provider call. Malformed provider metadata, rejected lyrics and contradictory
+saved state remain retained and blocking; do not delete the journal to bypass
+them.
+
+## Review and continue retained lyrics
+
+A job stopped after lyric generation can be reviewed without credentials,
+ffmpeg execution, journal writes or provider access:
+
+```sh
+python tools/prepare_library.py --library /private/library \
+  --continue-job JOB_ID --max-jobs 1 --max-usd 0.10 --ffmpeg /path/to/ffmpeg
+```
+
+The review shows eligibility, blockers, the frozen recording identity, content
+hashes, historical accounting and the additional music reservation. Ordinary
+output omits lyrics and the actor brief. `--show-briefs` is an explicit private
+inspection option. A valid retained lyric response can be parsed locally if a
+crash happened before `lyrics_ready` was recorded; it is not composed again.
+
+Only a validated, versioned lyrical job with one returned lyric call and **no
+historical music call** is eligible. Missing frozen direction, inconsistent
+lyrics/title/receipt data or an unrelated pending job blocks continuation. It
+uses the job's original scope, lyrics, recipe and prompt, even if today's palette
+has changed. An old unversioned job is not silently upgraded.
+
+After reviewing the result, explicitly authorize one additional request using
+the returned token and the **same budget, job cap, ffmpeg option and receipt
+source**:
+
+```sh
+python tools/prepare_library.py --library /private/library \
+  --continue-job JOB_ID --max-jobs 1 --max-usd 0.10 --ffmpeg /path/to/ffmpeg \
+  --review-token REVIEW_TOKEN --spend
+```
+
+The token binds the exact retained state and operation settings. Apply takes the
+writer lock and rechecks the state, other pending jobs, available library slots,
+existing composition/receipt conflicts and conversion prerequisites before
+dispatch. Malformed retained topic, composition, source or clock fields block
+before dispatch. The resolved receipt path and
+session boundary are bound to the review; receipt contents are validated again
+before dispatch. Authorization consumption and the
+music-call reservation are committed together before contacting the provider.
+Repeating an applied operation cannot send another request. A crash after that
+reservation is an uncertain outcome, even if the network might not yet have
+started: this guarantees at-most-once local dispatch, not exactly-once provider
+completion.
+
+The continuation budget covers its additional music call. Historical lyric
+cost is reported separately and retained in the journal; it is not charged or
+recomposed by continuation. The estimate is still not a provider price ceiling.
+A saved music result uses the existing provider-free publication recovery path.
+
+## Reconcile an uncertain outcome without resending it
+
+This bounded path accepts an **operator report** from an external billing or
+request check. It does not query the provider or independently verify that report.
+Prepare a private JSON file with exactly the intended disposition and evidence:
+
+```json
+{
+  "outcome": "charged_no_artifact",
+  "cost_usd": "0.08",
+  "evidence": "Private reference to the checked provider request and billing record"
+}
+```
+
+The alternative `confirmed_not_charged` requires explicit cost `"0"`;
+`charged_no_artifact` requires a positive finite actual cost. An estimate or
+unresolved billing status is insufficient. This operation is limited to one
+uncertain call without a retained response/audio, with the other calls
+accountable. Recoverable audio should use publication recovery instead.
+
+```sh
+python tools/prepare_library.py --library /private/library \
+  --reconcile-job JOB_ID --resolution-json /private/resolution.json
+python tools/prepare_library.py --library /private/library \
+  --reconcile-job JOB_ID --resolution-json /private/resolution.json \
+  --review-token REVIEW_TOKEN --apply-reconciliation
+```
+
+The first command is read-only. The second requires its matching token, appends
+the attestation and terminally closes the attempt. Original context, calls,
+responses and accounting remain intact; evidence text is omitted from ordinary
+reports. Repeating the same attestation is idempotent, while a conflicting
+resolution is rejected. Status distinguishes operator resolution from the
+original uncertain provider state. Closure removes that attempt's pending-work
+block but does not publish, discard retained assets or resubmit a request.
+Any subsequent generation is a separate, explicitly authorized job.
+The attested cost applies only to the single uncertain call. Prior accounted
+calls are reported separately; their accounting is not replaced by the
+operator's attestation.
+
+Reconciliation has no provider client and rejects `--spend`. Apply operations
+use the same single-writer lock as execution. If a hot SQLite journal prevents
+review, use the explicit `--repair-journal` command first, then obtain a fresh
+review token. No automatic continuation or reconciliation runs in the background.
 
 ## Offline verification
 

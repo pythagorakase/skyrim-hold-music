@@ -226,6 +226,8 @@ def _accounting(request_id, usage, action, estimate, **extra):
 
 def _publish_saved(store, job_id, library, executable):
     saved = store.job(job_id)
+    if saved['state'] == 'closed':
+        raise ValueError('Closed jobs cannot be published or reopened')
     context, calls = saved['context'], saved['calls']
     if any(c['state'] != 'returned' for c in calls):
         raise ValueError('Unknown provider outcome requires external reconciliation')

@@ -57,11 +57,12 @@ class JobStore:
     ``summaries`` excludes those fields. No recovery method calls a provider.
     """
 
-    def __init__(self, library_root):
+    def __init__(self, library_root, *, recover_interrupted=True):
         self.root = Path(library_root) / '.executor'
         self.path = self.root / 'jobs.sqlite3'
         self.db = None
         self._lock = None
+        self.recover_interrupted = recover_interrupted
 
     def __enter__(self):
         self.root.mkdir(parents=True, exist_ok=True)
@@ -84,14 +85,27 @@ class JobStore:
                     state TEXT NOT NULL, estimate_usd TEXT NOT NULL,
                     response TEXT, audio BLOB, accounting TEXT, error_type TEXT
                 );
+                CREATE TABLE IF NOT EXISTS job_reviews (
+                    id TEXT PRIMARY KEY, job_id TEXT NOT NULL REFERENCES jobs(id),
+                    kind TEXT NOT NULL, review_token TEXT NOT NULL UNIQUE,
+                    fingerprint TEXT NOT NULL, data TEXT NOT NULL, created_at TEXT NOT NULL
+                );
+                CREATE TRIGGER IF NOT EXISTS job_reviews_no_update
+                    BEFORE UPDATE ON job_reviews BEGIN
+                    SELECT RAISE(ABORT, 'Job reviews are append-only'); END;
+                CREATE TRIGGER IF NOT EXISTS job_reviews_no_delete
+                    BEFORE DELETE ON job_reviews BEGIN
+                    SELECT RAISE(ABORT, 'Job reviews are append-only'); END;
             ''')
             # A process may have died after sending a request. Never resubmit it.
-            with self.db:
-                self.db.execute("UPDATE calls SET state='unknown' WHERE state='in_flight'")
-                self.db.execute("""UPDATE jobs SET state='unknown', error_type='Interrupted',
-                    updated_at=? WHERE state='in_flight'""", (_now(),))
-                self.db.execute("""UPDATE jobs SET state='failed', error_type='InterruptedBeforeDispatch',
-                    updated_at=? WHERE state='prepared'""", (_now(),))
+            if self.recover_interrupted:
+                with self.db:
+                    self.db.execute("""UPDATE calls SET state='unknown' WHERE state='in_flight'
+                        AND job_id IN (SELECT id FROM jobs WHERE state!='closed')""")
+                    self.db.execute("""UPDATE jobs SET state='unknown', error_type='Interrupted',
+                        updated_at=? WHERE state='in_flight'""", (_now(),))
+                    self.db.execute("""UPDATE jobs SET state='failed', error_type='InterruptedBeforeDispatch',
+                        updated_at=? WHERE state='prepared'""", (_now(),))
             return self
         except BaseException:
             self.__exit__(None, None, None)
@@ -114,6 +128,8 @@ class JobStore:
 
     def update(self, job_id, *, state=None, context=None, recording=None, error_type=None):
         row = self.job(job_id)
+        if row['state'] == 'closed':
+            raise ValueError('Closed jobs cannot be changed or reopened')
         with self.db:
             self.db.execute('''UPDATE jobs SET state=?, context=?, recording=?,
                 error_type=?, updated_at=? WHERE id=?''',
@@ -123,6 +139,8 @@ class JobStore:
                  error_type, _now(), job_id))
 
     def begin_call(self, job_id, action, model, estimate):
+        if self.job(job_id)['state'] == 'closed':
+            raise ValueError('Closed jobs cannot dispatch')
         call_id = uuid.uuid4().hex
         with self.db:
             self.db.execute('''INSERT INTO calls
@@ -134,6 +152,7 @@ class JobStore:
 
     def returned(self, call_id, response, *, audio=None):
         """Commit the response before parsing, conversion, or publication."""
+        self._assert_call_open(call_id)
         with self.db:
             self.db.execute("UPDATE calls SET state='returned', response=?, audio=? WHERE id=?",
                             (_json(response), audio, call_id))
@@ -141,11 +160,22 @@ class JobStore:
                 WHERE id=(SELECT job_id FROM calls WHERE id=?)""", (_now(), call_id))
 
     def account(self, call_id, accounting):
+        self._assert_call_open(call_id)
         with self.db:
             self.db.execute('UPDATE calls SET accounting=? WHERE id=?',
                             (_json(accounting), call_id))
 
+    def _assert_call_open(self, call_id):
+        row = self.db.execute('''SELECT jobs.state FROM jobs JOIN calls
+            ON calls.job_id=jobs.id WHERE calls.id=?''', (call_id,)).fetchone()
+        if row is None:
+            raise ValueError('Unknown durable call ID')
+        if row['state'] == 'closed':
+            raise ValueError('Closed job evidence cannot be changed')
+
     def fail(self, job_id, error_type):
+        if self.job(job_id)['state'] == 'closed':
+            return
         with self.db:
             self.db.execute("""UPDATE calls SET state='unknown', error_type=?
                 WHERE job_id=? AND state='in_flight'""", (error_type, job_id))
@@ -167,7 +197,48 @@ class JobStore:
             for key in ('response', 'accounting'):
                 call[key] = json.loads(call[key]) if call[key] else None
             row['calls'].append(call)
+        row['reviews'] = self.reviews(job_id)
         return row
+
+    def reviews(self, job_id):
+        # Read-only previews must work on journals created before this table.
+        if not self.db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='job_reviews'").fetchone():
+            return []
+        result = []
+        for row in self.db.execute('SELECT * FROM job_reviews WHERE job_id=? ORDER BY rowid', (job_id,)):
+            row = dict(row)
+            row['data'] = json.loads(row['data'])
+            result.append(row)
+        return result
+
+    def authorize_continuation(self, job_id, *, review_token, fingerprint, context,
+                               lyric_call_id, lyric_accounting, model, estimate, authorization):
+        """Consume a reviewed authorization and commit dispatch in one transaction."""
+        if self.job(job_id)['state'] in ('closed', 'completed'):
+            raise ValueError('Terminal jobs cannot dispatch')
+        call_id = uuid.uuid4().hex
+        with self.db:
+            self.db.execute('INSERT INTO job_reviews VALUES (?, ?, ?, ?, ?, ?, ?)',
+                (uuid.uuid4().hex, job_id, 'continuation', review_token, fingerprint,
+                 _json(authorization), _now()))
+            self.db.execute('UPDATE calls SET accounting=? WHERE id=? AND job_id=? AND accounting IS NULL',
+                            (_json(lyric_accounting), lyric_call_id, job_id))
+            self.db.execute('''INSERT INTO calls
+                (id, job_id, action, model, state, estimate_usd) VALUES (?, ?, ?, ?, ?, ?)''',
+                (call_id, job_id, 'generate_recording', model, 'in_flight', str(estimate)))
+            self.db.execute("UPDATE jobs SET context=?, state='in_flight', error_type=NULL, updated_at=? WHERE id=?",
+                            (_json(context), _now(), job_id))
+        return call_id
+
+    def close_with_attestation(self, job_id, *, review_token, fingerprint, attestation):
+        """Close a reviewed unknown outcome without rewriting its raw evidence."""
+        if self.job(job_id)['state'] in ('closed', 'completed'):
+            raise ValueError('Terminal jobs cannot be reconciled')
+        with self.db:
+            self.db.execute('INSERT INTO job_reviews VALUES (?, ?, ?, ?, ?, ?, ?)',
+                (uuid.uuid4().hex, job_id, 'reconciliation', review_token, fingerprint,
+                 _json(attestation), _now()))
+            self.db.execute("UPDATE jobs SET state='closed', updated_at=? WHERE id=?", (_now(), job_id))
 
     def summaries(self, *, pending_only=False):
         result = []
@@ -179,16 +250,24 @@ class JobStore:
                 call = dict(call)
                 call['accounting'] = json.loads(call['accounting']) if call['accounting'] else None
                 calls.append(call)
-            pending = row['state'] != 'completed' and bool(calls)
+            pending = row['state'] not in ('completed', 'closed') and bool(calls)
             if pending_only and not pending:
                 continue
             job = json.loads(row['context'])['job']
-            result.append(dict(job_id=row['id'], state=row['state'], pending=pending,
+            summary = dict(job_id=row['id'], state=row['state'], pending=pending,
                 performer_id=job['performer_id'], region=job['region'], mode=job['mode'],
                 error_type=row['error_type'], calls=calls,
                 unknown_outcome=any(c['state'] in ('in_flight', 'unknown') for c in calls),
                 unaccounted_response=any(c['state'] == 'returned' and c['accounting'] is None
-                                         for c in calls)))
+                                         for c in calls))
+            resolved = [r for r in self.reviews(row['id']) if r['kind'] == 'reconciliation']
+            if resolved:
+                entry = resolved[-1]
+                resolution = entry['data']['resolution']
+                summary['resolution'] = dict(outcome=resolution['outcome'], cost_usd=resolution['cost_usd'],
+                    provenance='operator_report', provider_verified=False, review_id=entry['id'],
+                    applies_to='single_uncertain_call')
+            result.append(summary)
         return result
 
 
@@ -197,12 +276,22 @@ def inspect_jobs(library_root):
     store = JobStore(library_root)
     if not store.path.exists():
         return []
+    with readonly_store(library_root) as store:
+        return store.summaries()
+
+
+@contextmanager
+def readonly_store(library_root):
+    """Read existing journal state without creating files or recovering writes."""
+    store = JobStore(library_root)
+    if not store.path.is_file():
+        raise ValueError('No durable job journal exists')
     store.db = sqlite3.connect(store.path.resolve().as_uri() + '?mode=ro', uri=True)
     store.db.row_factory = sqlite3.Row
     try:
         store.db.execute('PRAGMA query_only=ON')
         store.db.execute('BEGIN')
-        return store.summaries()
+        yield store
     except sqlite3.OperationalError as exc:
         if getattr(exc, 'sqlite_errorcode', 0) & 0xff == sqlite3.SQLITE_READONLY:
             raise ValueError('Journal recovery is required; use --repair-journal before read-only inspection') from None

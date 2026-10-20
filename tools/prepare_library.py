@@ -16,6 +16,7 @@ from hold_music import lyria_client
 from hold_music.lyricist import MODEL as LYRIC_MODEL
 from hold_music.executor import execute, plan_work, recover_publication
 from hold_music.job_store import inspect_jobs, repair_journal
+from hold_music.job_review import continue_job, reconcile_job
 from hold_music.library import Library
 from hold_music.registry import load_registry
 from hold_music.runtime_paths import DEFAULT_MOD_NAME, resolve_receipts
@@ -51,8 +52,18 @@ def main(argv=None):
                               help='inspect a retained audio result for provider-free publication')
     journal_group.add_argument('--repair-journal', action='store_true',
                               help='explicitly recover a crashed local SQLite journal; no generation or publication')
+    journal_group.add_argument('--continue-job', metavar='ID',
+                              help='review retained lyrics for one music request; requires --spend to dispatch')
+    journal_group.add_argument('--reconcile-job', metavar='ID',
+                              help='review an uncertain outcome using a private operator attestation')
     parser.add_argument('--apply-recovery', action='store_true',
                         help='publish --recover-job from saved audio; no provider requests')
+    parser.add_argument('--review-token',
+                        help='exact token from the matching continuation/reconciliation review')
+    parser.add_argument('--resolution-json', type=Path,
+                        help='private reconciliation evidence JSON; never posted to a provider')
+    parser.add_argument('--apply-reconciliation', action='store_true',
+                        help='record --reconcile-job evidence and close the attempt without resubmitting it')
     parser.add_argument('--performers', type=_csv)
     parser.add_argument('--target', type=int, default=1)
     parser.add_argument('--modes', type=_csv, default=['instrumental'],
@@ -77,9 +88,20 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.apply_recovery and not args.recover_job:
         parser.error('--apply-recovery requires --recover-job')
-    if (args.job_status or args.recover_job or args.repair_journal) and args.spend:
+    if args.apply_reconciliation and not args.reconcile_job:
+        parser.error('--apply-reconciliation requires --reconcile-job')
+    if args.reconcile_job and args.resolution_json is None:
+        parser.error('--reconcile-job requires --resolution-json')
+    if args.resolution_json is not None and not args.reconcile_job:
+        parser.error('--resolution-json requires --reconcile-job')
+    if args.review_token is not None and not (args.continue_job or args.reconcile_job):
+        parser.error('--review-token requires --continue-job or --reconcile-job')
+    if ((args.continue_job and args.spend) or args.apply_reconciliation) and not args.review_token:
+        parser.error('Applying continuation or reconciliation requires --review-token from a prior review')
+    if (args.job_status or args.recover_job or args.repair_journal or args.reconcile_job) and args.spend:
         parser.error('Job inspection/recovery cannot be combined with --spend')
-    if not (args.job_status or args.recover_job or args.repair_journal) and args.registry is None:
+    if not (args.job_status or args.recover_job or args.repair_journal or
+            args.continue_job or args.reconcile_job) and args.registry is None:
         parser.error('--registry is required for planning or generation')
     if args.mo2_root is None and (args.mod_name is not None or args.data_mod is not None):
         parser.error('--mod-name and --data-mod require --mo2-root')
@@ -98,6 +120,24 @@ def main(argv=None):
               f'Receipts: none found or selected; library default applies: {args.library / "receipts.json"}',
               file=sys.stderr)
         library = Library(args.library, receipts_path=receipts_path)
+        if args.continue_job:
+            report = continue_job(args.continue_job, library=library,
+                client=_Client(args.bardsinging), ffmpeg=args.ffmpeg,
+                max_jobs=args.max_jobs, max_usd=args.max_usd, review_token=args.review_token,
+                dry_run=not args.spend, spend=args.spend, show_briefs=args.show_briefs)
+            print(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False))
+            return 1 if report['status'] in ('failed', 'blocked', 'budget_exceeded', 'recovery_required') \
+                or report.get('can_continue') is False else 0
+        if args.reconcile_job:
+            try:
+                resolution = json.loads(args.resolution_json.read_text(encoding='utf-8-sig'))
+            except (OSError, ValueError):
+                raise ValueError('Cannot read private resolution JSON') from None
+            report = reconcile_job(args.reconcile_job, library=library, resolution=resolution,
+                review_token=args.review_token, apply=args.apply_reconciliation)
+            print(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False))
+            return 1 if report['status'] in ('failed', 'blocked', 'recovery_required') \
+                or report.get('can_reconcile') is False else 0
         if args.recover_job:
             report = recover_publication(args.recover_job, library=library,
                                          ffmpeg=args.ffmpeg, apply=args.apply_recovery)

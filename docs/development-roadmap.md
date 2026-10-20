@@ -65,7 +65,8 @@ completed/interrupted performance history. The second checkpoint carries exact
 recipe revision, named instrument, family, arrangement and voice through
 production planning, job journaling, publication, cache counts and selection.
 Legacy metadata remains unknown and is never inferred from current recipes.
-The installed Papyrus pilot still needs the corresponding selection integration;
+The installed Papyrus pilot still needs the corresponding
+[candidate selection integration](candidate-runtime-identity.md);
 offline compatibility is not evidence that runtime selection enforces it.
 
 The VFS probe now observes the winning Bard Singing configuration path, hash and
@@ -82,9 +83,14 @@ in a private SQLite store. An uncertain request or unpublished paid result block
 new spending; explicit recovery can publish retained audio without a provider.
 Crash-boundary tests use fake clients. This is durable bounded execution, not an
 automatic replenishment scheduler. Explicit generation authorization, per-run
-spending limits and no automatic retries remain requirements. Follow-up work
-includes explicit resolution of uncertain outcomes and safely continuing a job
-whose lyrics were saved before music dispatch.
+spending limits and no automatic retries remain requirements. Reviewed
+continuation now authorizes one first music call from valid retained lyrics,
+using the original frozen identity and prompt. A matching review token is
+required; consuming it and reserving dispatch are atomic. Separate reviewed
+reconciliation can append an operator attestation and close a response-less
+uncertain call while preserving raw evidence. No provider is queried during
+reconciliation. Malformed returned results still need a dedicated resolution
+path; they are retained and continue to block spending.
 
 ### Performer, Repertoire and Arrangement Identity
 
@@ -106,8 +112,12 @@ The [package builder](../game_package/README.md#build) now accepts explicit
 MO2/profile/toolchain paths and defaults to a read-only plan. It compiles into a
 fresh workspace with offline dependencies and records input/source hashes and
 the target stack. Candidate artifacts can be tested without replacing the
-checkout's reviewed build. Installation and promotion remain separate. Continue
-portable work while following the [RC5 / SkyrimNet migration plan](stack-migration-rc5-beta27.md).
+checkout's reviewed build. The [promotion planner](game-promotion.md) now verifies
+the candidate and its source provenance, compares allowed static files and
+inventories protected runtime data, audio, settings and saves. It has no apply
+operation and blocks versioned libraries until the game controller enforces
+their identity. Installation and promotion remain separate. Continue portable
+work while following the [RC5 / SkyrimNet migration plan](stack-migration-rc5-beta27.md).
 Evaluate native song import as an alternative delivery route when its actual
 metadata and ownership behavior can be inspected. Do not assume imported audio
 alone enforces performer or regional eligibility.
