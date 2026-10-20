@@ -137,6 +137,43 @@ def _simulate(layers, route, observed):
                 effective_change=effective, effect=effect, candidates=candidates)
 
 
+def _inspection_guard(inspection):
+    guard = _Snapshot()
+    guard.files = {row["path"]: deepcopy(row) for row in inspection["snapshot"]["files"]}
+    guard.directories = {row["path"]: deepcopy(row) for row in inspection["snapshot"]["directories"]}
+    return guard
+
+
+def _content_equivalence(reference, reference_after, other, effects, reference_valid):
+    """A byte-level proof for the fixed mapped namespace, never runtime proof."""
+    after = {path: item["winner"] for path, item in other["files"].items()}
+    for effect in effects:
+        current = other["files"][effect["virtual_path"]]["winner"]
+        if (_content(current) != _content(effect["current_winner"])
+                or (current or {}).get("path") != (effect["current_winner"] or {}).get("path")):
+            raise ValueError("Shared-profile winner changed during equivalence review")
+        after[effect["virtual_path"]] = effect["simulated_winner"]
+    rows = []
+    for virtual in _mapped_files():
+        before_reference = reference["files"][virtual]["winner"]
+        before_other = other["files"][virtual]["winner"]
+        after_reference, after_other = reference_after[virtual], after[virtual]
+        rows.append(dict(
+            virtual_path=virtual, selected_before=deepcopy(before_reference),
+            profile_before=deepcopy(before_other), selected_after=deepcopy(after_reference),
+            profile_after=deepcopy(after_other),
+            before_equal=_content(before_reference) == _content(before_other),
+            after_equal=_content(after_reference) == _content(after_other)))
+    before_equal = all(row["before_equal"] for row in rows)
+    after_equal = all(row["after_equal"] for row in rows)
+    verified = bool(reference_valid and not other["blockers"] and before_equal and after_equal)
+    return dict(basis="mapped-loose-library-before-and-after-v1",
+                selected_reference_valid=reference_valid,
+                inspection_token=other["review_token"],
+                inspection_blockers=deepcopy(other["blockers"]),
+                before_equal=before_equal, after_equal=after_equal, verified=verified, files=rows)
+
+
 def plan_library_publication(staged_library, destination_snapshot, mo2_root, profile, *,
                              metadata_mod, audio_mod, game_data=None, vfs_report=None,
                              session_receipt_index=None):
@@ -245,21 +282,48 @@ def plan_library_publication(staged_library, destination_snapshot, mo2_root, pro
               dict(kind="merged_manifest", merge_token=merge["review_token"], sha256=sha, size=len(encoded)),
               sha, len(encoded))
 
-    shared = []
+    # Certify the reference before adding other-profile limitations. An invalid
+    # selected route must never become a reference merely because both projected
+    # states happen to agree with the same hidden or incomplete result.
+    selected_reference_valid = bool(
+        not inspection["blockers"] and not merge["blockers"] and equivalent
+        and selected is not None and not selected["errors"] and len(targets) == 2
+        and proposed is not None and not any(item["higher_override"] for item in routes))
+    reference_after = {path: item["winner"] for path, item in inspection["files"].items()}
+    reference_after.update({item["virtual_path"]: item["simulated_winner"] for item in routes})
+    shared, shared_guards = [], []
     for other in profiles:
         effects = [_simulate(other["layers"], item, observed) for item in routes]
         is_selected = selected is not None and other["profile"] == selected["profile"]
         changed = [item for item in effects if item["effective_change"]]
-        complete = is_selected or not changed
-        if not complete:
+        proof = None
+        if changed and not is_selected:
+            # Full inspection catches malformed/aliased and out-of-range assets
+            # outside the 51 canonical paths. No flat copy is constructed.
+            other_inspection = inspect_installed_library(
+                mo2, other["profile"], game_data=base,
+                session_receipt_index=session_receipt_index)
+            shared_guards.append(_inspection_guard(other_inspection))
+            proof = _content_equivalence(inspection, reference_after, other_inspection,
+                                         effects, selected_reference_valid)
+            proof["profile_scope_errors"] = deepcopy(other["errors"])
+            proof["verified"] = bool(proof["verified"] and not other["errors"])
+        validated = selected_reference_valid if is_selected else bool(proof and proof["verified"])
+        complete = bool((is_selected and selected_reference_valid) or not changed or validated)
+        basis = ("selected_strict_merge" if is_selected and validated
+                 else "complete_before_after_equivalence" if validated
+                 else "no_effective_change" if not changed else "incomplete")
+        if not complete and not is_selected:
             block("affected_profile_validation_incomplete",
-                  "Effective changes require validation of this other profile's complete projected library",
+                  "Effective changes lack a valid complete before-and-after loose-library equivalence proof",
                   profile=other["profile"], virtual_paths=[item["virtual_path"] for item in changed])
         shared.append(dict(profile=other["profile"], selected=is_selected,
                            modlist=other["modlist"], plugins=other["plugins"],
                            unmanaged_entries=other["unmanaged_entries"], effects=effects,
-                           projected_library_validated=bool(is_selected and not blockers),
-                           affected_scope_complete=complete and not other["errors"]))
+                           projected_library_validated=validated,
+                           affected_scope_complete=complete and not other["errors"],
+                           validation_scope="mapped_loose_library_content",
+                           validation_basis=basis, content_equivalence=proof))
 
     # Relevant capability and ownership inputs are observed as hashes only.
     # Presence is never interpreted as proof of compatibility, control or writes.
@@ -286,15 +350,15 @@ def plan_library_publication(staged_library, destination_snapshot, mo2_root, pro
     else:
         profile_state = {}
 
-    guard = _Snapshot()
-    guard.files = {row["path"]: deepcopy(row) for row in inspection["snapshot"]["files"]}
-    guard.directories = {row["path"]: deepcopy(row) for row in inspection["snapshot"]["directories"]}
-    guard.finish()
+    guards = [_inspection_guard(inspection), *shared_guards]
+    for guard in guards:
+        guard.finish()
     routing_snapshot = observed.finish()
     if plan_library_merge(staged, flat, session_receipt_index=session_receipt_index)["review_token"] != merge["review_token"]:
         raise ValueError("Flat inputs changed during publication planning")
     # Recheck installed/profile observations after the final flat-library read.
-    guard.finish()
+    for guard in guards:
+        guard.finish()
     observed.finish()
 
     result = dict(
@@ -329,7 +393,9 @@ def plan_library_publication(staged_library, destination_snapshot, mo2_root, pro
             "The explicit destination snapshot must match raw mapped bytes and absences, including history and orphan slot assets.",
             "Only existing active managed mods may be targets; overwrite and base game Data are never destinations.",
             "Existing performer contracts are retained under the additive merge rules; migration review does not authorize replacement here.",
-            "Other profiles with effective changes require a separate complete projected-library validation; disabled or hidden routes are reported without an approval claim.",
+            "Affected profiles are validated only when fresh valid inspections and all 51 before/after mapped byte states match the validated selected reference; different libraries remain incomplete.",
+            "Shared-profile equivalence proves mapped loose-library content only, not controller behavior, ownership, active saves, live locks, archive routing or write destinations.",
+            "Disabled or fully hidden routes are reported as having no effective change, without asserting that the unrelated profile's entire library is valid.",
             "Registry, ownership and capability inputs are bound as hashes only and remain unverified prerequisites.",
             "A matching VFS capture is historical read evidence only; no destination is inferred to be writable.",
         ] + (["Base game Data was omitted; base and unmanaged loose winners were not inspected."] if base is None else []),

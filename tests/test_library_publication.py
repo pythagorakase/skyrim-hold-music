@@ -199,7 +199,7 @@ class LibraryPublicationTests(unittest.TestCase):
         self.assertEqual(result["blockers"], [])
 
     def test_effective_other_profile_changes_report_incomplete_validation(self):
-        for modlist in (b"+Meta\n-Audio\n", b"-Meta\n+Audio\n", b"+Meta\n+Audio\n"):
+        for modlist in (b"+Meta\n-Audio\n", b"-Meta\n+Audio\n"):
             with self.subTest(modlist=modlist):
                 self.write(self.mo2 / "profiles/Other/modlist.txt", modlist)
                 result = self.plan()
@@ -207,6 +207,85 @@ class LibraryPublicationTests(unittest.TestCase):
                 other = next(row for row in result["shared_profiles"] if row["profile"] == "Other")
                 self.assertTrue(any(row["effective_change"] for row in other["effects"]))
                 self.assertFalse(other["affected_scope_complete"])
+
+    def test_identical_shared_library_validates_all_before_and_after_paths(self):
+        self.write(self.mo2 / "profiles/Other/modlist.txt", b"+Meta\n+Audio\n")
+        before = self.files()
+        result = self.plan()
+        self.assertEqual(result["blockers"], [])
+        other = next(row for row in result["shared_profiles"] if row["profile"] == "Other")
+        proof = other["content_equivalence"]
+        self.assertEqual(other["validation_basis"], "complete_before_after_equivalence")
+        self.assertEqual(other["validation_scope"], "mapped_loose_library_content")
+        self.assertTrue(other["projected_library_validated"])
+        self.assertTrue(other["affected_scope_complete"])
+        self.assertTrue(proof["verified"])
+        self.assertTrue(proof["selected_reference_valid"])
+        self.assertEqual(proof["inspection_blockers"], [])
+        self.assertEqual(len(proof["files"]), 51)
+        self.assertTrue(all(row["before_equal"] and row["after_equal"] for row in proof["files"]))
+        audio = next(row for row in proof["files"] if row["virtual_path"].endswith("hm_slot_02.wav"))
+        self.assertIsNone(audio["profile_before"])
+        self.assertEqual(Path(audio["profile_after"]["path"]), self.audio_mod / AUDIO_PATH / "hm_slot_02.wav")
+        self.assertEqual(before, self.files())
+        self.assertTrue(all(value is False for value in result["prerequisites"].values()))
+        self.assertEqual(result["review_token"], self.plan()["review_token"])
+
+    def test_equal_histories_and_orphans_prove_same_offline_reservations(self):
+        self.write(self.mo2 / "profiles/Other/modlist.txt", b"+Meta\n+Audio\n")
+        self.json(self.flat / "receipts.json", {"version": 1, "performances": [
+            dict(id="one", slot=2, performer_id="mikael", composition_id="historical",
+                 save_id="save", world_id="world", at_hours=4, outcome="interrupted")]})
+        self.write(self.flat / "hm_slot_03.wav", b"same orphan")
+        self.install_snapshot()
+        result = self.plan()
+        self.assertEqual(result["blockers"], [])
+        self.assertEqual(result["proposed_manifest"]["recordings"][-1]["slot"], 4)
+        other = next(row for row in result["shared_profiles"] if row["profile"] == "Other")
+        self.assertTrue(other["content_equivalence"]["verified"])
+        self.assertFalse(result["prerequisites"]["live_session_locks_verified"])
+        released = self.plan(session_receipt_index=1)
+        self.assertEqual(released["proposed_manifest"]["recordings"][-1]["slot"], 2)
+        self.assertTrue(next(row for row in released["shared_profiles"]
+                             if row["profile"] == "Other")["content_equivalence"]["verified"])
+        self.assertNotEqual(result["review_token"], released["review_token"])
+
+    def test_metadata_only_and_audio_only_fail_after_even_with_equal_before(self):
+        copies = self.mo2 / "mods/Retained"
+        self.write(copies / MANIFEST_PATH, (self.flat / "library.json").read_bytes())
+        self.write(copies / AUDIO_PATH / self.old["file"], (self.flat / self.old["file"]).read_bytes())
+        for modlist in (b"+Meta\n-Audio\n+Retained\n", b"-Meta\n+Audio\n+Retained\n"):
+            with self.subTest(modlist=modlist):
+                self.write(self.mo2 / "profiles/Other/modlist.txt", modlist)
+                result = self.plan()
+                self.assertIn("affected_profile_validation_incomplete", self.codes(result))
+                proof = next(row for row in result["shared_profiles"]
+                             if row["profile"] == "Other")["content_equivalence"]
+                self.assertTrue(proof["before_equal"])
+                self.assertFalse(proof["after_equal"])
+                self.assertFalse(proof["verified"])
+
+    def test_unchanged_profiles_do_not_claim_complete_library_validation(self):
+        result = self.plan()
+        other = next(row for row in result["shared_profiles"] if row["profile"] == "Other")
+        self.assertIsNone(other["content_equivalence"])
+        self.assertEqual(other["validation_basis"], "no_effective_change")
+        self.assertFalse(other["projected_library_validated"])
+        self.assertTrue(other["affected_scope_complete"])
+
+    def test_equal_disabled_metadata_stays_disabled_and_not_runtime_ready(self):
+        manifest = self.read_json(self.flat / "library.json")
+        manifest["recordings"][0]["playable"] = False
+        self.json(self.flat / "library.json", manifest)
+        self.install_snapshot()
+        self.write(self.mo2 / "profiles/Other/modlist.txt", b"+Meta\n+Audio\n")
+        result = self.plan()
+        self.assertEqual(result["blockers"], [])
+        self.assertFalse(result["proposed_manifest"]["recordings"][0]["playable"])
+        self.assertTrue(next(row for row in result["shared_profiles"]
+                             if row["profile"] == "Other")["content_equivalence"]["verified"])
+        self.assertFalse(result["candidate_available"])
+        self.assertFalse(result["can_apply"])
 
     def test_fully_shadowed_other_profile_routes_reported_without_gate(self):
         shadow = self.mo2 / "mods/Shadow"

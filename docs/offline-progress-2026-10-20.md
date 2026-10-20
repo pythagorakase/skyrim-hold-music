@@ -4,6 +4,22 @@ The user authorized continued offline progress without waiting for regional-styl
 listening. The first checkpoint builds on the synchronized `6195383` baseline.
 Musical recipes, active styles and listening results are unchanged.
 
+## Current handoff
+
+Read this section and the final checkpoint before starting more work. The
+numbered sections below retain the chronology and evidence for completed work.
+
+| Area | Offline state | Remaining boundary |
+| --- | --- | --- |
+| Generation and repertoire | Durable jobs, reviewed continuation/reconciliation, exact recipe/instrument identity and synthetic prepare/stage/receipt loop implemented | Paid generation requires the user's explicit action; listening is independent. |
+| Runtime candidate | Portable compiled identity selection and receipt behavior verified offline | Candidate remains unapplied; actual ownership, interruption and playback need a game session. |
+| Installation review | Loose winners, missing assets, histories, migration eligibility and explicit publication routes are inspectable | Actual library still lacks slot-1 lyrics; no missing file or historical identity was guessed. |
+| Shared profiles | A profile matching the selected library both before and after the proposed change can qualify through a fresh inspection and content-equivalence proof | Profiles with differing libraries remain blocked; archives, current saves and write routing remain unverified. |
+| Next engineering task | Publication transaction and crash-recovery design are concrete | Implement only in fixtures first, preserving current histories and retaining assets on committed rollback. |
+
+No installed game files, active configuration, recipes or auditions were changed.
+The overnight checks use synthetic audio and providers; no audio was purchased.
+
 ## Implemented in the first checkpoint
 
 - **Durable bounded generation:** a private SQLite journal records dispatch
@@ -500,13 +516,57 @@ Ninth-checkpoint validation:
   and a concrete crash matrix. Committed rollback initially retains new assets
   as reserved orphans; it never rewinds later receipts or trace.
 
+Source checkpoint `423ac86` is synchronized across GitHub, Halcyon and Echo.
+`local/publication-plan-publish-20261020/verification.json` records matching
+source trees, unchanged inspected inputs and all 177 preserved audition files.
+
+## Tenth checkpoint: equivalent shared-library validation
+
+- Affected profiles can now pass the bounded publication review when their
+  complete current and proposed mapped library contents equal the validated
+  selected profile. Every other affected profile gets a fresh inspection first,
+  including unexpected/out-of-range slot assets beyond the 51-path map.
+- All 51 before and after states compare raw presence, size and hash, including
+  untouched recordings, orphan assets, receipts, trace and absent files.
+  Differing physical winners retain their provenance and can qualify when
+  their contents agree. Differing library contents remain explicitly incomplete.
+- The report names the proof basis and its narrow scope: mapped loose-library
+  content. A blocked selected library cannot certify another profile. Every
+  additional inspection snapshot remains guarded through the final source and
+  installed-state rechecks.
+- This does not establish controller ownership, archive behavior, current-save
+  knowledge, live locks or writable destinations. All apply/installation/runtime
+  flags remain false; no library writer or automatic flattening was introduced.
+
+Tenth-checkpoint validation:
+
+- **825 general tests on Windows:** 816 passed, nine expected platform/capability
+  skips. **825 on macOS:** 823 passed, two expected platform/filesystem skips.
+  Twelve new regressions cover content equivalence and its exclusions; the
+  complete publication subset has 56 cases.
+- **1,274 workshop prompt contracts on each host** passed.
+- All ten retained fixture proof checks passed at
+  `local/shared-profile-fixture-proof-20261020/proof.json`. The shared profile's
+  fresh inspection and all 51 before/after comparisons verify, while the disabled
+  profile remains unaffected. The public CLI also produced a read-only report
+  with two explicit routes and that full equivalence proof.
+- Echo tested source `9ebe562` in
+  `/tmp/holdmusic-shared-profile-20261020.ADsFpO/source`; later edits clarify the
+  handoff and record validation. Logs and synchronization evidence are under
+  `local/shared-profile-publish-20261020/`. Windows suite log:
+  `local/shared-profile-checkpoint-20261020-tests-final.log`.
+- The fresh installed inspection still matches the same token and missing
+  slot-1 lyrics blocker. Source changes remain separate from the installed
+  controller; recipes, all existing auditions and game/configuration files
+  are unchanged. Paid provider calls remain zero.
+
 ## Next bounded work
 
-1. Extend shared-profile review to validate each affected profile's complete
-   prospective library. Then build the first fixture-only split-library
-   publication transaction for one new instrumental recording in a genuinely
-   free slot, consuming the explicit route evidence without widening the
-   existing static-file allowlist.
+1. Build the first fixture-only split-library publication transaction for one
+   new instrumental recording in a genuinely free slot, consuming the explicit
+   route evidence without widening the existing static-file allowlist. Retain
+   the blocker for affected profiles whose libraries differ; general projection
+   of those libraries is separate work.
 2. Prove manifest-last commit and conservative recovery across real subprocess
    crash boundaries. Preserve later receipts/trace/history and newly played
    assets, block third-party manifest changes, and recover without source files.

@@ -55,11 +55,26 @@ Each affected virtual path is considered independently: a profile may see the
 audio mod but not the metadata mod, or a higher override may hide only one file.
 The report exposes disabled, shadowed and effective changes.
 
-Any effective change in another profile currently produces
-`affected_profile_validation_incomplete`: this first planner does not yet
-validate that profile's entire prospective library. Disabled or fully shadowed
-routes can remain reviewable. This is a missing validation boundary, not a
-request for approval. Unknown or malformed profile scope also blocks review.
+A profile with effective changes can qualify through a bounded proof of
+complete content equivalence. It first receives its own fresh installed-library
+inspection, including slot-directory inventories that catch noncanonical and
+out-of-range assets beyond the 51 mapped paths. That inspection must be valid.
+Every mapped before-state and every simulated after-state must then match the
+validated selected profile by raw presence, size and hash. This includes
+unchanged recordings, orphan assets, receipts, trace and absent files.
+
+Different physical winners may qualify when all their bytes and presence agree;
+the report preserves their separate provenance and rechecks each inspection
+snapshot before returning. It reports
+`validation_basis: complete_before_after_equivalence` and
+`validation_scope: mapped_loose_library_content`. This proves content
+compatibility under the observed loose-file model; controller ownership,
+archives, current saves, live locks and runtime behavior remain unverified.
+
+Different before-state libraries or diverging after-states still produce
+`affected_profile_validation_incomplete`; a general projection for those cases
+is not implemented. Disabled or fully shadowed routes can remain reviewable.
+Unknown or malformed profile scope also blocks review.
 Shared visibility is not isolation, and a disabled target today does not prove
 it will stay disabled. Standard DLC/Creation Club/unmanaged markers remain
 informational; archive contents and custom mappings are not verified.

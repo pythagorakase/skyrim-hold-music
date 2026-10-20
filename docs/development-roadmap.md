@@ -21,7 +21,12 @@ plucked-string arrangement need further integration. The owned controller is
 installed on HALCYON with the [15 October scan workaround](sven-crash-2026-10-15.md).
 Successful owned playback and interruption after that fix are still unverified.
 
-## Next Integration Milestone
+## Original integration milestone and current status
+
+The offline portions below are implemented and tested; they are retained as
+acceptance criteria. Do not rebuild them. The next implementation task is the
+fixture-only library publication transaction described below. Authorized
+deployment, injected ownership evidence and in-game playback remain separate.
 
 Build one repeatable **prepare, publish, perform, reconcile** loop for the
 existing pilot performers using existing recordings. Complete all offline
@@ -31,9 +36,9 @@ parts without requiring listening judgments or buying new audio:
    read-only preflight found an older overwrite `BardSinging.yaml` with
    `enabled: true` and a profile-data copy with `enabled: false`; the last
    adapter overlay recorded `false`. This is a fallback-input conflict, not
-   proof of SkyrimNet playback being enabled in a running game. Extend the
-   MO2 VFS probe to report the actual winning Bard Singing file and enabled
-   value, then implement tested overlay reconciliation and rollback. The
+   proof of SkyrimNet playback being enabled in a running game. Use the
+   implemented MO2 VFS probe to report the actual winning Bard Singing file and
+   enabled value, and the tested overlay reconciliation and rollback tools. The
    earlier package VFS check did not include this configuration file. Make
    no runtime configuration change merely to synchronize source code.
 2. Resolve the selected performer and save-scoped knowledge through the
@@ -65,9 +70,9 @@ completed/interrupted performance history. The second checkpoint carries exact
 recipe revision, named instrument, family, arrangement and voice through
 production planning, job journaling, publication, cache counts and selection.
 Legacy metadata remains unknown and is never inferred from current recipes.
-The installed Papyrus pilot still needs the corresponding
-[candidate selection integration](candidate-runtime-identity.md);
-offline compatibility is not evidence that runtime selection enforces it.
+The compiled [candidate selector](candidate-runtime-identity.md) now enforces
+the identity projection offline; the installed pilot still has the older
+selector. Candidate deployment and runtime verification remain pending.
 
 The VFS probe now observes the winning Bard Singing configuration path, hash and
 enabled flag. A separate dry-run-first handoff tool can prepare guarded changes
@@ -119,7 +124,7 @@ operation. The candidate Papyrus selector enforces a validated identity
 projection; the builder now requires its compiled fixtures to pass and binds
 that evidence to the actual artifacts and sources. Promotion validates that
 evidence separately from the projected library. Missing candidate evidence or
-malformed identity still blocks review; library merging remains unsupported.
+malformed identity still blocks review; static promotion does not merge libraries.
 The installed controller and runtime verification remain separate. A separate
 [static transaction path](game-promotion-transactions.md) implements reviewed
 per-file apply/rollback with durable backups, target locking and fresh input
@@ -142,7 +147,10 @@ upserts. It preserves every retained recording and unmentioned contract,
 reports unknown identity and missing assets, and does not publish changes.
 The [publication route plan](library-publication-plan.md) binds an explicit flat
 snapshot to fresh installed files, concrete split destinations and shared-profile
-effects while retaining the additive merge blockers. Next implement the first
+effects while retaining the additive merge blockers. Affected profiles with
+valid complete before/after content equivalence to the selected library can
+pass the bounded shared-library review; different libraries remain blocked.
+Next implement the first
 fixture-only [library publication transaction](library-publication-design.md):
 manifest-last commit and recovery that preserves later gameplay history.
 Do not infer writable VFS routing.

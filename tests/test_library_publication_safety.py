@@ -109,6 +109,20 @@ class LibraryPublicationSafetyTests(unittest.TestCase):
         for field in ("can_apply", "installed", "vfs_verified", "runtime_verified", "writes_performed"):
             self.assertIs(report[field], False)
 
+    def shared_profile(self, report, name="other"):
+        return next(row for row in report["shared_profiles"] if row["profile"] == name)
+
+    def assert_incomplete_equivalence(self, report, virtual_path):
+        self.assertIn("affected_profile_validation_incomplete", self.codes(report))
+        other = self.shared_profile(report)
+        self.assertFalse(other["projected_library_validated"])
+        proof = other["content_equivalence"]
+        self.assertFalse(proof["verified"])
+        mismatch = next(row for row in proof["files"] if row["virtual_path"] == virtual_path)
+        self.assertFalse(mismatch["before_equal"])
+        self.assertFalse(mismatch["after_equal"])
+        self.assert_readonly(report)
+
     def test_raw_manifest_equivalence_does_not_normalize_unknown_metadata(self):
         changed = deepcopy(self.original)
         changed["recordings"][0]["operator_extension"]["keep"] = ["inferred"]
@@ -193,6 +207,125 @@ class LibraryPublicationSafetyTests(unittest.TestCase):
         self.assertEqual([row["virtual_path"] for row in changed], [AUDIO + "/hm_slot_02.wav"])
         self.assertFalse(other["affected_scope_complete"])
         self.assertEqual(snapshot(self.root), before)
+
+    def test_byte_identical_shared_library_can_have_distinct_untouched_winners(self):
+        alternate = self.mo2 / "mods/Alternate"
+        copy(self.flat / "hm_slot_01.wav", alternate / AUDIO / "hm_slot_01.wav")
+        copy(self.flat / "receipts.json", alternate / STORAGE / "receipts.json")
+        self.add_profile("other", "+Alternate\n+Meta\n+Audio\n")
+        before = snapshot(self.root)
+        report = self.plan()
+        self.assertEqual(report["blockers"], [])
+        other = self.shared_profile(report)
+        self.assertTrue(other["projected_library_validated"])
+        self.assertTrue(other["affected_scope_complete"])
+        self.assertEqual(other["validation_scope"], "mapped_loose_library_content")
+        self.assertEqual(other["validation_basis"], "complete_before_after_equivalence")
+        proof = other["content_equivalence"]
+        self.assertEqual(proof["basis"], "mapped-loose-library-before-and-after-v1")
+        self.assertTrue(proof["verified"])
+        self.assertTrue(proof["before_equal"])
+        self.assertTrue(proof["after_equal"])
+        self.assertEqual(len(proof["files"]), 51)
+        receipt = next(row for row in proof["files"]
+                       if row["virtual_path"] == STORAGE + "/receipts.json")
+        self.assertNotEqual(receipt["selected_before"]["path"], receipt["profile_before"]["path"])
+        self.assert_readonly(report)
+        self.assertEqual(snapshot(self.root), before)
+
+    def test_untouched_other_profile_orphan_prevents_equivalence(self):
+        alternate = self.mo2 / "mods/Alternate"
+        orphan = alternate / AUDIO / "hm_slot_04.wav"
+        orphan.parent.mkdir(parents=True)
+        orphan.write_bytes(b"retain this unreferenced alternate-profile asset")
+        self.add_profile("other", "+Alternate\n+Meta\n+Audio\n")
+        before = snapshot(self.root)
+        report = self.plan()
+        self.assert_incomplete_equivalence(report, AUDIO + "/hm_slot_04.wav")
+        self.assertEqual(snapshot(self.root), before)
+
+    def test_missing_other_profile_receipts_do_not_equal_selected_empty_history(self):
+        receipts_mod = self.mo2 / "mods/Receipts"
+        copy(self.flat / "receipts.json", receipts_mod / STORAGE / "receipts.json")
+        (self.meta / STORAGE / "receipts.json").unlink()
+        self.add_profile("pilot", "+Receipts\n+Meta\n+Audio\n")
+        self.add_profile("other", "-Receipts\n+Meta\n+Audio\n")
+        before = snapshot(self.root)
+        report = self.plan()
+        self.assert_incomplete_equivalence(report, STORAGE + "/receipts.json")
+        self.assertEqual(snapshot(self.root), before)
+
+    def test_other_profile_trace_difference_blocks_without_disclosing_its_body(self):
+        write_json(self.flat / "trace.json", {"version": 1, "entries": []})
+        copy(self.flat / "trace.json", self.meta / STORAGE / "trace.json")
+        alternate = self.mo2 / "mods/Alternate"
+        write_json(alternate / STORAGE / "trace.json", {
+            "version": 1, "entries": [{"private": "alternate-profile-private-trace-sentinel"}],
+        })
+        self.add_profile("other", "+Alternate\n+Meta\n+Audio\n")
+        before = snapshot(self.root)
+        report = self.plan()
+        self.assert_incomplete_equivalence(report, STORAGE + "/trace.json")
+        self.assertNotIn("alternate-profile-private-trace-sentinel", json.dumps(report))
+        self.assertEqual(snapshot(self.root), before)
+
+    def test_other_profile_out_of_range_asset_blocks_even_when_all_mapped_bytes_match(self):
+        alternate = self.mo2 / "mods/Alternate"
+        extra = alternate / AUDIO / "hm_slot_25.wav"
+        extra.parent.mkdir(parents=True)
+        extra.write_bytes(b"noncanonical alternate-profile reservation")
+        self.add_profile("other", "+Alternate\n+Meta\n+Audio\n")
+        before = snapshot(self.root)
+        report = self.plan()
+        self.assertIn("affected_profile_validation_incomplete", self.codes(report))
+        other = self.shared_profile(report)
+        self.assertFalse(other["projected_library_validated"])
+        proof = other["content_equivalence"]
+        self.assertTrue(proof["before_equal"])
+        self.assertTrue(proof["after_equal"])
+        self.assertFalse(proof["verified"])
+        self.assertIn("unexpected_slot_asset", {item["code"] for item in proof["inspection_blockers"]})
+        self.assertEqual(snapshot(self.root), before)
+
+    def test_untouched_other_only_winner_drift_after_final_merge_is_rejected(self):
+        alternate = self.mo2 / "mods/Alternate"
+        audio = alternate / AUDIO / "hm_slot_01.wav"
+        copy(self.flat / "hm_slot_01.wav", audio)
+        self.add_profile("other", "+Alternate\n+Meta\n+Audio\n")
+        original = library_publication.plan_library_merge
+        calls = 0
+
+        def merge_then_edit(*args, **kwargs):
+            nonlocal calls
+            result = original(*args, **kwargs)
+            calls += 1
+            if calls == 2:
+                stamp = audio.stat()
+                raw = bytearray(audio.read_bytes())
+                raw[-1] ^= 1
+                audio.write_bytes(raw)
+                os.utime(audio, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+            return result
+
+        with patch.object(library_publication, "plan_library_merge", side_effect=merge_then_edit):
+            with self.assertRaisesRegex(ValueError, "changed"):
+                self.plan()
+        self.assertEqual(calls, 2)
+
+    def test_invalid_selected_route_cannot_supply_shared_validation(self):
+        higher = self.mo2 / "mods/Higher"
+        copy(self.flat / "library.json", higher / MANIFEST)
+        self.add_profile("pilot", "+Higher\n+Meta\n+Audio\n")
+        self.add_profile("other", "+Higher\n+Meta\n+Audio\n")
+        report = self.plan()
+        self.assertIn("higher_priority_override", self.codes(report))
+        self.assertIn("affected_profile_validation_incomplete", self.codes(report))
+        other = self.shared_profile(report)
+        self.assertFalse(other["projected_library_validated"])
+        proof = other["content_equivalence"]
+        self.assertFalse(proof["selected_reference_valid"])
+        self.assertFalse(proof["verified"])
+        self.assert_readonly(report)
 
     def test_malformed_other_profile_is_not_assumed_unaffected(self):
         self.add_profile("other", "-Meta\n-Audio\nunparsed-entry\n")

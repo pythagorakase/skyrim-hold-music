@@ -29,9 +29,11 @@ class LibraryPublicationIntegrationTests(unittest.TestCase):
             root = Path(temp).resolve()
             mo2, base = root / "mo2", root / "game/Data"
             meta, audio_mod = mo2 / "mods/Meta", mo2 / "mods/Audio"
-            for path in (meta, audio_mod, base, mo2 / "profiles/pilot", mo2 / "profiles/unaffected"):
+            for path in (meta, audio_mod, base, mo2 / "profiles/pilot",
+                         mo2 / "profiles/shared", mo2 / "profiles/unaffected"):
                 path.mkdir(parents=True)
             for profile, modlist in (("pilot", "+Meta\n+Audio\n"),
+                                     ("shared", "+Meta\n+Audio\n"),
                                      ("unaffected", "-Meta\n-Audio\n")):
                 (mo2 / "profiles" / profile / "modlist.txt").write_text(modlist, encoding="utf-8")
                 (mo2 / "profiles" / profile / "plugins.txt").write_text("*HoldMusic.esp\n", encoding="utf-8")
@@ -94,6 +96,15 @@ class LibraryPublicationIntegrationTests(unittest.TestCase):
                          if item["profile"] == "unaffected")
             self.assertTrue(other["affected_scope_complete"])
             self.assertTrue(all(not effect["effective_change"] for effect in other["effects"]))
+            shared = next(item for item in report["shared_profiles"]
+                          if item["profile"] == "shared")
+            self.assertTrue(shared["projected_library_validated"])
+            self.assertEqual(shared["validation_basis"], "complete_before_after_equivalence")
+            proof = shared["content_equivalence"]
+            self.assertTrue(proof["verified"])
+            self.assertEqual(len(proof["files"]), 51)
+            self.assertTrue(all(item["before_equal"] and item["after_equal"]
+                                for item in proof["files"]))
             routes = {row["virtual_path"]: row for row in report["routes"]}
             self.assertEqual(set(routes), {AUDIO + "/hm_slot_03.wav", STORAGE + "/library.json"})
             self.assertEqual(Path(routes[AUDIO + "/hm_slot_03.wav"]["physical_target"]),
