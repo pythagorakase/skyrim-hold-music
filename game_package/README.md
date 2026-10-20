@@ -91,6 +91,14 @@ require their own current token. It preserves runtime data and does not enable
 the mod or merge a library. The overnight implementation is exercised against
 synthetic installation trees; the actual candidate remains unapplied.
 
+The [installed-library inspector](../docs/installed-library-inspection.md)
+reviews the split metadata/audio layout and per-file loose overrides without
+copying or deploying anything. The separate VFS probe includes all slot lyrics,
+WAVs and optional receipt/trace targets. Missing unused slots do not fail the
+probe; referenced-asset validity is checked by the inspector. Neither a
+filesystem projection nor matching historical handles establishes current
+MO2 injection, write routing or successful playback.
+
 ## Install and rollback
 
 Use the separate installer only after the adapter's in-game test and with both

@@ -334,16 +334,77 @@ Sixth-checkpoint validation:
   control directory was created. No installed files, active configuration,
   musical recipes, auditions or paid provider state were changed.
 
+Source checkpoint `515b3f9` is synchronized across GitHub, Halcyon and Echo;
+`local/import-merge-publish-20261020/verification.json` records the final identities
+and unchanged audition inventory.
+
+## Seventh checkpoint: inspecting the effective installed library
+
+- Added a read-only profile inspector that resolves manifest, receipt history,
+  trace, all 24 WAVs and all 24 lyric sidecars independently through overwrite,
+  enabled mods and an optional explicit base Data directory. It keeps source
+  paths and hashes rather than flattening assets into a misleading source library.
+- File modification time does not affect priority. Differing shadowed copies are
+  reported; a malformed effective file cannot fall back to a valid lower copy.
+  Unknown historical identity remains unchanged. Occupied, receipt-reserved and
+  orphaned slots remain reserved without assuming live game locks have cleared.
+- Optional captured handles are compared only with known current candidates.
+  Report-supplied paths never authorize arbitrary reads. Old captures cannot
+  override current loose-file priority or establish write routing, MO2 injection,
+  controller ownership or runtime playback.
+- Extended the existing version-2 VFS capture with all lyric sidecars and trace,
+  plus explicit required/presence fields. Optional absence is allowed; unreadable
+  files, required missing inputs and failure to resolve an opened handle still
+  fail. Package-manifest paths and hashes are validated before target reads.
+- Actual selected-profile inspection found four recordings and no conflicting
+  loose copies. Slot 1 declares a lyric hash but has no effective loose lyric
+  sidecar. All four rows retain historical metadata without the new full recipe
+  identity. This is a migration input gap, not evidence of the earlier CTD's
+  cause; no installed asset or metadata was changed.
+
+Seventh-checkpoint validation:
+
+- **728 general tests on Windows:** 721 passed, seven expected platform/capability
+  skips. **728 on macOS:** 726 passed, two expected platform/filesystem skips.
+  The 56 new cases cover the inspector, CLI, independent adversarial review,
+  split-layer integration and expanded probe. Case-distinct directory fixtures
+  skip when the host volume cannot represent them; Windows symlink fixtures
+  also skip when unavailable.
+- **1,274 workshop prompt contracts on each host** passed. The dashboard and
+  musical recipes are unchanged.
+- All seven checks in `local/installed-library-fixture-proof-20261020/proof.json`
+  passed. The retained fixture independently resolves metadata, audio and lyrics,
+  ignores newer lower-priority copies, reserves occupied/receipt/orphan slots,
+  matches a synthetic handle capture and preserves all input bytes and mtimes.
+  The matching capture deliberately leaves installation/VFS/runtime flags false.
+- Actual selected-profile inspection observed 1,821 loose layers, eight relevant
+  files and 6,275 directory states, retaining the three standard DLC entries as
+  informational foreign content. Report:
+  `local/installed-library-publish-20261020/installed-library-review-final.json`.
+  It contains one blocker: the missing slot-1 lyric sidecar. No fallback copy,
+  source-library substitution or inferred historical identity was used.
+- Echo tested source commit `0253ed0` in the isolated workspace
+  `/tmp/holdmusic-installed-library-20261020.resmmR/source`; subsequent changes
+  only record validation. Logs and the final synchronization receipt are kept in
+  `local/installed-library-publish-20261020/`. Windows suite log:
+  `local/installed-library-checkpoint-20261020-tests-final.log`.
+- The compiled candidate and measured capability inputs are unchanged; compiled
+  package tests were not repeated for this Python/probe-only checkpoint.
+  Installed controller PEX/source hashes retain the prior workaround and no
+  promotion control directory was created. No MO2/game process was launched,
+  no installed files or active configuration were changed, and no paid audio
+  or audition was generated or discarded.
+
 ## Next bounded work
 
-1. Resolve the effective installed library layout in a read-only projection:
-   manifest/lyrics and WAV files occupy separate MO2 paths, and winning overrides
-   must be observed explicitly. Do not treat a flattened source-library review
-   as an installed-library deployment plan.
-2. Design explicit performer-contract migration and durable library publication:
-   show which retained recordings become ineligible, preserve unknown historical
-   provenance, and coordinate assets/manifest recovery with current receipts.
-   Use fixtures only; static promotion deliberately cannot merge libraries.
+1. Bind the installed-library projection to an explicit performer-contract
+   migration review. Show which retained recordings become ineligible, preserve
+   unknown historical provenance and report missing assets before proposing
+   destination routing. Do not infer full identity from current palette defaults.
+2. Design durable library publication:
+   bind explicit destination routing and coordinate assets/manifest recovery
+   with current receipts. Use fixtures only; static promotion deliberately
+   cannot merge libraries.
 3. Keep the candidate unapplied and real actor/controller evidence separate. Actual
    MO2-injected ownership observation and the Sven runtime retest still need
    the relevant local/game session; they do not stop offline engineering.

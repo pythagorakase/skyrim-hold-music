@@ -130,9 +130,14 @@ The [existing-audio importer](library-format.md#import-an-existing-mp3) now
 reviews source-bound identity before conversion; unknown provenance remains
 unknown. The separate [library merge review](library-merge-review.md) proposes
 additions and slot remapping while preserving history and blocking implicit
-contract changes for existing performers. It has no apply operation. Next
-resolve the effective installed library paths and design explicit contract
-migration and durable library publication without inferring historical identity.
+contract changes for existing performers. It has no apply operation.
+The [installed-library inspector](installed-library-inspection.md) now resolves
+manifest, receipts, lyrics and audio independently across the selected profile's
+loose-file layers, retaining shadowed copies and current-input observations.
+Historical file-handle captures can corroborate those candidates but cannot
+establish current injection, archive resolution or write destinations.
+Next bind that explicit view to contract-migration review and durable library
+publication without inferring historical identity or writable VFS routing.
 Continue portable
 work while following the [RC5 / SkyrimNet migration plan](stack-migration-rc5-beta27.md).
 Evaluate native song import as an alternative delivery route when its actual

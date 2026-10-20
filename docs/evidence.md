@@ -5,6 +5,13 @@ without dialogue or game free text. It complements the performance history in
 [`receipts.json`](library-format.md), which the helper reads without writing.
 Collecting evidence makes no provider calls and changes no game or MO2 inputs.
 
+The collector's newest-file heuristic helps find recent logs; it does not prove
+which receipt or library file wins in MO2. Use the separate
+[installed-library inspection](installed-library-inspection.md) for a selected
+profile's loose-file priority and split asset validation. Captured handle evidence
+can corroborate particular paths and hashes without proving current injection
+or future write destinations.
+
 ## Frozen trace schema
 
 `trace.json` has this shape:

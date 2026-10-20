@@ -18,6 +18,9 @@ session_receipt_index=None)`. Both roots must already contain `library.json`;
 WAV and lyrics files must be beside their manifest. An installed MO2 library
 splits those files across directories and may have winning overrides. This
 command does not discover or flatten that effective installation.
+The separate [installed-library inspector](installed-library-inspection.md)
+can review those split loose-file paths without copying them or changing this
+planner's flat-library input contract.
 
 ## Identity and contract decisions
 
