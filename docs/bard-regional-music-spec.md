@@ -175,6 +175,14 @@ compatibility, audibility or visual animation quality. SkyrimNet/MCP is a
 subsequent integration tier; no paid calls or musical recipe changes are
 required. See the [lab setup, evidence and remaining checks](se-testing-lab.md).
 
+The pinned PapyrusUtil 4.6, SkyUI 5.2SE and Address Library 11 archives are now
+installed and hash-verified in that lab. Preflight passed 442 checks. The first
+Hold Music engine run reached the inn but failed Sven's eligibility check
+before playback; preserve that failure as evidence, not a successful
+performance. Launcher and harness corrections passed their offline checks and
+the revised harness is staged; runtime reruns are deferred while the user uses
+Steam.
+
 An affected shared profile can reuse the selected library's content validation only after its own fresh inspection and complete before/after equivalence across all 51 mapped paths, including histories, absences and orphan assets. Different physical winners retain their provenance; different library contents remain blocked. This bounded proof does not validate controller ownership, archives, current saves or runtime behavior.
 
 - A successful quest, a scandalous affair circulating as gossip, and ordinary local news are all valid subjects. No heroic framing is required. Select from what the bard knows; hearing gossip does not mean learning a pre-existing song about it.

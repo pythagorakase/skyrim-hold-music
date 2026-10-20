@@ -19,6 +19,13 @@ the VR acceptance pass; they cannot clear the VR-specific native scan defect.
 The existing publication transaction work below remains a parallel engineering
 task, independent of regional listening validation.
 
+The lab now has its three pinned Nexus dependencies installed; 442 preflight
+checks passed. The first Hold Music run reached the inn and stopped on Sven's
+eligibility check before playback. Next run the corrected diagnostic harness
+on a fresh disposable world, then prove completion, requested interruption and
+ambient entry. Runtime reruns are deferred while the user uses Steam; offline
+fixes and tests can proceed. SkyrimNet remains disabled in this baseline.
+
 ## Current Baseline
 
 The workshop already provides the eleven regional targets, the separate Reach

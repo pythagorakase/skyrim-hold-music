@@ -37,24 +37,52 @@ Installed in the main profile:
 - SKSE Scripts 2.2.6 and matching root loader/runtime DLL.
 - MCM Helper SE 1.6.2, with only its Skyrim SE installation branch.
 - Hold Music Candidate from `runtime-identity-build-20261020-02`.
-- Separate harness from `se-lab-harness-20261020-05`.
+- Separate harness from `se-lab-harness-20261020-07`.
 - Hold Music Lab Data: eight seconds of deterministic plucked-tone PCM,
   strict synthetic recording identity, one session slot, and a lab-only world.
+- PapyrusUtil AE SE 4.6, Nexus file 462773, for Steam 1.6.1170/SKSE 2.2.6.
+- SkyUI 5.2SE, Nexus file 35407.
+- Address Library AE version 11, Nexus file 470707, including
+  `SKSE/Plugins/versionlib-1-6-1170-0.bin`.
 
-**The complete profile is not ready to launch.** It still needs SkyUI SE 5.2,
-PapyrusUtil SE 4.6 for 1.6.1170, and the Address Library AE database for 1.6.1170.
-Their Nexus download flow requires a signed-in account. The latest PapyrusUtil
-release is not automatically the correct one for this pinned runtime.
-The recorded 360-check preflight blocks on required mods/plugins and the absent
-SkyUI plugin winner. Do not bypass it by merely adding names or empty folders.
-After installing the matching archives, record their provenance and actual
-native/script hashes in the manifest, enable the correct files, then rerun
-preflight. No Sven scenario has run in the engine yet.
+The three original Nexus archives were downloaded on Echo and transferred over
+SSH. All byte sizes and SHA256 values matched Echo's receipt. The additive
+installation and pre-edit profile/manifest backups are under
+`checkpoints/nexus-dependencies-20261020/`; the manifest records actual hashes
+for all 38 added files. All **442 preflight checks passed**.
+
+The first runner launch exposed an MO2 command-line error: `-i ""` queries the
+instance and exits successfully without launching. The runner now relies on the
+verified portable marker and omits that query option. A subsequent engine run
+loaded PapyrusUtil and MCM Helper successfully, initialized Hold Music and
+SkyUI, and teleported into the Sleeping Giant Inn. Its focused scenario failed
+the Sven eligibility check before playback. The failed result and shared
+Papyrus/SKSE log copies are retained under
+`runs/20261020T160503Z-aa30e1b59ea5/`; do not count this as a playback pass.
+
+That first run also exposed null boolean fields in the harness result and
+matching native JSON parser errors. Revision `-07` uses protected JSON literals
+and checks parser return, value type and readback; a serialization/save failure
+cannot log or record a pass. It adds Sven's load/cell/scan/eligibility diagnostics
+and a bounded wait for the loaded fixture without overriding the production
+eligibility rules. Requested interruption must have its own stop request and
+an interrupted receipt; its two-second delay starts at the first observed
+production start trace, excluding fixture loading.
+
+The revised harness is installed with its previous package and manifest backed
+up at `checkpoints/harness-revision-20261020-07/`. All **56 offline lab tests
+passed with zero skips**, including compiled-PEX regressions. The runner and
+fixture suite passed **33 of 34 cases**, with one expected Windows directory
+symlink capability skip. Post-install preflight again passed all **442 checks**.
+The production Hold Music candidate is unchanged. These corrections still need
+engine confirmation: the user is using Steam, so further game launches are
+deferred. Next run `focused-complete`, inspect the detailed Sven diagnostics if
+it fails, then prove `focused-interrupt` and `ambient-entry` in fresh worlds.
 
 Installation receipts and the blocked preflight are under
 `checkpoints/candidate-staging-20261020/`. Existing trace and receipt history
 must remain intact. The fixture creator seeds these arrays only for a new lab.
-The compiled harness passed 44 offline tests; the runner passed 31 tests.
+The original compiled harness passed 44 offline tests; the runner passed 31 tests.
 These use mocked native calls and fake launches, separate from the bootstrap.
 The build receipts retain the provenance of their existing compiler imports;
 they do not claim an independently rebuilt SE-native dependency stack.
@@ -194,10 +222,12 @@ Launch with that fresh token:
 
 Launch checks that no Skyrim or MO2 process is already running, records the
 baseline, rechecks the inputs, writes a new harness request, and launches only
-the isolated MO2. It uses `-i ""` for the portable instance, `-p` for the fixed
-profile, and the explicit SKSE loader path with the lab Game working directory.
-These options are implemented by the
-[official MO2 command-line source](https://github.com/ModOrganizer2/modorganizer/blob/master/src/commandline.cpp).
+the isolated MO2. It uses `-p` for the fixed profile and the explicit SKSE loader
+path with the lab Game working directory.
+Portable selection comes from the verified `portable.txt` sentinel. Do not add
+`-i ""`: MO2 2.5.2 treats an empty instance option as a query and exits with code
+zero without launching the game. These options are implemented by the
+[MO2 2.5.2 command-line source](https://github.com/ModOrganizer2/modorganizer/blob/v2.5.2/src/commandline.cpp).
 
 An explicit `--scenario` selects `ambient-entry`, `focused-complete`, or
 `focused-interrupt`, and publishes `auto_run: true`. Omit it for manual mode.

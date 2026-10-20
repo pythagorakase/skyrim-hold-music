@@ -102,6 +102,11 @@ class LabVM(VM):
         if obj in (("marker", "stage"), ("marker", "audience")):
             if name == "getcurrentlocation":
                 return "inn"
+        if obj == "Sven" and name == "getformid":
+            return 0x13491
+        if obj == "Sven" and name == "getdistance":
+            assert args == ["P"]
+            return 300.0
         if obj in ("P", "Sven") and name == "moveto":
             assert args[0] in (("marker", "stage"), ("marker", "audience"))
             old = self.actors[obj]["location"]
@@ -260,6 +265,50 @@ class LabHarnessTests(unittest.TestCase):
         self.assertEqual(vm.settings, vm.initial_settings)
         self.assertFalse(vm.state["hm_config"]["::stoprequested_var"])
 
+    def test_delayed_interrupt_poll_cannot_relabel_completed_receipt(self):
+        vm = LabVM()
+        vm.actors["P"]["location"] = "inn"
+        vm.lab("FocusedInterrupt")
+        # The production stack runs while the lab's first poll is delayed.
+        vm.now += 8
+        vm.run("hm_controller", "OnUpdate")
+        vm.lab("OnUpdate")
+        self.assertEqual(vm.result["status"], "failed")
+        self.assertEqual(vm.result["expected_outcome"], "interrupted")
+        self.assertEqual([row["outcome"] for row in vm.receipts], ["completed"])
+        self.assertFalse(vm.result["assertions"]["stop_request_issued"])
+        self.assertEqual(vm.settings, vm.initial_settings)
+        self.assertFalse(vm.state["hm_config"]["::stoprequested_var"])
+
+    def test_unrelated_early_interruption_cannot_pass_requested_interrupt(self):
+        vm = LabVM()
+        vm.actors["P"]["location"] = "inn"
+        vm.lab("FocusedInterrupt")
+        vm.actors["Sven"]["combat"] = True
+        vm.now += 0.5
+        vm.run("hm_controller", "OnUpdate")
+        vm.lab("OnUpdate")
+        self.assertEqual(vm.result["status"], "failed")
+        self.assertEqual([row["outcome"] for row in vm.receipts], ["interrupted"])
+        self.assertFalse(vm.result["assertions"]["stop_request_issued"])
+        self.assertIn("before the lab issued", vm.result["reason"])
+        self.assertEqual(vm.settings, vm.initial_settings)
+
+    def test_manual_interrupt_after_observed_completion_does_not_relabel_it(self):
+        vm = LabVM()
+        vm.actors["P"]["location"] = "inn"
+        vm.lab("FocusedStart")
+        vm.now += 8
+        vm.run("hm_controller", "OnUpdate")
+        vm.lab("CollectEvidence")
+        vm.lab("Interrupt")
+        vm.lab("OnUpdate")
+        self.assertEqual(vm.result["status"], "passed")
+        self.assertEqual(vm.result["expected_outcome"], "completed")
+        self.assertFalse(vm.result["assertions"]["stop_request_issued"])
+        self.assertEqual([row["outcome"] for row in vm.receipts], ["completed"])
+        self.assertFalse(vm.state["hm_config"]["::stoprequested_var"])
+
     def test_opt_in_autorun_ambient_teleports_and_uses_real_event(self):
         vm = LabVM()
         vm.autorun("ambient-entry")
@@ -277,6 +326,28 @@ class LabHarnessTests(unittest.TestCase):
         self.assertEqual(vm.result["status"], "passed")
         self.assertTrue(vm.result["assertions"]["stop_request_issued"])
         self.assertTrue(vm.result["controller_entry_setup_injected"])
+
+    def test_delayed_fixture_arrival_still_gets_two_seconds_before_interruption(self):
+        vm = LabVM()
+        vm.actors["Sven"]["loaded"] = False
+        vm.files[REQUEST].update(auto_run=True, scenario="focused-interrupt")
+        vm.lab("OnInit")
+        vm.tick(6)
+        self.assertEqual(vm.result["status"], "running")
+        self.assertFalse(vm.result["assertions"]["performance_start"])
+        vm.actors["Sven"]["loaded"] = True
+        vm.tick(1)
+        started = vm.result["performance_start_observed_real_seconds"]
+        self.assertGreater(started, vm.result["started_real_seconds"] + 2)
+        self.assertTrue(vm.result["assertions"]["performance_start"])
+        self.assertFalse(vm.result["assertions"]["stop_request_issued"])
+        vm.tick(0.75)
+        self.assertLess(vm.now, started + 2)
+        self.assertFalse(vm.result["assertions"]["stop_request_issued"])
+        vm.tick(4)
+        self.assertEqual(vm.result["status"], "passed")
+        self.assertTrue(vm.result["assertions"]["stop_request_issued"])
+        self.assertEqual(vm.receipts[-1]["outcome"], "interrupted")
 
     def test_opt_in_autorun_unknown_scenario_never_moves_actor(self):
         vm = LabVM()
@@ -487,6 +558,167 @@ class LabHarnessTests(unittest.TestCase):
         self.assertEqual(vm.result["status"], "failed")
         self.assertEqual([row["outcome"] for row in vm.receipts], ["completed"])
         self.assertEqual(vm.settings, vm.initial_settings)
+
+    def test_protected_boolean_literals_survive_bare_token_case_collision(self):
+        vm = LabVM()
+        normal_static = vm.static
+
+        def emulate_intern_collision(owner, name, args):
+            if owner == "jsonutil" and name == "setrawpathvalue" and args[2] in ("true", "false"):
+                # Model the observed native failure: BSFixedString's existing
+                # bare spelling is True/False, invalid case-sensitive JSON.
+                vm.json_set(args[0], args[1], None)
+                return False
+            return normal_static(owner, name, args)
+
+        vm.static = emulate_intern_collision
+        self.assertFalse(vm.static("jsonutil", "setrawpathvalue", [RESULT, ".repro", "true"]))
+        vm.lab("ArmAmbient")
+        vm.enter()
+        vm.tick(12)
+        self.assertEqual(vm.result["status"], "passed")
+        self.assertEqual(vm.result["boolean_serialization_errors"], 0)
+        self.assertTrue(vm.result["runtime_engine_observed"])
+        self.assertFalse(vm.result["audio_audibility_verified"])
+        self.assertTrue(all(type(value) is bool for value in vm.result["assertions"].values()))
+
+    def test_failed_boolean_parse_cannot_enable_or_report_a_running_test(self):
+        vm = LabVM()
+        normal_static = vm.static
+
+        def reject_boolean_parse(owner, name, args):
+            if owner == "jsonutil" and name == "setrawpathvalue" and args[2].strip() in ("true", "false"):
+                vm.json_set(args[0], args[1], None)
+                return False
+            return normal_static(owner, name, args)
+
+        vm.static = reject_boolean_parse
+        vm.lab("ArmAmbient")
+        self.assertEqual(vm.result["status"], "failed")
+        self.assertGreater(vm.result["boolean_serialization_errors"], 0)
+        self.assertEqual(vm.settings, vm.initial_settings)
+        self.assertFalse(vm.state["hm_labharness"]["active"])
+        self.assertFalse(vm.timers)
+
+    def test_boolean_readback_mismatch_fails_even_if_native_parser_reports_success(self):
+        vm = LabVM()
+        normal_static = vm.static
+
+        def corrupt_boolean(owner, name, args):
+            result = normal_static(owner, name, args)
+            if owner == "jsonutil" and name == "setrawpathvalue" and args[2].strip() in ("true", "false"):
+                vm.json_set(args[0], args[1], not json.loads(args[2]))
+            return result
+
+        vm.static = corrupt_boolean
+        vm.lab("ArmAmbient")
+        self.assertEqual(vm.result["status"], "failed")
+        self.assertGreater(vm.result["boolean_serialization_errors"], 0)
+        self.assertEqual(vm.settings, vm.initial_settings)
+
+    def test_final_serialization_failure_never_logs_a_pass(self):
+        vm = LabVM()
+        vm.actors["P"]["location"] = "inn"
+        vm.lab("FocusedStart")
+        vm.now += 8
+        vm.run("hm_controller", "OnUpdate")
+        normal_static = vm.static
+
+        def reject_final_boolean(owner, name, args):
+            if owner == "jsonutil" and name == "setrawpathvalue" and args[2].strip() in ("true", "false"):
+                vm.json_set(args[0], args[1], None)
+                return False
+            return normal_static(owner, name, args)
+
+        vm.static = reject_final_boolean
+        vm.lab("OnUpdate")
+        self.assertEqual(vm.result["status"], "failed")
+        self.assertFalse(any(effect[0] == "trace" and "LAB: passed" in effect[1] for effect in vm.effects))
+        self.assertTrue(any(effect[0] == "trace" and "Final result could not" in effect[1] for effect in vm.effects))
+        self.assertEqual(vm.settings, vm.initial_settings)
+
+    def test_autorun_waits_for_loaded_fixture_without_bypassing_eligibility(self):
+        vm = LabVM()
+        vm.actors["Sven"]["loaded"] = False
+        vm.files[REQUEST].update(auto_run=True, scenario="focused-complete")
+        vm.lab("OnInit")
+        vm.tick(4)
+        self.assertEqual(vm.result["status"], "running")
+        self.assertEqual(vm.result["fixture_diagnostics"]["phase"], "waiting_for_loaded_fixture")
+        self.assertEqual(vm.result["fixture_diagnostics"]["loaded_flag"], 0)
+        self.assertFalse(any(effect[0] == "play" for effect in vm.effects))
+        vm.actors["Sven"]["loaded"] = True
+        vm.actors["Sven"]["sit"] = 3
+        vm.tick(1)
+        self.assertEqual(vm.result["status"], "failed")
+        self.assertEqual(vm.result["fixture_diagnostics"]["sit_state"], 3)
+        self.assertEqual(vm.result["fixture_diagnostics"]["loaded_flag"], 1)
+        self.assertEqual(vm.result["fixture_diagnostics"]["eligible_flag"], 0)
+        self.assertEqual(vm.result["fixture_diagnostics"]["scanned_sven_flag"], 1)
+        self.assertFalse(vm.receipts)
+
+    def test_fixture_readiness_wait_is_bounded_and_records_integer_diagnostics(self):
+        vm = LabVM()
+        vm.actors["Sven"]["loaded"] = False
+        vm.files[REQUEST].update(auto_run=True, scenario="focused-complete")
+        vm.lab("OnInit")
+        vm.tick(45)
+        self.assertEqual(vm.result["status"], "failed")
+        self.assertIn("loaded fixture", vm.result["reason"])
+        diagnostic = vm.result["fixture_diagnostics"]
+        for key in ("scan_count", "loaded_flag", "sit_state", "sleep_state", "same_cell_flag"):
+            self.assertIs(type(diagnostic[key]), int, key)
+        self.assertEqual(vm.settings, vm.initial_settings)
+        self.assertFalse(vm.receipts)
+
+    def test_transient_failure_saving_interruption_request_cannot_later_pass(self):
+        vm = LabVM()
+        vm.actors["P"]["location"] = "inn"
+        vm.lab("FocusedInterrupt")
+        normal_static = vm.static
+        rejected = False
+
+        def reject_interruption_save(owner, name, args):
+            nonlocal rejected
+            value = normal_static(owner, name, args)
+            if (not rejected and owner == "jsonutil" and name == "save" and args[0] == RESULT
+                    and vm.state["hm_labharness"]["interruptrequested"]):
+                rejected = True
+                return False
+            return value
+
+        vm.static = reject_interruption_save
+        vm.tick(10)
+        self.assertTrue(rejected)
+        self.assertEqual(vm.result["status"], "failed")
+        self.assertIn("interruption request", vm.result["reason"])
+        self.assertEqual(vm.settings, vm.initial_settings)
+        self.assertFalse(vm.state["hm_labharness"]["active"])
+
+    def test_transient_failure_saving_loaded_fixture_wait_cannot_continue(self):
+        vm = LabVM()
+        vm.actors["Sven"]["loaded"] = False
+        vm.files[REQUEST].update(auto_run=True, scenario="focused-complete")
+        vm.lab("OnInit")
+        vm.tick(2)
+        self.assertEqual(vm.result["status"], "running")
+        normal_static = vm.static
+        rejected = False
+
+        def reject_wait_save(owner, name, args):
+            nonlocal rejected
+            value = normal_static(owner, name, args)
+            if not rejected and owner == "jsonutil" and name == "save" and args[0] == RESULT:
+                rejected = True
+                return False
+            return value
+
+        vm.static = reject_wait_save
+        vm.tick(1)
+        self.assertEqual(vm.result["status"], "failed")
+        self.assertIn("waiting for the loaded fixture", vm.result["reason"])
+        self.assertEqual(vm.settings, vm.initial_settings)
+        self.assertFalse(vm.timers)
 
 
 if __name__ == "__main__":

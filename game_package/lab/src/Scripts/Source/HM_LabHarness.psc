@@ -41,6 +41,7 @@ Bool ScanObserved = False
 Bool CandidateObserved = False
 Bool SelectionObserved = False
 Bool StartObserved = False
+Float StartObservedAt = 0.0
 Bool StopObserved = False
 Bool ProductionStopSeen = False
 Bool ReceiptObserved = False
@@ -54,6 +55,7 @@ Int StartupAttempts = 0
 Bool AwaitingFocusedEntry = False
 Bool AutomatedFixture = False
 Bool FixtureMoved = False
+Int BooleanSerializationErrors = 0
 
 Event OnInit()
     ; Merely installing this quest never moves actors or enables a test.
@@ -122,7 +124,10 @@ Function TryAutorun()
     ; This tests scripted teleport entry, not walking through a door.
     Game.GetPlayer().MoveTo(anchor, 0.0, 0.0, 0.0, True)
     FixtureMoved = True
-    SaveResult("running", "")
+    If !SaveResult("running", "")
+        Finish("failed", "Could not save evidence after fixture movement.")
+        Return
+    EndIf
     RegisterForSingleUpdate(0.25)
 EndFunction
 
@@ -180,6 +185,7 @@ Function StartFocusedPrepared(Location current)
         EndIf
         i += 1
     EndWhile
+    RecordFixtureDiagnostics(target, candidates.Length, "focused_scan")
     If !target || Library.Owner("sven") != "hold_music" || !Controller.Eligible(target)
         Finish("failed", "Sven must be loaded, eligible, and owned by Hold Music.")
         Return
@@ -210,8 +216,38 @@ Function StartFocusedPrepared(Location current)
         Finish("failed", "No fresh production performance_start after direct start.")
         Return
     EndIf
-    SaveResult("running", "")
+    If !SaveResult("running", "")
+        Finish("failed", "Could not save evidence after focused start.")
+        Return
+    EndIf
     RegisterForSingleUpdate(0.25)
+EndFunction
+
+Function RecordFixtureDiagnostics(Actor scanned, Int scannedCount, String phase)
+    ; Integer flags keep the failure diagnostics usable even if JSON boolean
+    ; serialization itself is the problem under investigation.
+    Actor reference = Game.GetFormFromFile(0x00013491, "Skyrim.esm") as Actor
+    String path = ".fixture_diagnostics"
+    JsonUtil.SetPathStringValue(ResultFile, path + ".phase", phase)
+    JsonUtil.SetPathIntValue(ResultFile, path + ".scan_count", scannedCount)
+    JsonUtil.SetPathIntValue(ResultFile, path + ".scanned_sven_flag", (scanned != None) as Int)
+    JsonUtil.SetPathIntValue(ResultFile, path + ".reference_present_flag", (reference != None) as Int)
+    JsonUtil.SetPathStringValue(ResultFile, path + ".owner", Library.Owner("sven"))
+    JsonUtil.SetPathStringValue(ResultFile, path + ".region", Library.Region("sven"))
+    If reference
+        JsonUtil.SetPathIntValue(ResultFile, path + ".actor_form_id", reference.GetFormID())
+        JsonUtil.SetPathStringValue(ResultFile, path + ".registry_id", Library.FindPerformer(reference))
+        JsonUtil.SetPathIntValue(ResultFile, path + ".loaded_flag", reference.Is3DLoaded() as Int)
+        JsonUtil.SetPathIntValue(ResultFile, path + ".dead_flag", reference.IsDead() as Int)
+        JsonUtil.SetPathIntValue(ResultFile, path + ".combat_flag", reference.IsInCombat() as Int)
+        JsonUtil.SetPathIntValue(ResultFile, path + ".dialogue_flag", reference.IsInDialogueWithPlayer() as Int)
+        JsonUtil.SetPathIntValue(ResultFile, path + ".follower_flag", reference.IsInFaction(Controller.CurrentFollowerFaction) as Int)
+        JsonUtil.SetPathIntValue(ResultFile, path + ".sit_state", reference.GetSitState())
+        JsonUtil.SetPathIntValue(ResultFile, path + ".sleep_state", reference.GetSleepState())
+        JsonUtil.SetPathIntValue(ResultFile, path + ".same_cell_flag", (reference.GetParentCell() == Game.GetPlayer().GetParentCell()) as Int)
+        JsonUtil.SetPathIntValue(ResultFile, path + ".eligible_flag", Controller.Eligible(reference) as Int)
+        JsonUtil.SetPathFloatValue(ResultFile, path + ".distance_to_player", reference.GetDistance(Game.GetPlayer()))
+    EndIf
 EndFunction
 
 Bool Function Guard()
@@ -276,6 +312,11 @@ Bool Function BeginRun(String name)
     StartedAtUtc = requestedUtc
     Scenario = name
     ExpectedOutcome = "completed"
+    If Scenario == "focused_interrupt"
+        ; Match the intended outcome before collecting ANY receipt. A delayed
+        ; poll must not first accept completion, then relabel it interruption.
+        ExpectedOutcome = "interrupted"
+    EndIf
     Began = Utility.GetCurrentRealTime()
     Deadline = Began + 120.0
     If Scenario != "ambient_entry"
@@ -289,6 +330,7 @@ Bool Function BeginRun(String name)
     CandidateObserved = False
     SelectionObserved = False
     StartObserved = False
+    StartObservedAt = 0.0
     StopObserved = False
     ProductionStopSeen = False
     ReceiptObserved = False
@@ -344,12 +386,19 @@ Event OnUpdate()
     EndIf
     If AwaitingFocusedEntry
         Location current = Game.GetPlayer().GetCurrentLocation()
-        If current && current.HasKeyword(LocTypeInn)
+        Actor fixtureActor = Game.GetFormFromFile(0x00013491, "Skyrim.esm") as Actor
+        If current && current.HasKeyword(LocTypeInn) && fixtureActor && fixtureActor.Is3DLoaded() && Game.GetPlayer().Is3DLoaded() && fixtureActor.GetParentCell() == Game.GetPlayer().GetParentCell()
             AwaitingFocusedEntry = False
             StartFocusedPrepared(current)
         ElseIf now >= Deadline
-            Finish("failed", "Timed out waiting for the scripted inn transition.")
+            RecordFixtureDiagnostics(None, 0, "waiting_for_loaded_fixture")
+            Finish("failed", "Timed out waiting for the scripted inn transition and loaded fixture.")
         Else
+            RecordFixtureDiagnostics(None, 0, "waiting_for_loaded_fixture")
+            If !SaveResult("running", "")
+                Finish("failed", "Could not save evidence while waiting for the loaded fixture.")
+                Return
+            EndIf
             RegisterForSingleUpdate(0.25)
         EndIf
         Return
@@ -359,13 +408,22 @@ Event OnUpdate()
         Finish("failed", FailureReason)
         Return
     EndIf
-    If Scenario == "focused_interrupt" && StartObserved && !InterruptRequested && now >= Began + 2.0
+    If Scenario == "focused_interrupt" && ProductionStopSeen && !InterruptRequested
+        Finish("failed", "Performance stopped before the lab issued its interruption request.")
+        Return
+    EndIf
+    If Scenario == "focused_interrupt" && StartObserved && !InterruptRequested && now >= StartObservedAt + 2.0
         Interrupt()
+        If !Active
+            Return
+        EndIf
     EndIf
     If ReceiptObserved
         Bool passed = StartObserved && StopObserved && SelectionObserved && CleanupObserved
         If Scenario == "ambient_entry"
             passed = passed && EntryObserved && ScanObserved && CandidateObserved
+        ElseIf Scenario == "focused_interrupt"
+            passed = passed && InterruptRequested
         EndIf
         If SelectedIdentity == "" || !IdentityObserved
             Finish("failed", "Receipt identity does not match the selected projected fixture.")
@@ -390,7 +448,7 @@ Event OnUpdate()
 EndEvent
 
 Function Interrupt()
-    If !Active || !StartObserved
+    If !Active || !StartObserved || ProductionStopSeen || ReceiptObserved
         Log("HoldMusic LAB: no observed active performance to interrupt.")
         Return
     EndIf
@@ -398,7 +456,9 @@ Function Interrupt()
     ExpectedOutcome = "interrupted"
     InterruptRequested = True
     Config.StopRequested = True
-    SaveResult("running", "")
+    If !SaveResult("running", "")
+        Finish("failed", "Could not save evidence for the interruption request.")
+    EndIf
 EndFunction
 
 Function Cleanup()
@@ -487,6 +547,10 @@ Function CollectEvidence()
                     FailureReason = "Lab fixture requires an explicit projected recording identity."
                 EndIf
             ElseIf SelectionObserved && eventName == "performance_start" && StringUtil.Find(detail, "id=sven slot=") == 0 && SlotFromDetail(detail) == SelectedSlot
+                If !StartObserved
+                    ; Loading and fixture setup do not count as playback time.
+                    StartObservedAt = Utility.GetCurrentRealTime()
+                EndIf
                 StartObserved = True
             ElseIf StartObserved && eventName == "performance_stop" && StringUtil.Find(detail, " id=sven slot=") >= 0 && SlotFromDetail(detail) == SelectedSlot
                 ProductionStopSeen = True
@@ -555,11 +619,15 @@ Function Finish(String status, String reason)
     EndIf
     Active = False
     AwaitingFocusedEntry = False
-    SaveResult(status, reason)
-    Log("HoldMusic LAB: " + status + " run_id=" + RunId + " " + reason)
+    If SaveResult(status, reason)
+        Log("HoldMusic LAB: " + status + " run_id=" + RunId + " " + reason)
+    Else
+        Log("HoldMusic LAB: failed run_id=" + RunId + " Final result could not be serialized or saved.")
+    EndIf
 EndFunction
 
 Bool Function SaveResult(String status, String reason)
+    BooleanSerializationErrors = 0
     JsonUtil.SetPathIntValue(ResultFile, ".version", 1)
     JsonUtil.SetPathStringValue(ResultFile, ".run_id", RunId)
     JsonUtil.SetPathStringValue(ResultFile, ".started_at_utc", StartedAtUtc)
@@ -570,6 +638,7 @@ Bool Function SaveResult(String status, String reason)
     JsonUtil.SetPathStringValue(ResultFile, ".expected_performer_id", "sven")
     JsonUtil.SetPathStringValue(ResultFile, ".expected_outcome", ExpectedOutcome)
     JsonUtil.SetPathFloatValue(ResultFile, ".started_real_seconds", Began)
+    JsonUtil.SetPathFloatValue(ResultFile, ".performance_start_observed_real_seconds", StartObservedAt)
     JsonUtil.SetPathFloatValue(ResultFile, ".observed_real_seconds", Utility.GetCurrentRealTime())
     JsonUtil.SetPathIntValue(ResultFile, ".trace_baseline", TraceBaseline)
     JsonUtil.SetPathIntValue(ResultFile, ".trace_cursor", TraceCursor)
@@ -597,11 +666,17 @@ Bool Function SaveResult(String status, String reason)
     SaveBool(".assertions.stop_request_issued", InterruptRequested)
     SaveBool(".assertions.cleanup_trace_and_receipt", CleanupObserved)
     SaveBool(".assertions.evidence_valid", EvidenceValid)
+    JsonUtil.SetPathIntValue(ResultFile, ".boolean_serialization_errors", BooleanSerializationErrors)
+    If BooleanSerializationErrors > 0
+        JsonUtil.SetPathStringValue(ResultFile, ".status", "failed")
+        JsonUtil.SetPathStringValue(ResultFile, ".reason", "Native JSON boolean serialization failed.")
+        Log("HoldMusic LAB: native JSON boolean serialization failed.")
+    EndIf
     Bool saved = JsonUtil.Save(ResultFile, False)
     If !saved
         Log("HoldMusic LAB: failed to save result evidence.")
     EndIf
-    Return saved
+    Return saved && BooleanSerializationErrors == 0
 EndFunction
 
 Function Log(String message)
@@ -609,9 +684,15 @@ Function Log(String message)
 EndFunction
 
 Function SaveBool(String path, Bool value)
-    String raw = "false"
+    ; BSFixedString interning can reuse the spelling of bare True/False from
+    ; another script. Whitespace is part of these literal intern keys and is
+    ; legal JSON padding. Never assemble them from an already-interned token.
+    String raw = " false "
     If value
-        raw = "true"
+        raw = " true "
     EndIf
-    JsonUtil.SetRawPathValue(ResultFile, path, raw)
+    Bool parsed = JsonUtil.SetRawPathValue(ResultFile, path, raw)
+    If !parsed || !JsonUtil.IsPathBool(ResultFile, path) || JsonUtil.GetPathBoolValue(ResultFile, path, !value) != value
+        BooleanSerializationErrors += 1
+    EndIf
 EndFunction

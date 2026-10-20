@@ -245,9 +245,16 @@ class SELabTests(unittest.TestCase):
         class Process:
             pid = 4242
             def __init__(self, command, **kwargs):
-                outer.assertEqual(command[0], str(outer.root / "MO2/ModOrganizer.exe"))
-                outer.assertEqual(command[1:5], ["-i", "", "-p", se_lab.PROFILE])
-                outer.assertEqual(command[-1], str(outer.root / "Game/skse64_loader.exe"))
+                outer.assertEqual(command, [
+                    str(outer.root / "MO2/ModOrganizer.exe"), "-p", se_lab.PROFILE,
+                    "--logs", "run", "--cwd", str(outer.root / "Game"),
+                    str(outer.root / "Game/skse64_loader.exe"),
+                ])
+                # MO2 2.5.2 interprets an empty --instance/-i as a query and
+                # exits successfully without running the requested executable.
+                outer.assertNotIn("-i", command)
+                outer.assertNotIn("--instance", command)
+                outer.assertNotIn("", command)
                 outer.assertFalse(kwargs["shell"])
                 outer.assertEqual(kwargs["cwd"], str(outer.root / "MO2"))
                 kwargs["stdout"].write(b"fake isolated launcher\n")

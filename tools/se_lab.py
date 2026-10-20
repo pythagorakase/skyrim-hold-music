@@ -325,7 +325,7 @@ def preflight():
     report = dict(version=1, operation="se_lab_preflight", lab_root=str(root), profile=PROFILE,
                   runtime_version=version, manifest=manifest_state, checks=checks,
                   status="ready_for_explicit_launch" if all(row["passed"] for row in checks) else "blocked",
-                  launch_command=[str(_path("MO2/ModOrganizer.exe")), "-i", "", "-p", PROFILE,
+                  launch_command=[str(_path("MO2/ModOrganizer.exe")), "-p", PROFILE,
                                   "--logs", "run", "--cwd", str(_path("Game")),
                                   str(_path("Game/skse64_loader.exe"))],
                   logs=manifest["logs"], snapshot=snapshot, writes_performed=False,

@@ -94,11 +94,21 @@ therefore sets `ambient_scheduling_bypassed` and
 `controller_entry_setup_injected` to true. They do not claim ambient selection
 or a naturally delivered entry event.
 
+Autorun waits within its 40-second focused deadline for the player and Sven to
+be loaded in the same cell after the teleport. It still uses the unchanged
+production eligibility checks. A failed scan records `fixture_diagnostics`:
+ownership, registry identity, loaded/same-cell flags, combat/dialogue/follower
+state, sitting/sleeping state, distance, and scan count. Its diagnostic flags
+are integers so a JSON boolean serialization failure does not erase them.
+
 `focused-complete` awaits the fixture's natural duration. `focused-interrupt`
-sets the normal `HM_Config.StopRequested` flag after two seconds and awaits the
-production poller, stop trace, and interrupted receipt. A direct stop call is
-used only to bound cleanup, never as a substitute for successful interruption
-evidence.
+sets the normal `HM_Config.StopRequested` flag two seconds after first observing
+the production start, recorded as `performance_start_observed_real_seconds`.
+Loading/setup time does not count toward this interval. It awaits the production
+poller, stop trace, and interrupted receipt. Completion or an unrelated stop
+before the harness requests interruption fails this scenario. A direct stop
+call is used only to bound cleanup, never as a substitute for successful
+interruption evidence.
 
 Manual console commands remain available, with `auto_run` absent or false:
 
@@ -126,6 +136,12 @@ The collector archives fresh results independently of their outcome: a
 still-running, failed or cancelled result is not a successful scenario, even
 when evidence collection succeeds.
 
+Boolean evidence uses whitespace-protected JSON literals and checks the native
+parser result, stored JSON type, and value readback. Any mismatch reports
+`boolean_serialization_errors`, changes the result to `failed`, and prevents
+continued execution. A failed evidence save also ends the scenario; final
+Papyrus logging cannot claim a pass if the final result could not be saved.
+
 The test temporarily sets enabled/chance/session-cap/delay globals and restores
 their saved values on completion, failure, timeout, or explicit cleanup.
 Restoration is checked with `GetValue`; a mismatch prevents a pass. A process
@@ -151,6 +167,23 @@ production cleanup path; they cannot prove audible sound or a visually correct
 animation. Accordingly every result keeps `audio_audibility_verified:false` and
 `animation_visual_verified:false`. The harness also cannot certify a Skyrim VR
 native plugin, headset behavior, the MGO stack, or an existing playthrough.
+
+## First engine run and pending confirmation
+
+The first isolated SE run (`20261020T160503Z-aa30e1b59ea5`, harness build `-05`)
+reached the inn transition without a CTD, then failed the Sven
+loaded/eligible/owned check before playback. It also persisted null boolean
+fields; PapyrusUtil logged JSON parse errors. The available evidence does not
+identify which eligibility condition failed.
+
+Papyrus uses a case-insensitive string cache that preserves an existing spelling,
+as documented in [SKSE StringUtil](https://github.com/ianpatt/skse64/blob/master/scripts/modified/StringUtil.psc).
+An already-interned `True`/`False` is therefore a plausible source of invalid JSON
+from bare lowercase literals. [PapyrusUtil's parser](https://github.com/eeveelo/PapyrusUtil/blob/master/External.cpp)
+replaces the destination even when parsing fails, consistent with the nulls.
+The protected-literal fix, fail-closed serialization checks, and new fixture
+diagnostics have compiled-fixture regression coverage; their engine confirmation
+remains pending. No successful playback or cleanup is claimed from that first run.
 
 ## Offline build and tests
 
