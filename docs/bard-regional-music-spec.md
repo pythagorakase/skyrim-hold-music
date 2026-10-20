@@ -163,6 +163,18 @@ The [contract-migration review](contract-migration-review.md) evaluates explicit
 
 The [publication route planner](library-publication-plan.md) verifies an explicit flat destination snapshot against the fresh effective installed files before reusing the additive merge plan. It binds proposed audio/lyrics/manifest paths, exposes shared-profile effects and checks that each selected-profile target would win. It does not flatten files, loosen migration blockers, infer write destinations from file handles or provide an apply command.
 
+**20 October SE testing decision:** the user authorized an isolated Skyrim SE
+1.6.1170 lab for repeatable real-engine testing. Its physical game copy and
+portable MO2 profile are separate from Steam's managed installation and VR/MGO;
+both existing Steam manifest locks remain unchanged. The first SKSE-only
+bootstrap reached QASmoke. A separate, explicitly armed lab quest tests scripted
+inn entry, discovery, strict recording identity and completion/interruption
+receipts with an eight-second synthetic PCM fixture. Offline test success is not
+an in-game performance result, and SE success cannot certify VR-native
+compatibility, audibility or visual animation quality. SkyrimNet/MCP is a
+subsequent integration tier; no paid calls or musical recipe changes are
+required. See the [lab setup, evidence and remaining checks](se-testing-lab.md).
+
 An affected shared profile can reuse the selected library's content validation only after its own fresh inspection and complete before/after equivalence across all 51 mapped paths, including histories, absences and orphan assets. Different physical winners retain their provenance; different library contents remain blocked. This bounded proof does not validate controller ownership, archives, current saves or runtime behavior.
 
 - A successful quest, a scandalous affair circulating as gossip, and ordinary local news are all valid subjects. No heroic framing is required. Select from what the bard knows; hearing gossip does not mean learning a pre-existing song about it.

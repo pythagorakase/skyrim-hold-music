@@ -1,0 +1,6 @@
+# All lab build products belong to disposable local workspaces.
+builder/.work/
+build/
+.work/
+__pycache__/
+**/__pycache__/

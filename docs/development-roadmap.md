@@ -5,6 +5,20 @@ gate engineering progress. Current recipes are provisional, versioned inputs.
 Listening confidence, technical readiness and runtime evidence are separate
 records; none is inferred from another.
 
+**20 October update: isolated SE engine testing is authorized.** Build and use
+the [Skyrim SE lab](se-testing-lab.md) as the next runtime milestone. Its own
+physical copy of the installed 1.6.1170 game, portable MO2 instance, local saves,
+and matching dependencies preserve both Steam manifest locks and the VR/MGO
+installation. A first SKSE-only bootstrap has reached QASmoke; this is not yet
+a Hold Music playback result. The separate lab quest exercises actual scripted
+inn entry, NPC discovery, strict recording identity and performance completion
+or interruption using synthetic PCM. Its offline compiled tests and actual
+engine results remain distinct. SkyrimNet/MCP integration follows the smaller
+controller baseline, with no paid generation enabled. These SE checks supplement
+the VR acceptance pass; they cannot clear the VR-specific native scan defect.
+The existing publication transaction work below remains a parallel engineering
+task, independent of regional listening validation.
+
 ## Current Baseline
 
 The workshop already provides the eleven regional targets, the separate Reach

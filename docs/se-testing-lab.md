@@ -1,0 +1,295 @@
+# Isolated Skyrim SE testing lab
+
+`tools/se_lab.py` operates only inside `C:\MGO\HoldMusic-SE-Lab`.
+There is no command-line root override. Its fixed runtime is Skyrim Special
+Edition **1.6.1170.0**, with the portable MO2 profile **Hold Music SE Lab**.
+It never edits the production Skyrim VR/MGO installation.
+
+The first tier tests the engine, SKSE, JsonUtil and the dedicated lab harness.
+It refuses a loose `SkyrimNet.dll` winner and requires `paid_generation: false`.
+SkyrimNet/MCP integration belongs in a separately configured later tier.
+
+## Installed state on 20 October 2026
+
+The independent physical copy exists at the fixed path above. It was copied
+from the installed **1.6.1170** game; no Steam update was accepted. It is not a
+hard link or junction to the Steam installation. Copying adds isolation from
+Steam-managed file replacement; matching the runtime and dependencies remains
+necessary.
+
+Both original Steam app manifests remain read-only with unchanged hashes.
+SE (`489830`) has an update pending, and Steam logs an access-denied manifest
+write. VR (`611670`) has no pending target build. That explains why only SE
+currently displays the update failure; it does not mean the VR lock is absent.
+The audit and original manifest copies are under the lab's `checkpoints/`.
+
+The **Bootstrap - SKSE only** profile reached QASmoke through the copied
+SKSE 2.2.6 loader. Its screenshot and SKSE initialization logs are retained at
+`checkpoints/skse-bootstrap-qasmoke.png` and `checkpoints/skse-bootstrap/`.
+This establishes that the isolated game and loader can run. It does not
+establish Hold Music, JsonUtil, SkyrimNet, audible playback or VR compatibility.
+The lab game and MO2 processes were then stopped; no playthrough save was used.
+The original SE/VR installations and the other character-testing lab were not
+modified. Shared SE Documents logs were backed up before the bootstrap.
+
+Installed in the main profile:
+
+- SKSE Scripts 2.2.6 and matching root loader/runtime DLL.
+- MCM Helper SE 1.6.2, with only its Skyrim SE installation branch.
+- Hold Music Candidate from `runtime-identity-build-20261020-02`.
+- Separate harness from `se-lab-harness-20261020-05`.
+- Hold Music Lab Data: eight seconds of deterministic plucked-tone PCM,
+  strict synthetic recording identity, one session slot, and a lab-only world.
+
+**The complete profile is not ready to launch.** It still needs SkyUI SE 5.2,
+PapyrusUtil SE 4.6 for 1.6.1170, and the Address Library AE database for 1.6.1170.
+Their Nexus download flow requires a signed-in account. The latest PapyrusUtil
+release is not automatically the correct one for this pinned runtime.
+The recorded 360-check preflight blocks on required mods/plugins and the absent
+SkyUI plugin winner. Do not bypass it by merely adding names or empty folders.
+After installing the matching archives, record their provenance and actual
+native/script hashes in the manifest, enable the correct files, then rerun
+preflight. No Sven scenario has run in the engine yet.
+
+Installation receipts and the blocked preflight are under
+`checkpoints/candidate-staging-20261020/`. Existing trace and receipt history
+must remain intact. The fixture creator seeds these arrays only for a new lab.
+The compiled harness passed 44 offline tests; the runner passed 31 tests.
+These use mocked native calls and fake launches, separate from the bootstrap.
+The build receipts retain the provenance of their existing compiler imports;
+they do not claim an independently rebuilt SE-native dependency stack.
+The complete general suite passed under bundled Python 3.12.14 in UTF-8 mode:
+**859 cases, 849 passed and 10 expected platform/capability skips**. The log is
+`local/se-lab-general-tests-python312-20261020.log`. An initial default-Python
+3.10 run is retained separately; it failed on existing newer APIs, ISO timestamp
+parsing, missing PyYAML and Windows default text encoding. No compatibility
+fixes for that older environment are included in this lab change.
+
+SkyrimNet and its additional dependencies have been acquired/staged where
+available, but are not enabled in the baseline. Its integration is the next
+tier after the controller scenarios pass. There were no paid provider calls.
+
+## Layout and installation record
+
+The installation owner prepares these paths; this tool does not install them:
+
+```text
+C:\MGO\HoldMusic-SE-Lab\
+  lab-manifest.json
+  Game\SkyrimSE.exe
+  Game\skse64_loader.exe
+  Game\Data\
+  MO2\ModOrganizer.exe
+  MO2\portable.txt
+  MO2\ModOrganizer.ini
+  MO2\mods\
+  MO2\overwrite\
+  MO2\profiles\Hold Music SE Lab\
+    modlist.txt
+    plugins.txt
+    settings.ini
+    Skyrim.ini
+    SkyrimPrefs.ini
+  runs\<run-id>\
+```
+
+`lab-manifest.json` is strict JSON with this shape. SHA placeholders must be
+replaced with independently recorded lowercase SHA256 values:
+
+```json
+{
+  "version": 1,
+  "paid_generation": false,
+  "runtime": {
+    "path": "Game/SkyrimSE.exe",
+    "version": "1.6.1170.0",
+    "sha256": "<runtime SHA256>"
+  },
+  "loader": {
+    "path": "Game/skse64_loader.exe",
+    "sha256": "<loader SHA256>"
+  },
+  "mo2": {
+    "path": "MO2/ModOrganizer.exe",
+    "profile": "Hold Music SE Lab",
+    "sha256": "<MO2 SHA256>"
+  },
+  "required_mods": [
+    "SKSE Scripts 2.2.6",
+    "MCM Helper SE 1.6.2",
+    "Address Library AE",
+    "PapyrusUtil SE 4.6",
+    "SkyUI SE 5.2",
+    "Hold Music Candidate",
+    "Hold Music SE Lab Harness",
+    "Hold Music Lab Data"
+  ],
+  "required_plugins": ["HM_Lab.esp"],
+  "files": [
+    {
+      "path": "MO2/mods/Hold Music SE Lab Harness/HM_Lab.esp",
+      "sha256": "<plugin SHA256>"
+    }
+  ],
+  "logs": [
+    {
+      "id": "harness",
+      "path": "MO2/overwrite/SKSE/Plugins/StorageUtilData/HoldMusicSELab/result.json",
+      "required": true,
+      "run_id_field": "run_id"
+    }
+  ]
+}
+```
+
+The example uses the first-tier installation's mod folder names. List every
+actual required plugin and relevant dependency/script hash as well; the single
+`HM_Lab.esp` file entry illustrates the shape rather than a complete inventory.
+Every required plugin must have a declared matching hash at its actual loose
+winner. Declared active mod/Data files are also checked against their winners,
+so an unexpected overwrite script cannot silently replace a hashed lower copy.
+Do not put mutable request/result logs in `files`.
+
+Preflight reads the executable's Windows version resource independently of its
+declared hash. It checks portable mode, the configured game path and profile,
+profile lists, required hashes, plugin winners and the harness control.
+Explicit MO2 directory overrides must match the audited directories:
+`MO2`, `MO2/mods`, `MO2/profiles`, `MO2/overwrite`, `MO2/downloads` and
+`MO2/webcache`. `settings.ini` must enable both `LocalSaves` and `LocalSettings`;
+the selected profile must contain its local `Skyrim.ini` and `SkyrimPrefs.ini`.
+
+The effective harness control is:
+
+```json
+{"version": 1, "enabled": true, "world_id": "hold-music-se-lab"}
+```
+
+Its virtual path is
+`SKSE/Plugins/StorageUtilData/HoldMusicSELab/control.json`.
+
+## Explicit actions
+
+Use the verified Python 3.12 environment with the repository requirements and
+UTF-8 mode. Do not rely on this PC's default `python`, which currently selects
+3.10 without PyYAML. Existing full-project tooling uses newer standard-library
+APIs and ISO timestamp parsing; the full suite also reads UTF-8 palette files.
+For this installation:
+
+```powershell
+$LabPython = 'C:\Users\neilg\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe'
+$env:PYTHONUTF8 = '1'
+```
+
+Run a read-only preflight and retain its `review_token`:
+
+```powershell
+& $LabPython -B tools/se_lab.py preflight
+```
+
+Launch with that fresh token:
+
+```powershell
+& $LabPython -B tools/se_lab.py launch --review-token "<token>" --scenario ambient-entry --timeout-seconds 30
+```
+
+Launch checks that no Skyrim or MO2 process is already running, records the
+baseline, rechecks the inputs, writes a new harness request, and launches only
+the isolated MO2. It uses `-i ""` for the portable instance, `-p` for the fixed
+profile, and the explicit SKSE loader path with the lab Game working directory.
+These options are implemented by the
+[official MO2 command-line source](https://github.com/ModOrganizer2/modorganizer/blob/master/src/commandline.cpp).
+
+An explicit `--scenario` selects `ambient-entry`, `focused-complete`, or
+`focused-interrupt`, and publishes `auto_run: true`. Omit it for manual mode.
+Use a fresh game process and disposable world for each single-slot fixture
+scenario. The start-enabled quest consumes autorun only on initialization.
+Ambient entry uses a scripted teleport into the inn and observes the actual
+engine location event; it does not certify walking through the door.
+
+The timeout is a **wait limit**, not a game termination deadline. A timeout
+leaves every process running. A launcher exit code is recorded without treating
+it as a passing engine or gameplay test. No `taskkill`, process-name termination
+or child-tree cleanup is performed.
+
+For the next scenario in an already-open lab, obtain a fresh preflight token
+and arm a new request without launching another process:
+
+```powershell
+& $LabPython -B tools/se_lab.py arm --review-token "<token>"
+```
+
+`arm` does not send game input or run a console command. It only records a new
+baseline and writes the request. Use the harness's documented scenario entry
+point separately. Interrupt/Cleanup actions for the current scenario keep its
+existing request; arm again only when beginning another scenario.
+
+Launch and arm write:
+
+```text
+MO2/overwrite/SKSE/Plugins/StorageUtilData/HoldMusicSELab/request.json
+```
+
+The request contains `version`, a unique `run_id`, and `started_at_utc`.
+The harness must echo the exact `run_id` and `started_at_utc` into its result.
+Explicit scenarios add `auto_run` and `scenario`. The preceding request
+is preserved in the new run directory. Inputs and request publication use a
+local writer lock; this does not exclude unrelated editors or establish game
+process ownership.
+
+## Evidence collection
+
+After running the scenario, collect its declared lab-local evidence:
+
+```powershell
+& $LabPython -B tools/se_lab.py collect --run-id "<run-id>"
+```
+
+Each capture receives a new directory:
+
+```text
+runs\<run-id>\
+  preflight.json
+  run.json
+  previous-request.json       # when a prior request existed
+  launch-result.json          # launch mode only
+  launcher-output.log         # launch mode only
+  captures\<capture-id>\
+    evidence.json
+    logs\<log-id>.bin
+```
+
+Evidence is fresh only when its content hash differs from the recorded baseline,
+its write time is at or after the run start, and any declared JSON `run_id_field`
+matches the run. At least one required JSON result must echo the nonce and
+request timestamp. Explicit scenarios must match the known harness result
+names: `ambient-entry` maps to `ambient_entry`, `focused-complete` to
+`focused_complete`, and `focused-interrupt` to `focused_interrupt`.
+Touching an unchanged old log, copying a result with the wrong nonce, a missing
+required result, invalid JSON or a file that changes during collection cannot
+produce complete fresh evidence.
+
+The exact observed bytes are archived, including stale files for diagnosis.
+Full text logs may include older lines; use the recorded baseline and timestamps
+when attributing their contents. Captures never replace existing captures.
+`fresh_required_evidence: true` means the expected current-run evidence was
+collected. It does **not** mean the scenario passed: inspect the harness result's
+checks and errors. The tool keeps `runtime_verified: false`.
+
+Global SKSE/Papyrus logs outside this lab are not silently read or archived.
+The installation operator must separately preserve any shared Documents files
+and explicitly stage relevant evidence into a declared lab-local path with its
+source provenance. Missing output at the declared physical path remains missing
+evidence; a presumed MO2 write destination is not treated as verified.
+
+## Fixture checks
+
+```powershell
+& $LabPython -B -m unittest discover -s tests -p test_se_lab.py -v
+& $LabPython -B -m unittest discover -s tests -p test_se_lab_fixture.py -v
+```
+
+These tests patch the fixed root to a temporary fixture and use fake executable
+version readers and launchers. They do not launch Skyrim, MO2, SKSE or a provider.
+They cover identity/hash failures, profile isolation, overriding winners,
+foreign paths, stale review tokens, existing processes, timeout preservation,
+per-run nonces, stale/malformed logs, archive bytes and input drift.
