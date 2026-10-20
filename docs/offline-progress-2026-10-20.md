@@ -206,19 +206,80 @@ Fourth-checkpoint validation:
 - Installed controller PEX/source hashes still match the 15 October workaround.
   Candidate artifacts remain local and unapplied. Paid provider calls: zero.
   No installed files, active configuration, recipes or auditions were changed.
-  The source checkpoint is ready for synchronization; the synchronization
-  receipt records final GitHub, Halcyon and Echo commit/tree identities.
+  Source checkpoint `30f2418` was synchronized to GitHub, Halcyon and Echo.
+  The synchronization receipt records the exact commit/tree identities.
+
+## Fifth checkpoint: reviewed static promotion and rollback
+
+- Added a separate static transaction command. Review/status create no files;
+  apply and rollback each need an operation-specific token. Promotion rechecks
+  candidate, source, target and protected-file observations against the review.
+  Rollback rechecks its retained journal/backups and current target/context.
+  Existing read-only promotion planning remains unchanged.
+- Mutations are limited to allowlisted static files plus a fixed per-target
+  control directory. A kernel writer lock prevents competing transactions.
+  Exact original-byte backups and durable per-file intent precede replacement.
+  Interrupted work remains observable and blocks another apply; recovery never
+  automatically resumes an interrupted update.
+- Rollback uses retained backups and current target observations, even when the
+  candidate/source checkout has moved or disappeared. It preserves new receipts,
+  traces, settings, audio and saves. Third-party static edits, corrupt required
+  backups or changed profile context block restoration before other files move.
+  Prior terminal journals and backups remain available after a later transaction.
+- Independent review caught journal parent-path traversal, a missing guard for
+  newly created script overrides, final-write changes and rollback accepting
+  an immediate external edit as successful restoration. Regressions now exercise
+  those cases. Journal error reporting also preserves concurrent journal edits.
+- Process enumeration is required for execution and fails closed on unknown or
+  malformed results. Tests inject fake process observations; the CLI has no
+  bypass option. Real subprocess deaths after replacement during both apply and
+  rollback left durable journals, released kernel locks and recovered through
+  a fresh reviewed rollback.
+- A synthetic round trip promoted ten fixture static files and restored every
+  original target byte. Proof:
+  `local/promotion-fixture-proof-20261020/proof.json`.
+- Actual installation **inspection only** proposed four replacements: three PEX
+  files and `HM_Library.psc`. It observed the same 708-path snapshot as the fourth
+  checkpoint, including 634 preservation entries, and created no transaction
+  directory. Reports: `local/static-promotion-review-20261020.json` and
+  `local/static-promotion-status-20261020.json`. Nothing was applied to the game.
+
+Fifth-checkpoint validation:
+
+- **596 general tests on Windows:** 593 passed, three expected platform skips.
+- **596 general tests on macOS:** 595 passed, one expected platform skip.
+  These include 39 new transaction, independent safety and CLI cases, including
+  abrupt process termination during both apply and rollback.
+- **1,274 workshop prompt contracts on each host** passed. Existing musical
+  recipes, arrangements and the dashboard are unchanged.
+- Echo tested source commit `fec2d09` in the isolated workspace
+  `/tmp/holdmusic-static-promotion-20261020.idGXfw/source`; subsequent changes
+  only clarify documentation and record results. The existing Echo checkout
+  and its auditions were not used as test fixtures.
+- Logs: `local/static-promotion-checkpoint-20261020-tests-final.log` and
+  `local/static-promotion-publish-20261020/{general-tests,prompt-tests}.log`.
+  The latter folder also retains the source synchronization receipt.
+- The compiled candidate and capability receipt are unchanged from the fourth
+  checkpoint; its 76 compiled package tests were not repeated for this
+  Python-only transaction change. The fresh read-only plan verified the
+  candidate evidence and observed the unchanged installation snapshot.
+
+The [transaction documentation](game-promotion-transactions.md) records the
+recovery boundaries. Empty parent directories may remain after rollback; there
+is no recursive directory deletion or arbitrary historical rollback command.
+Library merging, profile enablement and actual runtime compatibility remain
+separate requirements. This checkpoint changes no musical recipe or audition.
 
 ## Next bounded work
 
-1. Extend the read-only promotion plan toward a reviewed apply/rollback design
-   that rechecks hashes and preserves runtime JSON, receipts, saves and audio.
-   Test against synthetic installations only. The existing complete-mod installer
-   is not an incremental promotion path, and the new candidate remains unapplied.
-2. Add explicit reviewed import metadata where needed. The old importer model
+1. Add explicit reviewed import metadata where needed. The old importer model
    label is only a placeholder; it must not be used to infer a current recipe
-   revision or sound source for historical audio.
-3. Keep real actor identity and controller playback evidence separate. Actual
+   revision or sound source for historical audio. Use synthetic/existing fixture
+   recordings and no paid provider calls.
+2. Design the separate reviewed library merge/promotion boundary: slot ownership,
+   exact recording identity, current receipts, interrupted playback locks and
+   stale-input guards. Static promotion deliberately cannot merge libraries.
+3. Keep the candidate unapplied and real actor/controller evidence separate. Actual
    MO2-injected ownership observation and the Sven runtime retest still need
    the relevant local/game session; they do not stop offline engineering.
 

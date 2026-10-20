@@ -5,6 +5,12 @@ an existing Hold Music installation. It prints a review plan and has **no apply
 option**. It does not launch a process or the game, generate audio, install files,
 create backups, rewrite profile lists, or merge a recording library.
 
+The separate [reviewed static transaction tool](game-promotion-transactions.md)
+can apply allowlisted static changes and restore their retained backups. It
+requires an operation-specific review token and fresh guards; this planner
+remains read-only. The overnight checkpoint exercises mutations only against
+synthetic installations.
+
 ```powershell
 python -B tools/plan_game_promotion.py `
   --build-dir "C:\MGO\HoldMusic\local\portable-build-verified-20261020\build" `
@@ -88,7 +94,9 @@ compiled fixtures use mocked native APIs, not the Skyrim engine. It does not est
 saved-script compatibility, controller ownership, sound/animation behavior or
 VFS write destinations. Replan after source or target changes; filesystem
 observations are not an atomic snapshot. Any later apply/rollback implementation
-must recheck reviewed hashes and preserve these same runtime boundaries.
+must recheck reviewed hashes and preserve these same runtime boundaries. The
+separate transaction path follows those boundaries without adding library
+merging or profile enablement.
 
 ## Offline Tests
 

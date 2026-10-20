@@ -120,9 +120,14 @@ projection; the builder now requires its compiled fixtures to pass and binds
 that evidence to the actual artifacts and sources. Promotion validates that
 evidence separately from the projected library. Missing candidate evidence or
 malformed identity still blocks review; library merging remains unsupported.
-The installed controller and runtime verification remain separate. Next design
-reviewed incremental apply/rollback with stale-input checks and preservation of
-runtime data. Continue portable
+The installed controller and runtime verification remain separate. A separate
+[static transaction path](game-promotion-transactions.md) implements reviewed
+per-file apply/rollback with durable backups, target locking and fresh input
+checks. Rollback preserves later gameplay data and works without the original
+candidate checkout. Its mutations are tested against synthetic installations;
+this does not authorize a real deployment or library merge. Next extend the
+explicit import metadata and library-promotion contract without inferring
+historical recipe identity. Continue portable
 work while following the [RC5 / SkyrimNet migration plan](stack-migration-rc5-beta27.md).
 Evaluate native song import as an alternative delivery route when its actual
 metadata and ownership behavior can be inspected. Do not assume imported audio

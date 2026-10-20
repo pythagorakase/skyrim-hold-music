@@ -84,6 +84,13 @@ library contract. Library merging remains unsupported, and the installed
 controller remains unchanged. See the [candidate identity contract](../docs/candidate-runtime-identity.md)
 for the projection and native-API limitations.
 
+The [reviewed static transaction tool](../docs/game-promotion-transactions.md)
+adds guarded per-file promotion and rollback with retained backups and a target
+writer lock. Its default is another read-only review; apply and rollback each
+require their own current token. It preserves runtime data and does not enable
+the mod or merge a library. The overnight implementation is exercised against
+synthetic installation trees; the actual candidate remains unapplied.
+
 ## Install and rollback
 
 Use the separate installer only after the adapter's in-game test and with both
