@@ -12,29 +12,46 @@ separate machine-local artifacts.
 
 ## Build
 
-Author on macOS; build only on halcyon under `C:\MGO\hm-scratch\t1b`:
+Author on either host; compile with the installed Windows Caprica, Champollion,
+.NET 9 and cached Mutagen.Bethesda.Skyrim 0.51.5 dependencies. The builder now
+takes explicit stack and toolchain paths. It defaults to a **read-only plan**;
+`--build` compiles into a fresh, empty workspace and never installs anything.
+The historical RC4.1 paths below are one concrete example, not built-in defaults:
 
-First create `C:\MGO\hm-scratch\t1b`, `hold_music` and `game_adapter\data`
-subdirectories there using the work order's encoded PowerShell SSH recipe.
-The builder imports T0's validator, so stage these read-only source copies as
-siblings of `game_package` (all remote writes remain inside T1b):
-
-```sh
-scp -o BatchMode=yes hold_music/__init__.py hold_music/registry.py hold_music/repertoire.py 'halcyon:C:/MGO/hm-scratch/t1b/hold_music/'
-scp -o BatchMode=yes game_adapter/data/performers.json 'halcyon:C:/MGO/hm-scratch/t1b/game_adapter/data/'
-scp -r -o BatchMode=yes game_package 'halcyon:C:/MGO/hm-scratch/t1b/'
-ssh -o BatchMode=yes halcyon 'cd /d C:\MGO\hm-scratch\t1b && py -3 -B game_package\tools\build_game_package.py'
-scp -r -o BatchMode=yes 'halcyon:C:/MGO/hm-scratch/t1b/game_package/build' game_package/
-.venv/bin/python -m unittest discover -s game_package/tests -v
-.venv/bin/python -m unittest discover -s tests -v
+```powershell
+$buildArgs = @(
+  '--workspace', 'C:\MGO\HoldMusic\local\package-build-example',
+  '--mo2-root', 'C:\MGO\Skyrim MGO 4.0 RC4.1',
+  '--profile', 'MGO EXP - SkyrimNet b26 + SeverActions 4.2',
+  '--compiler', 'C:\MGO\character-work\tools\caprica-0.3.0\Caprica.exe',
+  '--flags', 'C:\MGO\character-work\flatrim-test\script-source\TESV_Papyrus_Flags.flg',
+  '--decompiler', 'C:\MGO\codex-investigations\20261002-companions-hostility\decompiler\Champollion.exe',
+  '--vanilla-imports', 'C:\MGO\codex-investigations\20261006-ostimnet-spouse-guard\compile-imports',
+  '--vanilla-pex', 'C:\MGO\codex-investigations\20261006-ostimnet-spouse-guard\vanilla-pex',
+  '--dependency-assets', 'C:\MGO\ModernMarriage\tools\PluginBuilder\obj\project.assets.json'
+)
+python -B game_package/tools/build_game_package.py @buildArgs --dry-run
+python -B game_package/tools/build_game_package.py @buildArgs --build
+$env:HOLD_MUSIC_TEST_BUILD = 'C:\MGO\HoldMusic\local\package-build-example\build'
+python -B -m unittest discover -s game_package/tests -v
+Remove-Item Env:\HOLD_MUSIC_TEST_BUILD
 ```
 
-The script enforces its Windows scratch root, uses installed Caprica 0.3.0,
-Champollion, .NET 9 and cached Mutagen.Bethesda.Skyrim 0.51.5 dependencies. It
-redirects temporary files, .NET state and NuGet caches into the scratch root;
-NuGet sources are disabled. There are no dependency installations on macOS.
-Build output, imports, dependency provenance, logs, disassembly and hashes go
-under ignored `build/`. The builder's `bin/` and `obj/` are also ignored.
+`--dotnet` can override the executable found on PATH. The workspace must not
+overlap installed game files, compiler imports, package caches or authored
+package inputs. A nonempty workspace is refused, so a new build cannot mix
+stale outputs into the package. No source checkout staging is needed.
+
+Temporary files, .NET state, offline package caches and a copy of the C#
+builder all stay in the workspace. NuGet sources and vulnerability-audit
+network queries are disabled; missing cached dependencies fail the build.
+`build/` contains the package, imports, logs, disassembly, input plan, package
+hashes and a build receipt identifying the stack, source and toolchain hashes.
+The receipt does not establish installation or runtime compatibility.
+The checkout's existing `game_package/build` is left intact. Tests can target
+the new build with `HOLD_MUSIC_TEST_BUILD`; an incomplete explicit target fails
+rather than silently skipping. Without that variable, historical test behavior
+and the `game_package/build` default are preserved.
 
 Import resolution follows Modern Marriage's `tools/build.py`: reversed active
 MO2 mod order, installed loose sources first, then decompile the winning PEX for
@@ -42,12 +59,15 @@ missing types. It seeds vanilla/SKSE, JsonUtil, StorageUtil, MiscUtil and MCM
 Helper APIs. MCM Helper VR actually supplies only SKI_ConfigMenu source under
 `Source/Scripts`; its MCM_ConfigBase PEX is decompiled for the import. External
 imports are compile inputs only, not copied into the distributable package.
-The active profile is `MGO EXP - SkyrimNet b26 + SeverActions 4.2`.
+The profile is supplied explicitly; these import choices do not prove MO2's
+runtime VFS winners.
 
-`build/package/` is the eventual Data layout. The builder emits the ESP, player
+`<workspace>/build/package/` is the eventual Data layout. The builder emits the ESP, player
 alias bindings and SEQ, validates a Mutagen serialize/read round trip, then the
 build script disassembles all three PEX files and hashes every package file.
-This is an offline build tool, not an installer or rollback tool.
+This is an offline build tool, not an installer or rollback tool. The current
+installer still reads the reviewed `game_package/build` location; a successful
+candidate build is not automatically promoted there or installed.
 
 ## Install and rollback
 
@@ -301,17 +321,27 @@ VR controls, sound cache or MO2 injection.
 configure a console Python executable in MO2 and launch it with:
 
 ```text
-C:\MGO\hm-scratch\t1b\game_package\tools\probe_vfs.py --data-root <SkyrimVR-Data> --manifest C:\MGO\hm-scratch\t1b\game_package\build\package-hashes.json
+C:\MGO\HoldMusic\game_package\tools\probe_vfs.py --data-root <SkyrimVR-Data> --manifest C:\MGO\HoldMusic\game_package\build\package-hashes.json --profile "MGO EXP - SkyrimNet b26 + SeverActions 4.2"
 ```
 
+Run the probe from the current checkout: it imports the strict configuration
+scalar reader from `game_adapter/hold_music_adapter/engine.py` and its sibling
+modules. It uses only Python's standard library and needs no provider access.
+Use the manifest for the exact package being checked.
+
 The probe does not launch anything, install anything or write files. It reads
-package files, slot WAVs and both JsonUtil files through its inherited VFS,
-emits SHA256 hashes and Windows file-handle destinations, and returns nonzero
-for missing files/hash mismatches. The orchestrator must confirm the process
+package files, slot WAVs, both JsonUtil files and SkyrimNet's `BardSinging.yaml`
+through its inherited VFS, emits SHA256 hashes and Windows file-handle
+destinations, and returns nonzero for missing files/hash mismatches or malformed
+bard settings. The config row includes only the parsed `bard_enabled` flag,
+never provider credentials. The orchestrator must confirm the process
 was actually launched through the intended MO2 profile and compare destinations
 to the intended winning mod/overwrite. Identical hashes alone do not identify
 a winner. This read-only probe cannot prove JsonUtil's eventual write target;
 that remains a separate orchestrated game-side receipt test.
+Pass the captured report to `tools/preflight_performance.py --vfs-report` for
+profile/destination/hash checks. See the [reversible ownership handoff](../docs/performance-ownership-design.md#offline-handoff-and-vfs-evidence-20-october-2026)
+for safe preparation and rollback of conflicting launch inputs.
 
 Still unverified: race-specific lute attachment/idle stop, coexistence with
 vanilla/SkyrimNet bard activity, audible positioning, long-WAV memory behavior,

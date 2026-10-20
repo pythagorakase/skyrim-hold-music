@@ -3,17 +3,21 @@ Executes Champollion disassembly of built PEX, never source-level pseudocode.
 Unknown instructions/calls fail. Native APIs are mocks, not engine validation.
 """
 import json
+import os
 import re
 import unittest
 from pathlib import Path
-BUILD = Path(__file__).resolve().parents[1] / 'build'
+BUILD = Path(os.environ.get("HOLD_MUSIC_TEST_BUILD",
+                            Path(__file__).resolve().parents[1] / 'build')).resolve()
 
-BUILD_COMMAND = r"ssh -o BatchMode=yes halcyon 'cd /d C:\MGO\hm-scratch\t1b && py -3 -B game_package\tools\build_game_package.py' (see game_package/README.md for staging/copy-back)"
+BUILD_COMMAND = "game_package/tools/build_game_package.py with explicit stack/toolchain arguments and --build (see game_package/README.md)"
 
 
 def require_artifacts(*paths):
     missing = [str(path.relative_to(BUILD)) for path in paths if not path.is_file()]
     if missing:
+        if os.environ.get("HOLD_MUSIC_TEST_BUILD"):
+            raise AssertionError("Explicit test build is incomplete: " + ", ".join(missing))
         raise unittest.SkipTest('Missing build artifacts: ' + ', '.join(missing) + '; build with ' + BUILD_COMMAND)
 
 

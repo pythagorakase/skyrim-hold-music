@@ -57,17 +57,31 @@ save scope, selected recording or proposed job, versioned recipe, staged files
 and reconciled receipt. A mock provider or existing WAV is sufficient; there is
 no requirement for an approved regional palette.
 
+**20 October offline checkpoint:** the [integration proof](offline-integration.md)
+now exercises that sequence with explicitly synthetic knowledge and silent PCM
+fixtures for the existing pilot performers. It produces a linked staging receipt
+and demonstrates duplicate suppression, generation cooldown fallback and
+completed/interrupted performance history. Strict instrument and recipe-revision
+matching is implemented at its staging boundary; carrying that contract through
+the production planner and executor remains the next integration step.
+
+The VFS probe now observes the winning Bard Singing configuration path, hash and
+enabled flag. A separate dry-run-first handoff tool can prepare guarded changes
+and rollback data. Neither has been used to change the installed profile in this
+offline checkpoint; actual MO2 injection and runtime ownership remain unverified.
+
 ## Parallel Engineering
 
 ### Durable Jobs and Accounting
 
-The [executor](executor.md#lyrical-preparation-t2b) is a bounded invocation,
-not a crash-safe queue. Persist job state and cost accounting before adding
-automatic replenishment. Preserve paid-call evidence even if later conversion
-or publication fails, distinguish failed from unknown provider outcomes, and
-recover without automatically resubmitting uncertain requests. Test crashes
-between each transition with fake clients. Explicit generation authorization,
-spending limits and no automatic retries remain requirements.
+The [executor](executor.md) now journals dispatch, returned payloads and accounting
+in a private SQLite store. An uncertain request or unpublished paid result blocks
+new spending; explicit recovery can publish retained audio without a provider.
+Crash-boundary tests use fake clients. This is durable bounded execution, not an
+automatic replenishment scheduler. Explicit generation authorization, per-run
+spending limits and no automatic retries remain requirements. Follow-up work
+includes explicit resolution of uncertain outcomes and safely continuing a job
+whose lyrics were saved before music dispatch.
 
 ### Performer, Repertoire and Arrangement Identity
 
@@ -85,8 +99,11 @@ becoming active workshop choices or assigned NPC skills.
 
 ### Portable Build and Deployment
 
-Parameterize the package builder's RC4.1/profile/toolchain assumptions, preserve
-dry-run and rollback behavior, and record the exact target stack. Continue
+The [package builder](../game_package/README.md#build) now accepts explicit
+MO2/profile/toolchain paths and defaults to a read-only plan. It compiles into a
+fresh workspace with offline dependencies and records input/source hashes and
+the target stack. Candidate artifacts can be tested without replacing the
+checkout's reviewed build. Installation and promotion remain separate. Continue
 portable work while following the [RC5 / SkyrimNet migration plan](stack-migration-rc5-beta27.md).
 Evaluate native song import as an alternative delivery route when its actual
 metadata and ownership behavior can be inspected. Do not assume imported audio

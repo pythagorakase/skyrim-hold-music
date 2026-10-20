@@ -8,6 +8,8 @@ sys.dont_write_bytecode = True
 
 import argparse
 import configparser
+from datetime import datetime
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -40,7 +42,7 @@ def _text(path):
 
 
 def inspect(mo2_root, profile, *, performer='sven', mod_name=DEFAULT_MOD_NAME,
-            data_mod='MGO Experimental - Profile Data'):
+            data_mod='MGO Experimental - Profile Data', vfs_report=None):
     """Resolve loose files by MO2 priority; never claim a running-game VFS view."""
     root = Path(mo2_root).resolve()
     for value in (profile, mod_name, data_mod):
@@ -58,6 +60,7 @@ def inspect(mo2_root, profile, *, performer='sven', mod_name=DEFAULT_MOD_NAME,
             'MCM files describe prepared values, not globals already stored in a running save.',
             'Runtime eligibility, slot locks, sound, animation and interruption still need the game test.',
             'A successful pilot preflight does not approve full-roster takeover or musical styles.',
+            'A VFS report observes one process launch; its profile label is operator supplied and does not prove injection.',
         ],
     }
 
@@ -102,6 +105,7 @@ def inspect(mo2_root, profile, *, performer='sven', mod_name=DEFAULT_MOD_NAME,
         source = winner('SKSE/Plugins/SkyrimNet/config/BardSinging.yaml')
         enabled = get_scalar(_text(source), ('bard_singing', 'enabled'))
         report['bard_setting_sources'].append(dict(role='loose_file_winner', source=str(source),
+                                                   sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
                                                    enabled=enabled if type(enabled) is bool else None))
         check('skyrimnet_music_disabled', enabled is False,
               'The loose-file Bard Singing setting must be off; an adapter mapping can override this view.',
@@ -120,6 +124,7 @@ def inspect(mo2_root, profile, *, performer='sven', mod_name=DEFAULT_MOD_NAME,
                 source = root / 'mods' / source_mod / 'SKSE/Plugins/SkyrimNet/config/BardSinging.yaml'
                 enabled = get_scalar(_text(source), ('bard_singing', 'enabled'))
                 report['bard_setting_sources'].append(dict(role='adapter_launch_input', source=str(source),
+                                                           sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
                                                            enabled=enabled if type(enabled) is bool else None))
                 check('adapter_music_disabled', enabled is False,
                       'The configured adapter launch input must also keep Bard Singing off.',
@@ -128,6 +133,48 @@ def inspect(mo2_root, profile, *, performer='sven', mod_name=DEFAULT_MOD_NAME,
                       'Resolve conflicting launch inputs or verify the VFS mapping before the next test.')
         except (OSError, ValueError, KeyError, TypeError, AttributeError):
             check('adapter_music_disabled', False, 'Cannot establish the installed adapter launch input.')
+
+    if vfs_report is not None:
+        # Evidence supplements, rather than overrides, the fallback-input
+        # checks above. A historical disabled overlay does not make a true
+        # overwrite safe if the adapter fails on a later launch.
+        try:
+            observed = json.loads(_text(vfs_report))
+            rows = [row for row in observed['files']
+                    if row.get('virtual_path') == 'SKSE/Plugins/SkyrimNet/config/BardSinging.yaml']
+            if observed.get('version') != 2 or observed.get('profile') != profile or len(rows) != 1:
+                raise ValueError('Unexpected VFS report')
+            timestamp = datetime.fromisoformat(observed['observed_at'])
+            if timestamp.tzinfo is None:
+                raise ValueError('VFS observation needs a timezone')
+            row = rows[0]
+            opened_name = row['opened_path']
+            if opened_name.startswith('\\\\?\\UNC\\'):
+                opened_name = '\\\\' + opened_name[8:]
+            elif opened_name.startswith('\\\\?\\'):
+                opened_name = opened_name[4:]
+            opened = Path(opened_name)
+            allowed = {path.resolve() for path in candidates('SKSE/Plugins/SkyrimNet/config/BardSinging.yaml')}
+            allowed.add((runtime / 'BardSinging.yaml').resolve())
+            if not opened.is_absolute() or opened.resolve() not in allowed:
+                raise ValueError('Observed winner is outside the requested MO2 installation')
+            raw = opened.read_bytes()
+            current_hash = hashlib.sha256(raw).hexdigest()
+            enabled = get_scalar(_text(opened), ('bard_singing', 'enabled'))
+            fresh = current_hash == row['sha256'] and type(enabled) is bool and enabled is row.get('bard_enabled')
+            report['vfs_evidence'] = {
+                'observed_at': timestamp.isoformat(), 'profile': observed['profile'],
+                'opened_path': str(opened), 'sha256': row['sha256'],
+                'bard_enabled': row.get('bard_enabled') if type(row.get('bard_enabled')) is bool else None,
+                'current_file_matches': fresh,
+            }
+            check('vfs_observed_bard_disabled', fresh and enabled is False
+                  and not row.get('error') and not row.get('configuration_error'),
+                  'The observed Bard Singing winner must be off and still match the captured bytes; '
+                  'review its destination and launch context independently.')
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            check('vfs_observed_bard_disabled', False,
+                  'Cannot establish a matching VFS observation for this profile and installation.')
 
     try:
         defaults = winner('mcm/config/HoldMusic/settings.ini')
@@ -237,6 +284,7 @@ def main(argv=None):
     parser.add_argument('--performer', default='sven')
     parser.add_argument('--mod-name', default=DEFAULT_MOD_NAME)
     parser.add_argument('--data-mod', default='MGO Experimental - Profile Data')
+    parser.add_argument('--vfs-report', type=Path, help='Optional JSON from the MO2-launched file-handle probe')
     parser.add_argument('--json', action='store_true')
     args = vars(parser.parse_args(argv))
     as_json = args.pop('json')

@@ -66,6 +66,9 @@ The estimate is not a provider-enforced price ceiling: a returned charge can
 exceed it. In that case the successful recording is retained, the report says
 `budget_exceeded`, the CLI exits nonzero, and no further job is dispatched.
 These caps are per invocation, not a durable account-wide spending limit.
+The private journal retains historical accounted costs and per-call estimates;
+it does not treat an unknown call's estimate as a confirmed charge. Unresolved
+paid work blocks a subsequent invocation before it can spend.
 
 The client sends a single streaming POST with the adapter's authorization and
 `X-Title` headers. Redirects are forbidden, the socket timeout is 300 seconds,
@@ -75,13 +78,18 @@ MP3 frame duration are required. Typed errors contain no response body or key.
 The provider SSE `id` is preferred, then `X-Request-ID`; if neither is supplied,
 a unique `local:` ID identifies the attempt without claiming a provider ID.
 
-ffmpeg and a writable free slot are checked before dispatch. MP3/WAV scratch
-files stay inside a temporary directory under the explicit library root and
-are cleaned on success or failure. ffmpeg produces mono 16-bit PCM at 44.1 kHz
+ffmpeg, a free slot and scratch-directory creation are checked before dispatch.
+Returned source audio is retained in the private job journal. Conversion
+MP3/WAV scratch files stay inside a temporary directory under the explicit
+library root and are cleaned on ordinary success or failure. ffmpeg produces
+mono 16-bit PCM at 44.1 kHz
 using the importer's exact arguments. The library validates the WAV and derives
 its duration before publishing it to the next free numbered slot. No recording
-is automatically evicted. Run only one executor against a library at a time;
-this is the library's single-writer API, not a concurrent scheduler.
+is automatically evicted. The executor takes an OS writer lock for the entire
+run; another executor using that library is rejected before dispatch. The
+lock releases when the process exits, including a crash. Other library writers
+must still be paused: this is the library's single-writer API, not a concurrent
+scheduler.
 
 Each published entry records a prompt-hash/request-ID composition identity,
 `region/mode` recipe, model, and generated MP3 SHA256 provenance. Successful
@@ -90,7 +98,7 @@ zero and the API's `receipt_scope` (default `offline`, `offline`). The recording
 remain baseline offline material; this scope is for receipts, not a claimed
 live save identity. See [the library contract](library-format.md).
 
-The spend report includes manifest entries, MP3 duration, raw usage, accounted
+The spend report includes manifest entries, MP3 duration, numeric usage, accounted
 cost, and whether the cost was estimated. On the first generation, conversion
 or publication failure, no recording for that failed job is published; prior
 successful recordings remain. One JSON line is appended to
@@ -99,7 +107,85 @@ type, and the CLI exits nonzero. Prompts, exception messages and credentials
 are excluded. A successful run need not create a log. An unreported attempt's
 charge remains unknown and is explicitly flagged in the report, never asserted
 to be free. Inspect an uncertain provider outcome before any manually requested
-new run; the tool itself never retries.
+new run; the tool itself never retries. A new spend invocation returns
+`recovery_required` while the journal contains an unknown call or unpublished
+paid response. No provider request is made in that case.
+
+## Durable job journal and recovery
+
+Each authorized execution writes `<library>/.executor/jobs.sqlite3`, using
+SQLite transactions with `synchronous=FULL`. The directory is private local
+state: it contains actor briefs, exact prompts and lyrics, provider responses,
+and original generated audio, as well as accounting. It is ignored by the
+repository and must not be pasted into shared logs. No credentials are stored
+by the executor. Keep this directory with the library when backing up or moving
+it; deleting it loses recovery evidence and the guard against uncertain retries.
+
+The executor commits a local call ID, action, model and estimated reservation
+**before** calling the provider. It commits the returned payload before lyric
+parsing, conversion or publication, then commits validated accounting. A process
+interruption during a request is an unknown outcome, including the narrow gap
+between provider completion and response persistence. Opening the journal for
+execution/recovery marks interrupted in-flight requests `unknown` and never
+resubmits them. A provider exception is conservatively unknown; a conversion
+or parsing error after a persisted response is a known local failure. A disk
+failure that prevents response persistence can only retain the earlier
+in-flight evidence, not guarantee retention of the returned bytes.
+
+Inspect public summaries without a registry, credentials, ffmpeg, state writes,
+or provider calls:
+
+```sh
+python tools/prepare_library.py --library /private/library --job-status
+```
+
+This read-only command does not rewrite an interrupted state; it reports an
+in-flight request as an unknown outcome. Normal planning dry runs also remain
+free of library/journal writes. Python itself can create ordinary import caches.
+If a hard crash leaves a hot SQLite rollback journal, read-only inspection
+cannot perform SQLite's required repair. Explicitly repair local journal state
+and list the recovered job IDs without generating or publishing anything:
+
+```sh
+python tools/prepare_library.py --library /private/library --repair-journal
+```
+
+This takes the same writer lock and leaves uncertain requests blocked.
+Applying a known job's recovery also performs this SQLite repair before
+inspecting its retained result.
+
+For a failed conversion/publication or interrupted local publication, inspect
+and then explicitly apply recovery from the retained audio:
+
+```sh
+python tools/prepare_library.py --library /private/library --recover-job JOB_ID
+python tools/prepare_library.py --library /private/library --recover-job JOB_ID \
+  --apply-recovery --ffmpeg /path/to/ffmpeg
+```
+
+Recovery has no provider client and cannot generate. Its default is read-only.
+The same `--receipts` or `--mo2-root` discovery options apply during recovery,
+so slot safety uses the selected external performance history.
+Applying it validates stored accounting, converts the retained audio and
+publishes the original composition and generation receipts. If the manifest
+committed before the process died, recovery finds that recording by performer,
+composition and exact source provenance, validates it, and completes the
+journal without adding a duplicate recording or receipt. Failure preserves the
+paid response for another local repair attempt. A successful recovery reports
+the original per-call costs separately from its zero new provider calls.
+The converted WAV hash is committed to the journal before publication. Recovery
+requires the existing WAV to match that hash; a missing hash or a replaced WAV
+fails closed even when its format, duration and manifest metadata remain valid.
+An existing vocal recording must also retain the original lyrics hash, title,
+topic, source observations and creation/save scope; a structurally valid edited
+recording is not silently accepted as the saved job's result.
+
+Unknown requests require external provider reconciliation. Lyrics-only results
+(including a budget stop between lyrics and music), malformed provider metadata
+and rejected lyrics remain retained and block new spending. This version has
+no automatic resume, cancellation/reconciliation UI or provider resubmission for
+those states. Do not delete the journal to bypass them. The next queue step is
+an explicit reviewed reconciliation/continuation contract, not a retry timer.
 
 ## Offline verification
 
@@ -175,8 +261,10 @@ than recomposed for the same topic.
 Spend reports contain the title/manifest and separate model/request IDs,
 numeric usage and costs; they exclude lyrics and briefs. Failures contain only
 identity and exception type. An unreported call has an explicit unknown-cost
-flag. The existing publication contract persists generation receipts only with
-a successfully published recording: budget stops or failed conversion after a
-paid call leave accounting in the returned report, not a durable planner receipt.
-This remains a single-invocation executor, not a crash-safe paid-job queue;
-inspect uncertain outcomes before any separately authorized future run.
+flag. Planner generation receipts still publish atomically with a successful
+recording. The separate durable journal preserves paid evidence and accounting
+even when lyrics parsing, the second-call budget gate, conversion or publication
+prevents that recording from being published. A lyrics-only result is private,
+recoverable evidence; it is not presented as a completed planner composition.
+This is a bounded executor with durable recovery, not an automatic replenishment
+scheduler. See the recovery limitations above before authorizing a later run.

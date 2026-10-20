@@ -177,6 +177,12 @@ The snapshot excludes local settings, credentials, recorded request payloads, ga
 
 The [offline library executor](docs/executor.md) prepares instrumental, Winterhold wordless, and lyrical recordings with explicit job and spending caps. Lyrical planning uses the read-only [knowledge bridge](docs/knowledge-bridge.md). It defaults to a JSON dry run and does not install or play anything in-game.
 
+The 20 October offline work adds durable paid-result recovery, an inspectable
+[preparation and receipt proof](docs/offline-integration.md), reversible
+[ownership reconciliation](docs/performance-ownership-design.md), and a
+[portable package build](game_package/README.md#build). These paths can be
+developed and tested with fixtures while listening remains optional.
+
 The owned game package is installed on HALCYON. On October 15 its candidate scan crashed in PapyrusUtil VR's native dead filter while vanilla flute audio was playing. A targeted controller workaround was installed and passed 52 package tests and the recorded VFS checks; successful owned playback and interruption remain unverified. SkyrimNet's bard feature was disabled for that session and must remain inactive for the isolated owned-controller retest. The [RCA and retest](docs/sven-crash-2026-10-15.md) and [in-game test plan](docs/in-game-test-plan.md) supersede earlier assumptions that Sven is excluded from SkyrimNet playback. The [read-only preflight](docs/evidence.md#read-only-performance-preflight) helps check pilot inputs and conflicting configuration copies before the next session.
 
 Dashboard comparison, filtering, saved notes, arrangement-specific prompt reductions, and JSON/text backup restoration were checked in a browser through a local HTTP preview. The six earlier Orsimer/Bosmer finalists are deferred research candidates: stylistic fidelity, specialist vocal technique, advanced animation support and ensemble synchronization are not validated by this dashboard.

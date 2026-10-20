@@ -14,7 +14,8 @@ if str(ROOT) not in sys.path:
 
 from hold_music import lyria_client
 from hold_music.lyricist import MODEL as LYRIC_MODEL
-from hold_music.executor import execute, plan_work
+from hold_music.executor import execute, plan_work, recover_publication
+from hold_music.job_store import inspect_jobs, repair_journal
 from hold_music.library import Library
 from hold_music.registry import load_registry
 from hold_music.runtime_paths import DEFAULT_MOD_NAME, resolve_receipts
@@ -42,7 +43,16 @@ def _csv(value):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--library', required=True, type=Path)
-    parser.add_argument('--registry', required=True, type=Path)
+    parser.add_argument('--registry', type=Path, help='required for planning or generation')
+    journal_group = parser.add_mutually_exclusive_group()
+    journal_group.add_argument('--job-status', action='store_true',
+                              help='read private-journal summaries without writing or calling a provider')
+    journal_group.add_argument('--recover-job', metavar='ID',
+                              help='inspect a retained audio result for provider-free publication')
+    journal_group.add_argument('--repair-journal', action='store_true',
+                              help='explicitly recover a crashed local SQLite journal; no generation or publication')
+    parser.add_argument('--apply-recovery', action='store_true',
+                        help='publish --recover-job from saved audio; no provider requests')
     parser.add_argument('--performers', type=_csv)
     parser.add_argument('--target', type=int, default=1)
     parser.add_argument('--modes', type=_csv, default=['instrumental'],
@@ -65,16 +75,34 @@ def main(argv=None):
     parser.add_argument('--mod-name', default=None, help=f'MO2 mod (default: {DEFAULT_MOD_NAME})')
     parser.add_argument('--data-mod', help='additional MO2 data mod to search')
     args = parser.parse_args(argv)
+    if args.apply_recovery and not args.recover_job:
+        parser.error('--apply-recovery requires --recover-job')
+    if (args.job_status or args.recover_job or args.repair_journal) and args.spend:
+        parser.error('Job inspection/recovery cannot be combined with --spend')
+    if not (args.job_status or args.recover_job or args.repair_journal) and args.registry is None:
+        parser.error('--registry is required for planning or generation')
     if args.mo2_root is None and (args.mod_name is not None or args.data_mod is not None):
         parser.error('--mod-name and --data-mod require --mo2-root')
     args.mod_name = args.mod_name or DEFAULT_MOD_NAME
     try:
+        if args.repair_journal:
+            print(json.dumps(repair_journal(args.library), ensure_ascii=False, indent=2, allow_nan=False))
+            return 0
+        if args.job_status:
+            print(json.dumps(dict(status='job_status', jobs=inspect_jobs(args.library)),
+                             ensure_ascii=False, indent=2, allow_nan=False))
+            return 0
         receipts_path = (resolve_receipts(args.mo2_root, args.mod_name, args.data_mod)
                          if args.mo2_root is not None else args.receipts)
         print(f'Receipts: {receipts_path}' if receipts_path is not None else
               f'Receipts: none found or selected; library default applies: {args.library / "receipts.json"}',
               file=sys.stderr)
         library = Library(args.library, receipts_path=receipts_path)
+        if args.recover_job:
+            report = recover_publication(args.recover_job, library=library,
+                                         ffmpeg=args.ffmpeg, apply=args.apply_recovery)
+            print(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False))
+            return 1 if report['status'] == 'failed' else 0
         jobs = plan_work(load_registry(args.registry), library,
                          performer_ids=args.performers, target_per_performer=args.target,
                          modes=args.modes, db_path=args.db, now_hours=args.now_hours,
@@ -84,12 +112,12 @@ def main(argv=None):
                          dry_run=not args.spend, spend=args.spend,
                          lyric_model=args.lyric_model, show_briefs=args.show_briefs)
     except sqlite3.Error as exc:
-        parser.exit(1, f'Cannot read knowledge database: {type(exc).__name__}\n')
+        parser.exit(1, f'Cannot access knowledge database or job journal: {type(exc).__name__}\n')
     except (OSError, ValueError) as exc:
         parser.exit(1, f'Cannot prepare library: {exc}\n')
     if args.spend:
         print(json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False))
-    return 1 if report['status'] in ('failed', 'budget_exceeded') else 0
+    return 1 if report['status'] in ('failed', 'budget_exceeded', 'recovery_required') else 0
 
 
 if __name__ == '__main__':

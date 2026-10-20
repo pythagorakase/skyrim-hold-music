@@ -1,5 +1,6 @@
 from contextlib import redirect_stdout
 import io
+import hashlib
 import json
 from pathlib import Path
 import tempfile
@@ -116,6 +117,72 @@ class PerformancePreflightTests(unittest.TestCase):
         self.assertIn('bard_settings_agree', self.failures())
         report = self.run_check()
         self.assertEqual([row['enabled'] for row in report['bard_setting_sources']], [False, True])
+
+    def vfs_report(self, source=None, **changes):
+        source = source or self.config
+        report = {'version': 2, 'profile': 'Test', 'observed_at': '2026-10-20T05:00:00+00:00',
+                  'files': [{'virtual_path': 'SKSE/Plugins/SkyrimNet/config/BardSinging.yaml',
+                             'opened_path': str(source), 'bard_enabled': False,
+                             'sha256': hashlib.sha256(source.read_bytes()).hexdigest()}]}
+        report.update(changes)
+        path = self.root / 'vfs-report.json'
+        self.write_json(path, report)
+        return path
+
+    def vfs_check(self, path):
+        return inspect(self.root, 'Test', data_mod='Data', vfs_report=path)
+
+    def test_vfs_observation_verifies_current_hash_and_profile_without_claiming_injection(self):
+        path = self.vfs_report()
+        report = self.vfs_check(path)
+        self.assertEqual(report['status'], 'prepared_for_headset_test')
+        self.assertTrue(report['vfs_evidence']['current_file_matches'])
+        self.assertIs(report['vfs_evidence']['bard_enabled'], False)
+        self.assertNotIn('synthetic-private-key', json.dumps(report))
+        self.assertIn('does not prove injection', ' '.join(report['limitations']))
+        self.write(self.config, 'bard_singing:\n  enabled: true\n')
+        report = self.vfs_check(path)
+        self.assertFalse(report['vfs_evidence']['current_file_matches'])
+        self.assertFalse(next(row for row in report['checks']
+                              if row['code'] == 'vfs_observed_bard_disabled')['passed'])
+        for changes in ({'profile': 'Other'}, {'version': 1}, {'observed_at': '2026-10-20'}):
+            path = self.vfs_report(**changes)
+            report = self.vfs_check(path)
+            self.assertFalse(next(row for row in report['checks']
+                                  if row['code'] == 'vfs_observed_bard_disabled')['passed'])
+
+    def test_vfs_disabled_overlay_does_not_clear_fallback_conflict(self):
+        self.write(self.config, 'bard_singing:\n  enabled: true\n')
+        overlay = self.profile / 'hold-music-runtime/BardSinging.yaml'
+        self.write(overlay, 'bard_singing:\n  enabled: false\n')
+        report = self.vfs_check(self.vfs_report(source=overlay))
+        checks = {row['code']: row['passed'] for row in report['checks']}
+        self.assertTrue(checks['vfs_observed_bard_disabled'])
+        self.assertFalse(checks['skyrimnet_music_disabled'])
+        self.assertEqual(report['status'], 'blocked')
+
+    def test_vfs_rejects_unrelated_destination_or_duplicate_observation(self):
+        unrelated = self.root / 'profiles/Other/hold-music-runtime/BardSinging.yaml'
+        self.write(unrelated, 'bard_singing:\n  enabled: false\n')
+        report = self.vfs_check(self.vfs_report(source=unrelated))
+        self.assertFalse(next(row for row in report['checks']
+                              if row['code'] == 'vfs_observed_bard_disabled')['passed'])
+        path = self.vfs_report()
+        value = json.loads(path.read_text())
+        value['files'].append(value['files'][0])
+        self.write_json(path, value)
+        report = self.vfs_check(path)
+        self.assertFalse(next(row for row in report['checks']
+                              if row['code'] == 'vfs_observed_bard_disabled')['passed'])
+
+    def test_vfs_accepts_windows_extended_handle_path(self):
+        path = self.vfs_report()
+        value = json.loads(path.read_text())
+        value['files'][0]['opened_path'] = '\\\\?\\' + str(self.config)
+        self.write_json(path, value)
+        report = self.vfs_check(path)
+        self.assertTrue(next(row for row in report['checks']
+                             if row['code'] == 'vfs_observed_bard_disabled')['passed'])
 
     def test_disabled_plugin_or_missing_startup_file_blocks(self):
         self.write(self.profile / 'plugins.txt', 'HoldMusic.esp\n')

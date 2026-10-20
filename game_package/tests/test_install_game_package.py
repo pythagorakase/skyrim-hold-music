@@ -18,6 +18,7 @@ spec = importlib.util.spec_from_file_location('install_game_package', ROOT / 'ga
 installer = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(installer)
 from hold_music.library import Library
+from pex_vm import BUILD, require_artifacts
 
 
 def snapshot(root):
@@ -53,10 +54,8 @@ class TextEdits(unittest.TestCase):
 class InstallGamePackage(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        if not (ROOT / 'game_package/build/package-hashes.json').is_file() or not all(
-                (ROOT / 'game_package/build/package' / p).is_file() for p in installer.REQUIRED):
-            raise unittest.SkipTest('Build on halcyon: py -3 -B game_package/tools/build_game_package.py; '
-                                    'see game_package/README.md Build for T1b staging and copy-back instructions')
+        require_artifacts(BUILD / 'package-hashes.json',
+                          *(BUILD / 'package' / p for p in installer.REQUIRED))
 
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -64,8 +63,8 @@ class InstallGamePackage(unittest.TestCase):
         self.base = Path(self.temp.name).resolve()
         self.repo = self.base / 'repo'
         self.package = self.repo / 'game_package/build/package'
-        shutil.copytree(ROOT / 'game_package/build/package', self.package)
-        shutil.copy2(ROOT / 'game_package/build/package-hashes.json', self.package.parent)
+        shutil.copytree(BUILD / 'package', self.package)
+        shutil.copy2(BUILD / 'package-hashes.json', self.package.parent)
         (self.repo / 'docs').mkdir()
         shutil.copy2(ROOT / 'docs/game-package-verification.md', self.repo / 'docs')
         shutil.copy2(ROOT / 'game_package/README.md', self.repo / 'game_package')

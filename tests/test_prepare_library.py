@@ -122,10 +122,51 @@ class PrepareLibraryTests(unittest.TestCase):
         generate.assert_called_once_with('prompt', key='fixture')
 
     def test_failed_run_has_nonzero_exit(self):
-        for status in ('failed', 'budget_exceeded'):
+        for status in ('failed', 'budget_exceeded', 'recovery_required'):
             with patch('tools.prepare_library.execute', return_value={'status': status}), \
                     redirect_stdout(io.StringIO()):
                 self.assertEqual(main(self.args + ['--spend']), 1)
+
+    def test_job_inspection_does_not_create_library_or_read_credentials(self):
+        with patch('tools.prepare_library.lyria_client.read_openrouter_key') as key, \
+                redirect_stdout(io.StringIO()) as output:
+            self.assertEqual(main(['--library', str(self.library), '--job-status']), 0)
+        self.assertEqual(json.loads(output.getvalue()), {'status': 'job_status', 'jobs': []})
+        self.assertFalse(self.library.exists())
+        key.assert_not_called()
+
+    def test_recovery_flags_cannot_authorize_spending(self):
+        for extra in (['--job-status', '--spend'], ['--recover-job', 'fixture', '--spend'],
+                      ['--repair-journal', '--spend'],
+                      ['--apply-recovery'], ['--job-status', '--recover-job', 'fixture']):
+            with self.subTest(extra=extra), redirect_stderr(io.StringIO()), \
+                    patch('tools.prepare_library.lyria_client.read_openrouter_key') as key, \
+                    self.assertRaises(SystemExit):
+                main(['--library', str(self.library)] + extra)
+            key.assert_not_called()
+        self.assertFalse(self.library.exists())
+
+    def test_recovery_honors_explicit_and_discovered_receipt_sources(self):
+        root = Path(self.temp.name)
+        dirs = storage_dirs(root / 'MO2', DEFAULT_MOD_NAME, 'Profile Data')
+        dirs[2].mkdir(parents=True)
+        discovered = dirs[2] / 'receipts.json'
+        discovered.write_text('{"version": 1, "performances": []}')
+        for extra, expected in [
+            ([], None),
+            (['--receipts', str(discovered)], discovered),
+            (['--mo2-root', str(root / 'MO2'), '--data-mod', 'Profile Data'], discovered),
+        ]:
+            with self.subTest(extra=extra), \
+                    patch('tools.prepare_library.Library', wraps=Library) as constructor, \
+                    patch('tools.prepare_library.recover_publication',
+                          return_value={'status': 'recovery_dry_run'}) as recover, \
+                    redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as diagnostic:
+                self.assertEqual(main(['--library', str(self.library), '--recover-job', 'fixture'] + extra), 0)
+            constructor.assert_called_once_with(self.library, receipts_path=expected)
+            self.assertEqual(recover.call_args.kwargs['library'].receipts_source,
+                             expected or self.library / 'receipts.json')
+            self.assertEqual(len(diagnostic.getvalue().splitlines()), 1)
 
     def test_zero_cap_does_not_read_key_even_with_spend(self):
         with patch('tools.prepare_library.lyria_client.generate') as generate, \

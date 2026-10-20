@@ -94,7 +94,7 @@ class ExecutorTests(unittest.TestCase):
             save_id='save-test', world_id='world-test', action='generate_recording', at_hours=0)])
         self.assertEqual(self.library.validate(), [])
         self.assertEqual(sorted(p.name for p in self.library.root.iterdir()),
-                         ['hm_slot_01.wav', 'library.json'])
+                         ['.executor', 'hm_slot_01.wav', 'library.json'])
 
     def test_existing_playable_recordings_count_and_missing_asset_does_not(self):
         self.run_jobs(max_jobs=1)

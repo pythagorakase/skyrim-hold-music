@@ -4,12 +4,14 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 import hashlib
 import json
+import math
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 
 from hold_music.lyria_client import MODEL
+from hold_music.job_store import JobStore, inspect_jobs
 from hold_music import knowledge_bridge, lyricist, repertoire
 from hold_music.regional import PALETTE, REGIONS, music_prompt, performance_mode
 from tools.import_recording import ffmpeg_arguments
@@ -169,14 +171,128 @@ def _public_plan(jobs, decisions, bridge_reports, show_briefs):
                 bridge_reports=bridge_reports)
 
 
+def _accounting(request_id, usage, action, estimate, **extra):
+    if not isinstance(request_id, str) or not request_id.strip():
+        raise ValueError('Generation returned no request ID')
+    if usage is not None and not isinstance(usage, dict):
+        raise ValueError('Invalid usage')
+    estimated = usage is None or usage.get('cost') is None
+    cost = estimate if estimated else _usd(usage['cost'])
+    public_cost = float(cost)
+    if not math.isfinite(public_cost):
+        raise ValueError('Cost cannot be represented as finite report accounting')
+    if 'duration_seconds' in extra:
+        duration = extra['duration_seconds']
+        if type(duration) not in (int, float) or not math.isfinite(duration) or duration <= 0:
+            raise ValueError('Generation returned invalid audio duration')
+    safe_usage = None if usage is None else {key: value for key, value in usage.items()
+        if key in ('cost', 'prompt_tokens', 'completion_tokens', 'total_tokens')
+        and type(value) in (int, float) and _usd(value).is_finite()}
+    return dict(request_id=request_id, usage=safe_usage, action=action,
+                cost_usd=public_cost, estimated=estimated, **extra)
+
+
+def _publish_saved(store, job_id, library, executable):
+    saved = store.job(job_id)
+    context, calls = saved['context'], saved['calls']
+    if any(c['state'] != 'returned' for c in calls):
+        raise ValueError('Unknown provider outcome requires external reconciliation')
+    music = [c for c in calls if c['action'] == 'generate_recording']
+    if len(music) != 1 or not music[0]['audio']:
+        raise ValueError('No retained music response is available for publication')
+    # Recover a crash after response persistence but before accounting persistence.
+    for call in calls:
+        if call['accounting'] is None:
+            response = call['response']
+            extra = dict(model=call['model'])
+            if call['action'] == 'generate_recording':
+                extra['duration_seconds'] = response['duration_seconds']
+            entry = _accounting(response.get('request_id'), response.get('usage'),
+                                call['action'], _usd(call['estimate_usd']), **extra)
+            store.account(call['id'], entry)
+    response, audio = music[0]['response'], music[0]['audio']
+    source = dict(kind='generated', path_or_request_id=response['request_id'],
+                  sha256=hashlib.sha256(audio).hexdigest())
+    job, scope = context['job'], context['scope']
+    lyrics, title, prompt = (context.get(key) for key in ('lyrics', 'title', 'prompt'))
+    region, mode = job['region'], job['mode']
+    digest = hashlib.sha256((lyrics if lyrics is not None else prompt).encode('utf-8')).hexdigest()[:16]
+    composition_id = (job.get('composition_id') or f"lyric:{job['topic_id']}:{digest}"
+                      if mode == 'vocal' else f"gen:{region}:{mode}:{digest}:{response['request_id']}")
+    receipts = context['receipts'] + [dict(scope, id=response['request_id'], action='generate_recording')]
+    extra = {}
+    if mode == 'vocal':
+        extra = dict(save_id=scope['save_id'], world_id=scope['world_id'],
+            created_at_hours=scope['at_hours'], title=title, topic_id=job.get('topic_id'),
+            source_observation_ids=job.get('lyric_brief', {}).get('source_observation_ids',
+                job.get('source_observation_ids', [])))
+    library.load()
+    matches = [r for r in library.recordings if r.get('source') == source
+               and r['performer_id'] == job['performer_id'] and r['composition_id'] == composition_id]
+    if matches:
+        expected = dict(extra, region=region, mode=mode, gender=job['gender'],
+                        recipe_id=job['recipe_id'], model_id=music[0]['model'],
+                        lyrics_sha256=hashlib.sha256(lyrics.encode('utf-8')).hexdigest()
+                            if lyrics is not None else None)
+        if (len(matches) != 1 or not matches[0]['playable'] or library.validate()
+                or any(matches[0].get(key) != value for key, value in expected.items())
+                or any(receipt not in library.generation_receipts for receipt in receipts)
+                or hashlib.sha256((library.root / matches[0]['file']).read_bytes()).hexdigest()
+                    != context.get('converted_wav_sha256')):
+            raise ValueError('Previously published result requires library repair')
+        # Covers a process dying after manifest commit but before journal commit.
+        row = matches[0]
+        store.update(job_id, state='completed', recording=row)
+        return row
+    store.update(job_id, state='publishing')
+    with tempfile.TemporaryDirectory(prefix='.executor-', dir=library.root) as temp:
+        wav = Path(temp) / 'converted.wav'
+        convert_mp3(audio, wav, ffmpeg=executable)
+        # Pin the exact converted asset before publishing can commit a manifest.
+        # Source MP3 provenance alone cannot detect later replacement of the WAV.
+        context = dict(context, converted_wav_sha256=hashlib.sha256(wav.read_bytes()).hexdigest())
+        store.update(job_id, context=context)
+        row = library.add_recording(wav, performer_id=job['performer_id'], region=region,
+            mode=mode, gender=job['gender'], composition_id=composition_id, lyrics=lyrics,
+            recipe_id=job['recipe_id'], model_id=music[0]['model'], source=source,
+            generation_receipts=receipts, **extra)
+    store.update(job_id, state='completed', recording=row)
+    return row
+
+
+def recover_publication(job_id, *, library, ffmpeg=None, apply=False):
+    """Inspect or publish a retained result. This API has no provider client."""
+    if not apply:
+        summary = next((row for row in inspect_jobs(library.root) if row['job_id'] == job_id), None)
+        if summary is None:
+            raise ValueError('Unknown durable job ID')
+        return dict(status='recovery_dry_run', job=summary, provider_calls=0)
+    if not JobStore(library.root).path.is_file():
+        raise ValueError('Unknown durable job ID')
+    executable = shutil.which(str(ffmpeg or 'ffmpeg'))
+    if executable is None:
+        raise ValueError('ffmpeg was not found; supply --ffmpeg')
+    with JobStore(library.root) as store:
+        # The writable open above also recovers a hot SQLite rollback journal.
+        # A read-only preflight here would prevent that crash recovery.
+        store.job(job_id)
+        try:
+            row = _publish_saved(store, job_id, library, executable)
+            return dict(status='complete', job_id=job_id, recordings=[row], provider_calls=0,
+                        job=next(r for r in store.summaries() if r['job_id'] == job_id))
+        except Exception as exc:
+            store.fail(job_id, type(exc).__name__)
+            return dict(status='failed', job_id=job_id, error_type=type(exc).__name__, provider_calls=0,
+                        job=next(r for r in store.summaries() if r['job_id'] == job_id))
+
+
 def execute(jobs, *, client, library, ffmpeg, max_jobs, max_usd, dry_run=True,
             spend=False, receipt_scope=('offline', 'offline'), lyric_model=lyricist.MODEL,
             show_briefs=False):
-    """Return a JSON-safe run report. Both spend=True and dry_run=False are needed.
+    """Bounded explicitly authorized generation with durable paid-call evidence.
 
-    Reserve an estimated $0.08 before each call, then account for reported cost.
-    A provider charge can exceed that estimate; stop before any subsequent call.
-    Failure messages deliberately contain only the exception class, not its text.
+    Unknown outcomes and unpublished paid responses block subsequent spending.
+    Recovery can publish retained audio, but never retries a provider request.
     """
     _count(max_jobs, 'max_jobs')
     budget = _usd(max_usd)
@@ -193,112 +309,104 @@ def execute(jobs, *, client, library, ffmpeg, max_jobs, max_usd, dry_run=True,
         print(json.dumps(public, ensure_ascii=False, indent=2))
         return {'status': 'dry_run', 'plan': public,
                 'jobs': public if isinstance(public, list) else public['jobs'],
-                'attempted': 0, 'cost_usd': 0,
-                'recordings': []}
-    report = dict(status='complete', attempted=0, cost_usd=0, recordings=[], generations=[])
+                'attempted': 0, 'cost_usd': 0, 'recordings': []}
+    report = dict(status='complete', attempted=0, cost_usd=0, recordings=[], generations=[], jobs=[])
+    if not jobs:
+        return report
+    if max_jobs == 0:
+        report['status'] = 'max_jobs'
+        return report
     total = Decimal(0)
-    calls_started = 0
-
-    def account(request_id, usage, action, estimate, **extra):
-        nonlocal total
-        if not isinstance(request_id, str) or not request_id.strip():
-            raise ValueError('Generation returned no request ID')
-        if usage is not None and not isinstance(usage, dict):
-            raise ValueError('Invalid usage')
-        estimated = usage is None or usage.get('cost') is None
-        cost = estimate if estimated else _usd(usage['cost'])
-        total += cost
-        report['cost_usd'] = float(total)
-        # Only numeric accounting fields leave the provider response in a report.
-        safe_usage = None if usage is None else {key: value for key, value in usage.items()
-            if key in ('cost', 'prompt_tokens', 'completion_tokens', 'total_tokens')
-            and type(value) in (int, float) and _usd(value).is_finite()}
-        report['generations'].append(dict(request_id=request_id, usage=safe_usage,
-            action=action, cost_usd=float(cost), estimated=estimated, **extra))
-
-    class LyricClient:
-        def chat_completion(self, **kwargs):
-            nonlocal calls_started
-            calls_started += 1
-            result = client.chat_completion(**kwargs)
-            account(result.get('request_id'), result.get('usage'), 'compose_lyrics', ESTIMATED_LYRICS_USD,
-                    model=kwargs['model'])
-            return result
-
-    for job in jobs:
-        if report['attempted'] >= max_jobs:
-            report['status'] = 'max_jobs'
-            break
-        reserve = ESTIMATED_JOB_USD + (ESTIMATED_LYRICS_USD if job.get('lyric_brief') else 0)
-        if total + reserve > budget:
-            report['status'] = 'budget'
-            break
-        try:
-            executable = shutil.which(str(ffmpeg or 'ffmpeg'))
-            if executable is None:
-                raise ValueError('ffmpeg was not found; supply --ffmpeg')
-            if not library.free_slots():
-                raise ValueError('No writable free library slots')
-            library.root.mkdir(parents=True, exist_ok=True)
-            # Stage before dispatch so a scratch-directory failure cannot cost money.
-            with tempfile.TemporaryDirectory(prefix='.executor-', dir=library.root) as temp:
-                report['attempted'] += 1
-                lyrics, title = job.get('lyrics'), job.get('title')
-                receipts = []
+    if budget < ESTIMATED_JOB_USD + (ESTIMATED_LYRICS_USD if jobs[0].get('lyric_brief') else 0):
+        report['status'] = 'budget'
+        return report
+    with JobStore(library.root) as store:
+        pending = store.summaries(pending_only=True)
+        if pending:
+            report.update(status='recovery_required', pending_jobs=pending)
+            return report
+        for job in jobs:
+            if report['attempted'] >= max_jobs:
+                report['status'] = 'max_jobs'
+                break
+            reserve = ESTIMATED_JOB_USD + (ESTIMATED_LYRICS_USD if job.get('lyric_brief') else 0)
+            if total + reserve > budget:
+                report['status'] = 'budget'
+                break
+            job_id = None
+            try:
+                executable = shutil.which(str(ffmpeg or 'ffmpeg'))
+                if executable is None:
+                    raise ValueError('ffmpeg was not found; supply --ffmpeg')
+                if not library.free_slots():
+                    raise ValueError('No writable free library slots')
+                # Check scratch creation before any paid call.
+                with tempfile.TemporaryDirectory(prefix='.executor-', dir=library.root):
+                    pass
                 scope = dict(performer_id=job['performer_id'],
                     save_id=job.get('save_id', receipt_scope[0]),
                     world_id=job.get('world_id', receipt_scope[1]), at_hours=job.get('now_hours', 0))
+                context = dict(job=job, scope=scope, lyrics=job.get('lyrics'),
+                               title=job.get('title'), receipts=[])
+                job_id = store.begin_job(context)
+                report['jobs'].append(job_id)
+                report['attempted'] += 1
+
+                def account(call_id, response, action, estimate, **extra):
+                    nonlocal total
+                    entry = _accounting(response.get('request_id'), response.get('usage'), action, estimate, **extra)
+                    store.account(call_id, entry)
+                    total += _usd(entry['cost_usd'])
+                    report['cost_usd'] = float(total)
+                    report['generations'].append(entry)
+
+                class LyricClient:
+                    def chat_completion(self, **kwargs):
+                        call_id = store.begin_call(job_id, 'compose_lyrics', kwargs['model'], ESTIMATED_LYRICS_USD)
+                        result = client.chat_completion(**kwargs)
+                        # Persist the private response before parsing can fail.
+                        store.returned(call_id, result)
+                        account(call_id, result, 'compose_lyrics', ESTIMATED_LYRICS_USD, model=kwargs['model'])
+                        return result
+
                 if job.get('lyric_brief'):
-                    # Validate the palette and prospective prompt before the lyric call.
                     palette_path = job.get('palette_path', PALETTE)
                     music_prompt(job['region'], 'vocal', job['gender'], 'preflight', palette_path=palette_path)
                     region_label = json.loads(Path(palette_path).read_text(encoding='utf-8'))['auditionRegions'][job['region']]
                     composed = lyricist.write_lyrics(job['lyric_brief'], performer=job['performer'],
                         region_label=region_label, gender=job['gender'], client=LyricClient(), model=lyric_model)
-                    lyrics, title = composed['lyrics'], composed['title']
-                    receipts.append(dict(scope, id=composed['request_id'], action='compose_lyrics'))
+                    context.update(lyrics=composed['lyrics'], title=composed['title'])
+                    context['receipts'].append(dict(scope, id=composed['request_id'], action='compose_lyrics'))
+                    store.update(job_id, state='lyrics_ready', context=context)
                     if total + ESTIMATED_JOB_USD > budget:
                         report['status'] = 'budget_exceeded' if total > budget else 'budget'
                         break
-                prompt = (music_prompt(job['region'], 'vocal', job['gender'], lyrics,
-                          palette_path=job.get('palette_path', PALETTE)) if job['mode'] == 'vocal' else job['prompt'])
-                calls_started += 1
-                result = client.generate(prompt)
-                account(result.request_id, result.usage, 'generate_recording', ESTIMATED_JOB_USD,
+                context['prompt'] = (music_prompt(job['region'], 'vocal', job['gender'], context['lyrics'],
+                    palette_path=job.get('palette_path', PALETTE)) if job['mode'] == 'vocal' else job['prompt'])
+                store.update(job_id, context=context)
+                call_id = store.begin_call(job_id, 'generate_recording', MODEL, ESTIMATED_JOB_USD)
+                result = client.generate(context['prompt'])
+                response = dict(request_id=result.request_id, usage=result.usage,
+                                duration_seconds=result.duration_seconds)
+                store.returned(call_id, response, audio=result.audio_bytes)
+                account(call_id, response, 'generate_recording', ESTIMATED_JOB_USD,
                         duration_seconds=result.duration_seconds, model=MODEL)
-                wav = Path(temp) / 'converted.wav'
-                convert_mp3(result.audio_bytes, wav, ffmpeg=executable)
-                region, mode = job['region'], job['mode']
-                digest = hashlib.sha256((lyrics if lyrics is not None else prompt).encode('utf-8')).hexdigest()[:16]
-                receipts.append(dict(scope, id=result.request_id, action='generate_recording'))
-                composition_id = (job.get('composition_id') or f"lyric:{job['topic_id']}:{digest}"
-                                  if mode == 'vocal' else f'gen:{region}:{mode}:{digest}:{result.request_id}')
-                extra = {}
-                if mode == 'vocal':
-                    extra = dict(save_id=scope['save_id'], world_id=scope['world_id'],
-                        created_at_hours=scope['at_hours'], title=title, topic_id=job.get('topic_id'),
-                        source_observation_ids=job.get('lyric_brief', {}).get('source_observation_ids',
-                            job.get('source_observation_ids', [])))
-                row = library.add_recording(wav, performer_id=job['performer_id'], region=region,
-                    mode=mode, gender=job['gender'],
-                    composition_id=composition_id, lyrics=lyrics,
-                    recipe_id=f'{region}/{mode}', model_id=MODEL,
-                    source={'kind': 'generated', 'path_or_request_id': result.request_id,
-                            'sha256': hashlib.sha256(result.audio_bytes).hexdigest()},
-                    generation_receipts=receipts, **extra)
-                report['recordings'].append(row)
-            if total > budget:
-                report['status'] = 'budget_exceeded'
+                store.update(job_id, state='audio_ready')
+                report['recordings'].append(_publish_saved(store, job_id, library, executable))
+                if total > budget:
+                    report['status'] = 'budget_exceeded'
+                    break
+            except Exception as exc:
+                failure = {key: job[key] for key in ('performer_id', 'region', 'mode')}
+                failure['error_type'] = type(exc).__name__
+                with (library.root / 'executor.log').open('a', encoding='utf-8') as log:
+                    log.write(json.dumps(failure, ensure_ascii=False) + '\n')
+                if job_id is not None:
+                    store.fail(job_id, type(exc).__name__)
+                    saved = store.job(job_id)
+                    if any(c['state'] == 'unknown' or c['accounting'] is None for c in saved['calls']):
+                        report['unreported_attempt_cost'] = True
+                report.update(status='failed', failure=failure)
                 break
-        except Exception as exc:
-            failure = {key: job[key] for key in ('performer_id', 'region', 'mode')}
-            failure['error_type'] = type(exc).__name__
-            library.root.mkdir(parents=True, exist_ok=True)
-            with (library.root / 'executor.log').open('a', encoding='utf-8') as log:
-                log.write(json.dumps(failure, ensure_ascii=False) + '\n')
-            report.update(status='failed', failure=failure)
-            # Unknown outcomes may have incurred a charge; never label it zero.
-            if calls_started > len(report['generations']):
-                report['unreported_attempt_cost'] = True
-            break
+        report['durable_jobs'] = [s for s in store.summaries() if s['job_id'] in report['jobs']]
     return report

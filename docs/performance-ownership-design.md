@@ -26,6 +26,70 @@ SkyrimNet's bard feature was disabled in that session. A targeted controller
 workaround is now installed; successful owned playback remains unverified.
 See the [native RCA, fix and retest](sven-crash-2026-10-15.md).
 
+## Offline handoff and VFS evidence (20 October 2026)
+
+`tools/reconcile_bard_ownership.py` now prepares the controller handoff without
+requiring regional listening results. Its default dry run reads the selected
+profile, highest-priority loose Bard Singing configuration, adapter launch
+input and any pending overlay. It plans disabling SkyrimNet's bard flag in
+the effective loose input and the active adapter input. It leaves Hold Music's
+MCM state, mod lists, audio, registry, saves and databases unchanged.
+The selected profile identifies which inputs to inspect; it does not isolate
+those inputs. Overwrite and mod-directory configurations are shared MO2 files,
+so changing them can affect other profiles that read the same file. Review
+the proposed paths before deliberately applying a handoff.
+
+For a pending adapter session, it restores the original three provider routing
+fields before preserving dashboard edits, then disables bard singing. Changes
+to both source and overlay, a conflict copy, or an orphaned baseline block the
+handoff for review. A completed session's leftover overlay is removed with an
+exact backup; the adapter can build a fresh overlay on its next launch.
+
+```powershell
+python tools/reconcile_bard_ownership.py `
+  --mo2-root "C:\MGO\Skyrim MGO 4.0 RC4.1" `
+  --profile "MGO EXP - SkyrimNet b26 + SeverActions 4.2"
+```
+
+The real-install dry run on 20 October planned two changes: disable the old
+overwrite `enabled: true` and remove the stale runtime overlay. Its configured
+profile-data input was already disabled. **These changes have not been applied.**
+No game or MO2 process was launched for this work.
+
+Apply is a separate operation: append `--apply --receipt-dir <new-private-dir>`
+only when making the handoff deliberately. The tool checks that Skyrim and MO2
+are closed on Windows, snapshots exact original bytes before any mutation,
+and records per-file hashes and recovery progress. It refuses changed inputs,
+including a newly created higher-priority config or changed profile/adapter
+settings. Backups can include provider credentials; keep the receipt directory
+private and out of Git. Reports contain paths, hashes and operation metadata,
+not configuration contents.
+
+Restore with `python tools/reconcile_bard_ownership.py --rollback <receipt.json>`.
+Rollback checks every backup and target hash and the unchanged profile context
+before restoring anything. It can recover an interrupted apply, including the
+gap between a file replacement and its receipt checkpoint. It refuses to
+overwrite later edits. Files are replaced atomically one at a time; the entire
+handoff is not a filesystem-wide transaction. MO2, Skyrim and other writers must
+remain stopped throughout either operation.
+
+The read-only `game_package/tools/probe_vfs.py` now includes
+`SKSE/Plugins/SkyrimNet/config/BardSinging.yaml` in its observed files. Run it
+**through the intended MO2 profile**, with its existing `--data-root` and
+`--manifest` arguments plus `--profile "<profile name>"`, and save its JSON.
+The config row contains the file-handle destination, SHA-256 and parsed
+`bard_enabled` boolean from that same open handle. Malformed or ambiguous flags
+are explicit failures, with no credential values emitted.
+
+Pass the resulting JSON to `tools/preflight_performance.py --vfs-report <json>`
+alongside its ordinary profile arguments. Preflight checks the observation's
+profile, destination and current hash; an old report whose bytes changed fails.
+A disabled observed overlay **does not clear a conflicting enabled fallback**.
+The profile label is supplied by the operator, and the probe cannot itself
+prove MO2 injection or a running controller's state. Review the actual opened
+destination and startup evidence before the next headset test. The new VFS
+probe has fixture coverage but has not yet been run through MO2.
+
 ## Why take over
 
 Evidence gathered on 9 October:

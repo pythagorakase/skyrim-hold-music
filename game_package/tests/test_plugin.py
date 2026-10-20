@@ -5,10 +5,9 @@ from pathlib import Path
 import struct
 import unittest
 import zlib
-from pex_vm import require_artifacts, require_pex
+from pex_vm import BUILD, require_artifacts, require_pex
 
 ROOT=Path(__file__).resolve().parents[1]
-BUILD=ROOT/'build'
 
 
 def records(data):
