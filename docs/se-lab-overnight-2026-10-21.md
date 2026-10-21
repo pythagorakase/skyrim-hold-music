@@ -5,6 +5,53 @@ Continue until 08:00 America/Chicago on 21 October, then summarize and pause the
 `hold-music-offline-overnight-development` heartbeat. The old Echo watcher stays
 paused. The former Steam-use deferral is lifted for the isolated lab only.
 
+## Current checkpoint (02:44 CDT)
+
+- Native-fix checkpoint `f54a52a` is synchronized on Halcyon, GitHub and clean
+  Echo. The earlier local commit is retained on
+  `checkpoint/se-lab-native-fixes-20261021-0120`.
+- Installed: production `se-lab-production-admission-20261021-01`, harness `-20`.
+  They passed 110 production / 146 lab tests. General suite: 918 passes and 11
+  expected skips. Tests use fake providers; no paid generation occurred.
+- Controlled completion run `20261021T065140Z-c9a5261dfebc` **passed** with a
+  fresh full-identity receipt and alias/faction/globals/hour cleanup. Its exact
+  owned processes were stopped after capture. Requested interruption run
+  `20261021T065757Z-4b60d0a80eab` failed because its clip completed before the
+  stop request; its cleanup succeeded and exact owned processes were stopped.
+  The new matched pair passed interruption `20261021T073100Z-7f43558f4725`,
+  completion `20261021T073656Z-724c1caa62e4` and ambient entry
+  `20261021T073954Z-86c74b138816`. All captures/shared logs are archived and
+  their exact owned processes stopped. No lab game or MO2 remains active.
+- The Sven-only `BardSingerNoAutostart` fixture blocks the verified fresh starter
+  path, not already queued work. Native absence rank -2 is now handled without
+  changing preexisting membership. Natural tavern AI remains unverified.
+- Production admission suspension/drain/resume passed independent review:
+  89 compiled cases, three reset/init reproductions and 150 boundary checks.
+  The authoritative build passed 110 production tests with zero skips and
+  28 identity capability cases. Harness20 passed independent review and is now
+  installed with it. Source owners are frozen; root owns staging/game runs.
+  Inspect agent state before continuing or changing their files.
+- The three controlled native baseline scenarios pass. The separate disabled
+  SkyrimNet installer remains unexecuted; its process observer is being revised
+  to capture the short-lived loader with native identity timestamps. Wait for
+  its source/tests to freeze before the first install.
+- Harness19 is a retained, **rejected** candidate: it passed its 145-case suite
+  and 34 independent setup/cleanup cases, but additional ambient movement probes
+  found stale movement/playback after cancellation. Harness20 fixed that defect
+  and passed the same additional probes; do not install19.
+- The disabled SkyrimNet launcher/metadata collector passed its focused tests
+  before the process-observer revision. It requires explicit accepted completion, interruption and
+  ambient captures. It makes no HTTP/MCP/provider calls and does not claim native
+  loading or effective configuration acceptance. Root's broader Python suite
+  completed: 929 cases, 918 passes and 11 expected skips; log
+  `local/se-lab-general-admission-20261021.log`. The two later movement-field
+  checks also passed their targeted acceptance regression.
+- `durable_execution` owns a separate new, read-only SkyrimNet native/config
+  smoke module/tool/tests/docs. It uses fake transports until root performs an
+  explicitly reviewed actual read. No endpoint has been contacted.
+- Both original Steam manifest read-only flags and recorded hashes were checked
+  again after publication and remain unchanged. Production VR/MGO is untouched.
+
 ## Starting state
 
 - Source baseline: `2f23089`, clean Windows checkout and previously synchronized
@@ -367,3 +414,212 @@ until lucky, disable all actor AI, or relax production eligibility. Then obtain
 fresh completion and correctly attributed requested-interruption evidence with
 the stop fix. Natural ambient behavior and the disabled SkyrimNet tier remain
 later checkpoints. Both original Steam manifest locks/hashes are preserved.
+
+### 01:39–01:41 CDT: completion observed; native faction sentinel corrected
+
+Harness `-17` passed all 129 lab tests (110 focused cases independently), with
+zero skips. Independent native-call interleavings passed 14/14 after the release
+admission fence; the earlier draft passed only 2/14. Actual extracted vanilla
+PEX tests also verified four starter/queued/direct request cases, with engine
+calls mocked. The fixture is explicitly focused-only: controlled ambient entry
+is rejected before world/faction/actor mutation, because automatic selection's
+production admission/drain protocol remains a separate implementation task.
+
+It was staged with unchanged production stopfix01, backing up to
+`checkpoints/autostart-20261021-01/`. Run
+`20261021T063910Z-1ac9c1294471` acquired the NoAutostart faction before transitions,
+held package `0010FB3F`, selected strict slot 1, started at 94.365 and completed
+at 103.953. It appended exactly one full-identity receipt (`1:4`, index 4) after
+baseline 4, with no fresh duplicate or slot-zero receipt. This is normal
+completion evidence for stopfix01, not a deliberate native concurrency proof.
+
+The terminal scenario still **failed** at 113.372: native SE reported absent
+faction rank **-2** both before addition and after removal. The imported PSC
+comment and harness had assumed -1. Alias release, globals and hour restoration
+succeeded, but the overly narrow rank check reported a conflict and retained
+cleanup intent. Preserve that failed result. A three-comparison harness fix uses
+`!IsInFaction && rank < 0` for effective absence, retains raw ranks, and keeps
+exact rank checks for preexisting members. New tests cover both negative
+sentinels, no-write cleanup, and contradictory readbacks; the old artifact fails
+the real -2 cases.
+
+Capture `5297b671606344eb80ed030b1bc77ab9` contains fresh required evidence;
+shared logs are archived. Root stopped only SkyrimSE 44864 after checking its
+exact path and UTC creation ticks. MO2 had already exited. Two computer-use
+observations failed with `foreground window did not report a process id`; no
+further UI action was attempted and no visual/audibility claim is made.
+
+The next harness is built from retained detached worktree
+`local/se-lab-harness18-source-20261021` at `f54a52a`, with the three frozen
+harness overlays. Production admission work is proceeding concurrently in the
+main checkout. Harness-only staging must retain the exact installed stopfix01
+package, verify its pinned historical test-to-build-to-package hash chain and
+installed manifest equality, and make no production writes. It must not claim
+the actively edited main controller is the source of that old binary.
+
+### 01:51–01:57 CDT: first complete controlled native pass
+
+Harness `-18` was staged alone against the exact retained stopfix01 package,
+with backup `checkpoints/autostart-rank-20261021-01/`. All 132 lab tests passed
+without skips and all frozen input/artifact hashes matched. The historical
+production receipt chain was verified; no production files were rewritten.
+
+Fresh run `20261021T065140Z-c9a5261dfebc` **passed**. It held the standing fixture,
+selected strict slot 1, started at real 104.755, completed, and appended one
+full-identity receipt at index 5 after baseline 5. The alias was released,
+NoAutostart returned to absent/raw rank -2 with no conflict or retained intent,
+and globals/hour were restored. The result records its controlled fixture and
+injected focused setup explicitly. It proves neither normal NPC AI behavior nor
+visual/audible quality, queued vanilla drainage, or VR compatibility.
+
+Capture `a847264a195f482896f1fcda17427d38` retains fresh matching evidence and
+shared logs. Root stopped only SkyrimSE 25484 and MO2 17296 after exact path and
+UTC creation-tick checks. The next fresh process run is requested interruption
+`20261021T065757Z-4b60d0a80eab`; its owned identities are saved in that run folder.
+
+The production admission draft adds cooperative suspension tickets, drain
+acknowledgment and explicit resume without automatic scheduling. Independent
+review passed all 89 controller/identity cases, 150 before/after native-call
+boundaries and three initialization/load reproductions. The old artifact fails
+17 cancellation subcases. Load/init intersections fail closed; acknowledgment
+covers this controller's work only. Source and evidence are retained under
+`local/se-lab-admission-20261021/`; a fresh authoritative build and harness
+integration are in progress, with native validation still pending.
+
+### 01:58–02:03 CDT: requested interruption exposes harness timing
+
+Run `20261021T065757Z-4b60d0a80eab` failed correctly: start trace 88.130,
+completed stop 97.719, no stop request, terminal failure at 99.446. It appended
+one completed full-identity receipt (`1:6`) after baseline 6. It did not exercise
+requested interruption. Full result persistence took about 5.37 seconds and
+evidence collection up to 0.826 seconds; the post-start persistence/poll ordering
+needs a regression with slow native operations. Do not lengthen the fixture or
+relax causality assertions to convert this into a pass.
+
+Alias/faction/globals/hour cleanup succeeded. Capture
+`24a01167c7ac415e9b2bd7180fe49d4a` and shared logs retain the failure. Root stopped
+only SkyrimSE 40020 and MO2 8688 after path/full UTC creation-tick verification.
+The Papyrus log also contains an event-scoped-quest startup error from the
+vanilla intro scene's end fragment; it is retained, not attributed to Hold Music
+playback. Both original Steam manifests remain read-only with unchanged hashes.
+
+Production `se-lab-production-admission-20261021-01` now has an authoritative
+build: 110/110 production tests, 28/28 identity capability tests, no skips, all
+111 inputs unchanged. Controller instruction blocks match the independently
+reviewed draft. Its handoff is `build/handoff-summary.json`; no installation has
+occurred. Harness integration and independent boundary review are next, followed
+by a fresh matched-pair native run. A separate agent is implementing the guarded
+disabled-SkyrimNet launcher/collector with fake processes/HTTP only.
+
+### 02:15–02:25 CDT: independent continuation review before installation
+
+The first admission-integrated harness draft allowed cancelled setup to write
+globals after cleanup, and an old Finish stack could unregister a replacement
+run's timer. An identical compiled boundary probe passed only 5/34 cases on
+that draft and 34/34 after fixes. The early-interruption change also reproduces
+the observed native timing defect against harness18: a simulated slow first
+post-start save sees no prior request. The replacement places the request before
+that persistence, while retaining actual-start/window/guard/receipt checks.
+
+Authoritative harness19 passed all 145 lab cases (126 harness +19 plugin), but
+additional independent ambient movement probes found a blocker: cancellation
+at the player lookup or movement native boundary could release the fixture,
+then an old continuation could move and trigger production playback. Six of
+eight probes showed late movement and three showed late playback. The candidate
+is retained and was never installed. Evidence is under
+`local/se-lab-harness-independent-admission-20261021/`.
+
+Harness20 must hold movement ownership across player lookup, authorization,
+resume and MoveTo return. Cancellation before submission can reconcile after
+return; cancellation after submission retains an owned suspension/leases and
+reports unresolved movement. Returning from MoveTo cannot prove every later
+engine location event was delivered. Do not invent a full engine queue-drain
+acknowledgment or automatically resume a cancelled uncertain movement.
+
+Parallel SkyrimNet tooling changed one Python input measured by the original
+production test receipt. The original proof is preserved; a supplemental full
+110-case rerun passed with unchanged inputs and the same pinned package/build.
+Receipt `production-revalidation-tests-receipt.json` is in the admission01 build
+folder, SHA256 `3f3f1f86a827c1a36afc889600d19ca45d0913d40d3bf4d7f3bed99b18f38d72`.
+The launcher source was frozen before that rerun. Staging must verify both proof
+links and the fresh input hashes rather than ignoring the recorded drift.
+
+The validator subsequently added exact-false checks for the new movement
+pending/unresolved fields. Its affected test passed all eight negative subcases.
+A second preserved supplemental production run again passed 110 cases with
+unchanged inputs: `production-revalidation02-tests-receipt.json`, SHA256
+`724b434c45700eacfdc513c16c67094a4aeb1c3f45172747e8574f1db734eb80`.
+Final20 staging must use this newer receipt. The disabled-tier suite otherwise
+passed 57 of 58 cases with one expected Windows symlink skip; no real tier
+installation or launch has occurred.
+
+### 02:31 CDT: reviewed admission pair staged; interruption rerun active
+
+Harness20 passed 146/146 cases with zero skips and all measured inputs unchanged.
+Independent review of the exact final artifact passed 34 setup/cleanup boundary
+cases, eight movement boundaries, four delayed-event checks and a healthy
+ambient control. All 55 compiled functions match the cleared proof04 build.
+Submitted movement cancellation retains suspension and leases with explicit
+unresolved/pending evidence; no late event starts playback in those mocked
+checks. These remain compiled-instruction tests, not native concurrency proof.
+
+The source was built from retained snapshot `local/se-lab-harness20-source-20261021`.
+Final PEX SHA256 is
+`32ff016c8f7c40d824981fc48a289a61668e5925c31af59fba3fca5b9b54d3b9`;
+handoff `build/production-lab-handoff.json` SHA256 is
+`13708637783eae8e5953124d8d0953fc7bf6e1373dcd72a1ac3153048c076810`.
+It binds the original production proof, supplemental revalidation02, source
+snapshots, independent evidence and all artifacts.
+
+Root staged production admission01 and harness20 only, backing up the previous
+pair/manifest/control under `checkpoints/admission-20261021-01/`. Six files
+changed. Fresh preflight passed, then requested-interruption run
+`20261021T073100Z-7f43558f4725` launched. No acceptance result exists yet for this
+pair. Stop only the saved PID/path/full-creation-tick identities after collecting
+its result and archiving shared logs.
+
+### 02:44 CDT: all three matched-pair native baseline scenarios pass
+
+Production admission01 and harness20 passed three fresh game processes:
+
+| Scenario | Run | Capture | New receipt |
+|---|---|---|---|
+| Requested interruption | `20261021T073100Z-7f43558f4725` | `514b808b0c6042f2a40e4e766a686023` | `1:7`, interrupted |
+| Focused completion | `20261021T073656Z-724c1caa62e4` | `47391ff1520742bcb96e49ae320da68a` | `1:8`, completed |
+| Ambient entry | `20261021T073954Z-86c74b138816` | `1b2cd6977930447aa145b3078b729fd3` | `1:9`, completed |
+
+Each adds exactly one start/stop and full-identity receipt, preserving earlier
+history. Interruption request120.516 followed actual receipt start117.351 by
+3.165 seconds, before the eight-second endpoint; guard123.832 recorded
+`stop_requested` and stop124.330 recorded `interrupted`. Ambient entry observed
+fixture exit and real re-entry after resume, then production check/candidate/
+slot selection. Its result has `controller_entry_setup_injected=false` and
+`ambient_scheduling_bypassed=false`; all ambient assertions passed.
+
+All three report ticket0, resumed/drained/baselines-ready true, no pending or
+in-flight controller/fixture flags, alias/faction release and globals/hour
+restoration. Exact owned process identities and cleanup records remain in each
+run directory; root stopped only those verified identities after capture and
+shared-log archival. No game/MO2 process remains active.
+
+Independent focused-capture review verified all archived hashes and matching
+trace/receipt history. SKSE/PapyrusUtilDev contain no error/warning matches;
+Papyrus retains vanilla/DLC/BYOH warnings and the vanilla intro scene fragment's
+event-scoped quest error at line85. No Hold Music exception, identity-array cast
+or JSON parse failure appeared. Do not describe these as error-free playthroughs
+or general actor-AI/visual/audible/VR acceptance.
+
+The original Steam SE/VR manifest locks and hashes still match the starting
+record. No paid calls, recipe changes or production game changes occurred.
+
+Next bounded task: finalize the native process observer before the absent-only
+disabled SkyrimNet installation. Fresh PowerShell/CIM probes take ~0.30–0.35s,
+so the current sleep plus subprocess loop can miss a short-lived loader. Native
+Toolhelp/process-handle snapshots measured ~7ms and preserve exact FILETIME
+creation ticks; CIM rounds some of those values. Launch and collection must use
+the same backend and retain full ancestry, not relax comparison to path/PID.
+The source owner is adjusting this before first boot; no current native baseline
+artifact needs to change. A separate smoke collector is being developed with
+fake transports to read narrow effective disabled settings only after exact
+process/module/listener attribution. No SkyrimNet instance has been installed
+or launched yet.

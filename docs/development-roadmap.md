@@ -24,10 +24,12 @@ checks passed. The user released Steam for overnight lab work on 20 October.
 The revised harness reached Sven and confirmed correctly typed result booleans.
 An engine-discovered `None` to `String[]` cast in the candidate selector lost
 receipt identity; a typed-array fix now preserves the full identity in an actual
-engine receipt. Completion is still pending: subsequent runs recorded one idle
-refusal and one unsolicited interruption. Capture the precise guard state before
-changing behavior, then prove completion, requested interruption and ambient
-entry. SkyrimNet remains disabled in this baseline. See the
+engine receipt. Controlled completion passes with a full-identity receipt
+and restored fixture state. Harness20 also passed a fresh requested-interruption
+run after moving the stop request ahead of expensive result persistence.
+Fresh ambient entry also passes through the real location event and production
+scan/selection, with one receipt and restored fixture state. SkyrimNet is absent
+from this baseline. See the
 [overnight evidence and next task](se-lab-overnight-2026-10-21.md).
 
 The separate [disabled SkyrimNet tier](se-lab-skyrimnet.md) now has a read-only
@@ -35,8 +37,10 @@ preparation recipe and first-boot preflight. It pins the archive payload, separa
 portable MO2 instance, empty authentication, disabled services and loopback
 endpoints. An explicit installer now verifies the complete clean MO2 application
 payload, stages a new instance, and publishes without replacing an existing
-target. Interrupted attempts have retained evidence and reviewed recovery; it
-has no launcher or HTTP/MCP dispatcher. Actual native loading and effective
+target. Interrupted attempts have retained evidence and reviewed recovery. A
+separately reviewed, one-shot launcher requires three accepted baseline captures
+and records exact process ancestry. Its local collector records bounded metadata;
+it makes no HTTP/MCP/provider calls. Actual native loading and effective
 configuration remain a later runtime checkpoint.
 
 The first real identity-bearing receipt also exposed Papyrus string casing at
@@ -52,15 +56,19 @@ alias control can prove the animation/audio/receipt lifecycle but cannot close
 that uncontrolled-AI integration check. Measure actual phase timings before
 attributing delays to the native scan or changing its timeout.
 
-The controlled fixture has now held a standing Sven through an actual completed
-performance with a full identity-bearing receipt. Its overall scenario failed
-because preparation exhausted the harness deadline; timeout cleanup then exposed
-a concurrent-stop duplicate receipt. Their fixes passed 95 production and 111
-lab tests. The next engine run correctly failed before selection when vanilla
-`BardSongsBardSpotTravel` preempted the fixture; it wrote no new receipt and did
-not exercise the stop fix. Resolve that controlled handoff before claiming the
-baseline accepted. The [performer lifecycle design](performer-lifecycle-design.md)
-records the separate production AI-ownership contract and upgrade limitations.
+The controlled fixture holds a standing Sven and temporarily suppresses the
+verified fresh vanilla starter through Sven-only NoAutostart membership. It
+preserves preexisting membership and does not claim to drain queued vanilla
+requests. Installed stopfix01/harness18 passed 95 production and 132 lab tests;
+native run `20261021T065140Z-c9a5261dfebc` passed completion and cleanup without
+a duplicate receipt. A separately reviewed controller admission handoff passed
+110 production tests and is installed with the reviewed 146-test harness20.
+The matched pair passes fresh completion, requested interruption and ambient
+entry scenarios. It
+must acknowledge outstanding work before fixture release, including automatic
+selection and late native returns. The
+[performer lifecycle design](performer-lifecycle-design.md) records the distinct
+production AI-ownership contract and upgrade limitations.
 
 ## Current Baseline
 

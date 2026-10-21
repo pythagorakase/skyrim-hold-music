@@ -60,6 +60,39 @@ These artifacts are intentionally untracked. No matching record override was
 found in the inspected Update.esm/four enabled lab plugins, or loose replacement
 for those scripts; this was not a full archive-winner or loaded-save audit.
 
+The later controlled run `20261021T061035Z-a82c7eba3b8e` initially acquired the
+lab stay package, then observed vanilla `BardSongsBardSpotTravel` (`000FB904`)
+before selection. It failed and released the fixture without starting playback.
+That package observation does not identify the exact scene responsible.
+
+Further inspection identifies a narrow lab isolation hook: `BardSongStarter`
+quest `000BE159`, stage 0, runs
+`QF_BardSongsDrinkingSong01_000BE159.Fragment_1`. Its Change Location story node
+`000D1EEB` tests `LocTypeInn` and selects a bard in the event location. The
+fragment checks `BardSingerNoAutostart` faction `000163FA`; otherwise it queues
+`PlaySongRequest` with continuous playback and `ChangeSettings=True`.
+Sven's ordinary inn package has no attached script fragment. Do not attribute
+the request to that package simply because it was active.
+
+A temporary Sven-only faction membership, verified before any fixture location
+transition and restored last, can suppress this particular fresh request path.
+It is not a production AI lease or a general NPC solution: the fragment has a
+Karita/DA16 exception, and already queued or direct `PlaySong` calls do not
+recheck the faction. `PlaySong` may wait for dialogue, while `ChangeSettings=True`
+bypasses its `StopSong` early return. A quiet interval cannot establish that
+all queued vanilla work has drained. Foreign scenes or lost package ownership
+must still fail the controlled run rather than provoke a stop/reassert loop.
+Preserve preexisting faction rank and report conflicting cleanup instead of
+overwriting it; same-value writes from another script are not distinguishable.
+
+An executable inspection of the actual extracted Starter and BardSongs PEX
+passes four cases: absent membership queues a request; membership blocks the
+starter; an already queued request can still start after membership and
+`StopAllSongs`; direct `PlaySong` also bypasses the faction. These run in the
+repository's opcode VM with native calls/timers mocked, not in Skyrim. Source
+hashes and call traces are retained under
+`local/se-lab-bard-preemption-20261021/starter-pex-proof.json`.
+
 ## Narrow stop serialization: implemented in source
 
 Run `20261021T054636Z-1fd285da6f0a` recorded a completed slot-1 receipt followed
@@ -75,9 +108,47 @@ during startup queues cancellation, and the starting stack drains and
 compensates late idle/audio returns before reopening admission. Compiled-script
 regressions reproduce failures in the old PEX and pass with this fix.
 
-This is **not yet a native-engine retest result**. It does not implement the AI
-alias/package lease, an immutable library composition/identity snapshot across
-all callers, or durable save/load reconciliation. Those remain proposed below.
+Controlled native run `20261021T065140Z-c9a5261dfebc` now passes normal completion
+with one full-identity receipt and fixture cleanup. The deliberate concurrency
+interleavings remain compiled-script evidence, not a native stress test. The
+fix does not implement the AI alias/package lease, an immutable library
+composition/identity snapshot across all callers, or durable save/load
+reconciliation. Those remain proposed below.
+
+## Cooperative admission handoff: reviewed, controlled native baseline passed
+
+The installed lab candidate offers `SuspendAdmission()`, returning a positive
+ownership ticket or zero; `IsAdmissionDrained(ticket)`; and
+`ResumeAdmission(ticket)`, which accepts only the matching drained hold and
+does not schedule work. It counts admitted location, scheduling, selection,
+scene and native-start stacks as well as active playback/cleanup. Stop requests
+invalidate earlier continuations, and late idle/audio effects are compensated
+before drain acknowledgment. Suspension during initialization or unresolved
+load intersections fails closed rather than clearing counters or slot locks.
+
+Independent review passes 89 compiled controller/identity cases, three concrete
+initialization/load reproductions and 150 native boundary checks. The old PEX
+fails 17 relevant cancellation subcases. This is a cooperative controller
+contract, not authenticated ownership, arbitrary external library protection,
+a vanilla queue-drain API or save rollback protection. Fresh-process lab scope
+is required until independent save/load upgrade behavior is established.
+
+The lab integration must acquire and drain before fixture setup, then suspend
+and drain again before restoring globals or releasing actor/faction ownership.
+Timeout or a late unresolved native return retains ownership and reports pending
+failure. Controlled ambient tests must resume before a real inn re-entry; they
+must not inject a location event to manufacture automatic scheduling evidence.
+
+The matched admission01/harness20 pair passed three fresh SE runs: requested
+interruption `20261021T073100Z-7f43558f4725`, completion
+`20261021T073656Z-724c1caa62e4`, and actual ambient entry
+`20261021T073954Z-86c74b138816`. All ended with the ticket released, no pending
+controller/fixture work, and restored alias/faction/globals/hour. Ambient entry
+used the production scan and selection. These establish the ordinary controlled
+paths; deliberate cancellation interleavings still have compiled/mock evidence,
+not native stress-test coverage. Cancelled submitted fixture movement retains
+unresolved ownership because MoveTo return cannot certify all future engine
+events have drained. None of these fixtures implements the production AI lease.
 
 ## Proposed dedicated lease
 

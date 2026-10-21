@@ -36,8 +36,8 @@ Installed in the main profile:
 
 - SKSE Scripts 2.2.6 and matching root loader/runtime DLL.
 - MCM Helper SE 1.6.2, with only its Skyrim SE installation branch.
-- Hold Music Candidate from `se-lab-production-stopfix-20261021-01`.
-- Separate harness from `se-lab-harness-20261021-16`.
+- Hold Music Candidate from `se-lab-production-admission-20261021-01`.
+- Separate harness from `se-lab-harness-20261021-20`.
 - Hold Music Lab Data: eight seconds of deterministic plucked-tone PCM,
   strict synthetic recording identity, one session slot, and a lab-only world.
 - PapyrusUtil AE SE 4.6, Nexus file 462773, for Steam 1.6.1170/SKSE 2.2.6.
@@ -127,6 +127,41 @@ was written; alias release and globals/hour restoration succeeded. The stop
 fix remains unexercised by that run. Runtime acceptance and the next bounded
 handoff investigation are tracked in the overnight checkpoint.
 MQ102 and normal playthrough saves are untouched.
+
+The focused fixture now acquires temporary Sven-only `BardSingerNoAutostart`
+membership before transitions, suppressing the verified fresh Story Manager
+starter path. It does not drain already queued or direct vanilla requests.
+Harness18 handles the native absent-faction rank -2 and preserves raw readbacks
+and exact preexisting ranks. All 132 lab tests passed with zero skips. The
+retained production package was not rewritten during harness-only staging.
+
+Run `20261021T065140Z-c9a5261dfebc` **passed controlled completion**, appending
+one full-identity receipt and restoring the owned alias, faction, globals and
+hour. Fresh requested-interruption run `20261021T065757Z-4b60d0a80eab` failed
+correctly: the eight-second clip completed before a stop request was issued.
+It appended one completed receipt and restored the fixture; it is not an
+interruption pass. Its evidence points to slow post-start result persistence
+delaying polling. Both runs and shared logs were archived and their exact owned
+processes stopped. No natural NPC AI, visual/audible or VR result is inferred.
+
+A new cooperative controller suspension/drain/resume protocol has passed
+independent compiled review and 110 production tests. It is installed with
+harness20, which passed 146 lab tests and independent continuation checks.
+The matched pair now passes fresh native completion, requested interruption and
+ambient entry (runs `20261021T073656Z-724c1caa62e4`,
+`20261021T073100Z-7f43558f4725` and `20261021T073954Z-86c74b138816`). Each
+appends exactly one full-identity receipt and restores fixture state. Ambient
+entry uses the real location event and production scan/selection, with no
+injected entry or scheduling bypass. The harness holds fixture ownership until
+the controller acknowledges return/compensation of its own admitted work, and resumes before
+actual controlled ambient inn entry. Unresolved cleanup must remain visible and
+must not permit a replacement run. Cancellation after a submitted movement keeps
+an unresolved suspension: native return does not establish that all later
+location events have been delivered. Native cancellation races, normal tavern
+AI, audibility, visual animation and VR compatibility remain separate checks.
+Archived Papyrus logs retain vanilla/DLC initialization warnings and the intro
+scene fragment's event-scoped quest error; these are not error-free playthroughs.
+The overnight checkpoint records exact captures and progress.
 
 Installation receipts and the blocked preflight are under
 `checkpoints/candidate-staging-20261020/`. Existing trace and receipt history

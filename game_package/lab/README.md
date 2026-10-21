@@ -142,12 +142,58 @@ which operation consumed the time before the failed eligibility check.
 An additional **boolean** `allow_controlled_actor_ai:true` in the control file
 opts a disposable autorun into a controlled standing fixture. It requires the
 separate `allow_disposable_world_setup:true` baseline above. Manual commands do
-not acquire it. The lab quest has priority 90 and one initially empty Optional
+not acquire it. The candidate harness requires the controller's cooperative
+admission handshake described below, including for ambient setup and cleanup.
+With the flag false, ambient entry remains a separate uncontrolled integration
+scenario. Controlled ambient scheduling still needs engine confirmation. The lab quest has
+priority 90 and one initially empty Optional
 reference alias, `0: FixtureActor`, with no default actor, extra actor flags,
 factions, or alias scripts. Its sole package is the unoverridden vanilla
 `0010FB3F DefaultBardStayAtCurrentLocation`: a Travel template with Near Self,
 radius zero, and no forced idle or script. Its conditions exclude followers
 and the player. There is no production actor/package override.
+
+Before any player/Sven fixture transition, the controlled autorun also takes a
+Sven-only lease on vanilla faction `000163FA BardSingerNoAutostart`. The actual
+`BardSongStarter` quest `000BE159`, reached by inn location-change node
+`000D1EEB`, checks this faction in its stage-zero fragment before enqueueing a
+continuous `PlaySongRequest`. The separate Karita/DA16 exception makes this a
+Sven fixture rule, not a general performer policy. The record bindings, actual
+PEX tests and decompiled fragment are retained in
+`local/se-lab-bard-preemption-20261021/`.
+
+The lease records `IsInFaction` and `GetFactionRank`. Existing membership is
+never rewritten. For absent membership, a saved intent precedes one native
+`SetFactionRank(faction, 0)`; `AddToFaction` is not used because it is itself a
+scripted check-and-set. Readbacks and continuation guards must succeed before
+movement. Observable dialogue, a current scene, a running starter quest, or the
+known competing bard package `000FB904` prevents acquisition. An unknown current
+package is reported as zero, not interpreted as proof of inactivity; the later
+loaded/standing package check remains mandatory.
+
+After controller cleanup and owned alias release, the lease removes only an
+observed rank zero that this run introduced. A changed rank or changed
+preexisting membership is preserved and prevents a pass. The whole acquisition
+and release sequences fence new runs, including native getter and mutation
+continuations. Cancellation during a mutation can leave a failed pending result
+while its late return is compensated; that terminal result is not upgraded.
+This is observed-value ownership, not an atomic compare-and-swap: an outside
+write of the same rank is indistinguishable, and a process crash cannot restore
+state. Dispose of this world instead of saving it as a playthrough.
+
+Native run17 returned `IsInFaction:false` with rank `-2` both before acquisition
+and after removal; the imported `Actor.psc` comment mentions only `-1`.
+Restoration therefore requires nonmembership **and a negative rank**, while
+retaining the raw baseline and final values. This establishes effective absence,
+not exact restoration of an internal absent-entry representation. Existing
+members still require the exact saved rank; no rank-normalization write is made.
+
+This faction inhibits the starter only. A previously queued or directly invoked
+`PlaySongRequest` bypasses it, can wait for dialogue, and may still preempt the
+fixture. No wait is treated as proof that such a queue drained, no vanilla queue
+is reset, and no repeated start attempt is used to obtain a lucky pass. Evidence
+records `vanilla_autostart` baseline/acquisition/release/conflict fields and
+always keeps `pending_work_drained_verified:false`.
 
 The harness first moves Sven to the verified stage marker, then saves ownership
 intent and acquires the empty alias before moving the player into the inn. This
@@ -156,7 +202,7 @@ alias or an actor already using the hold package. A focused run waits within
 the 90-second preparation deadline for the exact alias actor, expected
 package, loaded actor, and standing/sleep states of zero. The original controller
 eligibility checks still apply, and there is only one performance-start attempt.
-The ambient mode retains the genuine player entry and production scheduler.
+Uncontrolled ambient mode retains genuine player entry and the production scheduler.
 
 Completion, failure, timeout, cancellation, and revoked opt-in release only the
 exact actor this run acquired. A foreign replacement is preserved and reported
@@ -175,18 +221,21 @@ A suspended preparation or finish blocks a new run. Nested cancellation during
 release takes precedence over an older completion result.
 
 Production start is not atomic: cancellation inside a native idle/audio call
-can return before that start stack does. The cancelled result then records
-`focused_start_cleanup_pending:true`. The harness defers its stop until the
-start returns, compensates once, and leaves the terminal result unchanged.
+can return before that start stack does. The result then records
+`focused_start_cleanup_pending:true`; an unresolved controlled faction lease
+makes its status `failed`, with lease intent still recorded. Suspension asks the
+controller to cancel its owned start; the harness retains fixture leases until
+the returned ticket reports drain, then leaves the terminal result unchanged.
 That pending result does not certify cleanup or a successful run, even after
 the later compensation; inspect production traces/receipts for what followed.
 
 Evidence includes `controlled_actor_ai`, the `fixture_ai` acquisition/standing/
 release readbacks, and `normal_actor_ai_behavior_verified:false`. A controlled
-pass would establish controller mechanics and, in ambient mode, scheduling with
-an explicitly held actor. **Normal tavern AI integration remains outstanding**:
+focused pass would establish controller mechanics with an explicitly held actor.
+**Normal tavern AI integration remains outstanding**:
 the production controller does not acquire this package. Native `PlayIdle`
-compatibility with the lab hold must still be observed in the engine.
+compatibility with the lab hold has been observed in a failed overall run; a
+passing controlled scenario and normal actor AI compatibility remain separate.
 
 Focused runs record in-memory timing boundaries for native scanning, registry
 matching, diagnostics, and selection, publishing them in existing result saves.
@@ -240,8 +289,10 @@ are integers so a JSON boolean serialization failure does not erase them.
 
 `focused-complete` awaits the fixture's natural duration. `focused-interrupt`
 sets the normal `HM_Config.StopRequested` flag once the observed production start
-timestamp is at least two seconds old. That check precedes expensive evidence
-collection on a subsequent poll. The eight-second synthetic fixture remains
+timestamp is at least two seconds old. Autorun performs a bounded wait of at
+most two seconds immediately after confirming that start, then issues the
+request before the first full post-start result save. Manual scenarios retain
+the poll check before evidence collection. The eight-second synthetic fixture remains
 unchanged. Automatic requests stop at the trace-based duration boundary, and
 `interrupt_window_missed` records an expired window. The matching receipt must
 also prove the request preceded its earlier production-start timestamp plus
@@ -290,8 +341,40 @@ parser result, stored JSON type, and value readback. Any mismatch reports
 continued execution. A failed evidence save also ends the scenario; final
 Papyrus logging cannot claim a pass if the final result could not be saved.
 
+Before baselines or fixture/global mutations, the harness obtains its own
+positive `SuspendAdmission()` ticket and waits at most 15 seconds for
+`IsAdmissionDrained(ticket)`. A foreign, failed or unsafe hold is never borrowed.
+Existing stop receipts become visible before the fresh baseline is taken.
+Initial global capture/mutation and admission transitions remain owned across
+native returns, so cancellation cannot publish restoration and then allow an
+older setup stack to mutate settings or a replacement run.
+
+Focused setup resumes its ticket before the labeled direct controller call.
+Controlled ambient setup holds admission while positioning the standing fixture,
+then makes a real exterior transition, observes loaded arrival outside the inn,
+resumes its own drained ticket, and teleports back into the inn. Only that final
+post-resume engine location change supplies the ambient scheduling test; the
+harness never invokes `OnLocationChange` for it. Resume itself schedules nothing.
+The entire movement step, including player lookup, authorization, optional
+resume and `MoveTo` return, keeps an in-flight ownership fence. Cancellation
+before submission can reconcile after that step returns. Cancellation after a
+teleport is submitted retains admission and fixture leases with
+`fixture_movement_unresolved:true`: native return does not acknowledge dispatch
+of every delayed location event. Even explicit cleanup cannot infer that missing
+acknowledgment; discard this disposable world. No post-cancellation resume is
+attempted merely because the native move returned.
+
+On completion/failure/cancellation, the harness acquires or retains a ticket and
+waits for actual Hold Music owned-work drain before restoring globals/hour or
+releasing the actor alias and starter-faction lease. It resumes admission last.
+Cleanup has a fixed 15-second bound; unresolved drain, ownership or readback
+retains the ticket/leases and blocks replacement runs. An explicit `Cleanup`
+may attempt later reconciliation without upgrading a previously published
+failed result. Pending evidence retains the causal failure separately from the
+cleanup state. This is not a claim that vanilla scenes or all engine work drained.
+
 The test temporarily sets enabled/chance/session-cap/delay globals and restores
-their saved values on completion, failure, timeout, or explicit cleanup.
+their saved values after this drain on completion, failure, timeout, or cleanup.
 Restoration is checked with `GetValue`; a mismatch prevents a pass. A process
 crash cannot execute cleanup, which is why the lab uses disposable saves.
 Actor fixture positions intentionally remain changed in that disposable world.
@@ -302,12 +385,12 @@ visible between the trace read and receipt read, the harness polls again for
 the corresponding stop trace and cleared stop flag, within the same deadline.
 Wrong projected identity, regressing trace history, malformed/shrinking receipt
 history, or a changed request/control guard fails the run.
-Once the production stop trace or its matching receipt is visible, finishing
-the lab never calls `StopPerformance` again: the production stack may still be
-clearing its private performer, and a second stop could create a duplicate
-receipt. It unregisters scheduling instead. A production completion stack that
-resumes afterward can still schedule its ordinary next check; the result does
-not claim timer quiescence.
+Visible stop/receipt evidence alone does not establish that the production stack
+returned. Cleanup waits for the owned suspension acknowledgment; the production
+stop guard prevents nested stop requests from producing duplicate receipts.
+`admission` reports the ticket, in-flight operations, drain observation, resume
+and pending state, with scope `hold_music_owned_work` and
+`all_engine_work_drained:false`.
 
 `performance_start` establishes that `PlayIdle` returned true and `Sound.Play`
 returned a nonnegative handle. A stop trace and matching receipt establish the
@@ -347,8 +430,31 @@ deadline before playback began, and concurrent stopping exposed a second
 interrupted receipt with slot zero. That historical receipt and the failed run
 are preserved. New attempts take fresh trace/receipt baselines rather than
 deleting or repairing history. The revised phase deadlines and production stop
-guard require a fresh engine run; normal actor AI integration, audibility and
-visual animation remain unverified.
+guard were installed in build16. Run `20261021T061035Z-a82c7eba3b8e` then failed
+before selection when vanilla package `000FB904` replaced the verified hold
+package; no new recording receipt was emitted. This motivated the narrow
+starter-faction lease above.
+Normal actor AI integration, audibility and visual animation remain unverified.
+
+Run17 `20261021T063910Z-1ac9c1294471` verified the faction lease, standing alias,
+real playback, and one completed receipt with the full identity. Alias release,
+globals and GameHour also read back correctly. Its overall status stayed failed
+because cleanup expected absent rank `-1`, whereas the engine returned `-2`.
+That failed result is preserved. Frozen18 completion run
+`20261021T065140Z-c9a5261dfebc` then passed: exactly one new start, completed stop
+and full-identity receipt (baseline/index 5), with alias, globals and hour
+restored. The faction went from absent/rank -2 to owned rank 0 and back to
+absent/rank -2 with no conflict. This verifies the controlled focused baseline,
+not normal actor AI, audibility or the later admission candidate.
+
+Frozen18 interruption run `20261021T065757Z-4b60d0a80eab` reached a normal
+completed receipt, but issued no interruption request. Its first full post-start
+save consumed approximately 5.37 seconds; the next poll missed the short fixture
+window. Alias, faction, globals and hour restored correctly. The candidate early
+request ordering above addresses that measured bottleneck without lengthening
+the signal or accepting a completed receipt as interruption. The new admission
+integration and revised interruption ordering remain offline candidate evidence
+until the matched package is tested in the engine.
 
 ## Offline build and tests
 

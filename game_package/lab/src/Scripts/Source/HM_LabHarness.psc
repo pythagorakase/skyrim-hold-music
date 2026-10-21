@@ -108,6 +108,25 @@ Bool FixtureStandingObserved = False
 Int PackageBeforeHold = 0
 Int PackageDuringHold = 0
 Int PackageAfterRelease = 0
+Faction AutostartFaction
+Actor AutostartActor
+Bool AutostartPreparing = False
+Bool AutostartIntent = False
+Bool AutostartBaselineObserved = False
+Bool AutostartBaselineMember = False
+Int AutostartBaselineRank = -1
+Bool AutostartWriteIssued = False
+Bool AutostartCallInFlight = False
+Bool AutostartReleaseInFlight = False
+Bool AutostartReady = False
+Bool AutostartAcquired = False
+Bool AutostartReleased = False
+Bool AutostartConflict = False
+Int AutostartObservedRank = -1
+Int AutostartPackageBefore = 0
+Bool AutostartDialogueBefore = False
+Bool AutostartSceneBefore = False
+Bool AutostartStarterBefore = False
 Float ScanStartedAt = 0.0
 Float ScanFinishedAt = 0.0
 Float MatchingFinishedAt = 0.0
@@ -119,6 +138,30 @@ Float EvidenceCollectionFinishedAt = 0.0
 Float EvidenceCollectionMaxSeconds = 0.0
 Float PreviousResultSaveSeconds = 0.0
 Float ResultSaveMaxSeconds = 0.0
+Int AdmissionTicket = 0
+Bool AdmissionAcquireInFlight = False
+Bool AdmissionResumeInFlight = False
+Bool AdmissionFault = False
+Bool AdmissionDrainedObserved = False
+Bool AdmissionRestored = False
+Bool InitialDrainPending = False
+Bool BaselinesReady = False
+Float AdmissionDeadline = 0.0
+Bool Finishing = False
+Bool CleanupAdvancing = False
+Bool TerminalFrozen = False
+String PendingFinishStatus = ""
+String PendingFinishReason = ""
+Float CleanupDeadline = 0.0
+Bool AwaitingAmbientExit = False
+Bool AmbientExitObserved = False
+Bool AmbientEntryAfterResume = False
+Bool BeginRunInFlight = False
+Bool BeginCancellationRequested = False
+Bool BaselineWorkInFlight = False
+Bool AdmissionTransitionInFlight = False
+Bool FixtureTransitionInFlight = False
+Bool FixtureMovementUnresolved = False
 
 Event OnInit()
     ; Merely installing this quest never moves actors or enables a test.
@@ -129,6 +172,9 @@ Event OnInit()
 EndEvent
 
 Function TryAutorun()
+    If Active || Finishing || BeginRunInFlight || BaselineWorkInFlight || AdmissionTransitionInFlight || FixtureTransitionInFlight || FixtureMovementUnresolved || AdmissionTicket > 0 || AdmissionAcquireInFlight || AdmissionResumeInFlight || FinishDepth > 0
+        Return
+    EndIf
     StartupAttempts += 1
     ; MCM Helper may not have initialized the production world's settings yet.
     If !Guard()
@@ -165,9 +211,32 @@ Function TryAutorun()
     If !BeginRun(name)
         Return
     EndIf
+    PrepareAutorun()
+EndFunction
+
+Function PrepareAutorun()
     String expectedRun = RunId
-    If JsonUtil.IsPathBool(ControlFile, ".allow_disposable_world_setup") && JsonUtil.GetPathBoolValue(ControlFile, ".allow_disposable_world_setup", False)
-        WorldSetupRequested = True
+    If !ContinueRun(expectedRun)
+        Return
+    EndIf
+    WorldSetupRequested = JsonUtil.IsPathBool(ControlFile, ".allow_disposable_world_setup") && JsonUtil.GetPathBoolValue(ControlFile, ".allow_disposable_world_setup", False)
+    FixtureHoldRequested = JsonUtil.IsPathBool(ControlFile, ".allow_controlled_actor_ai") && JsonUtil.GetPathBoolValue(ControlFile, ".allow_controlled_actor_ai", False)
+    If FixtureHoldRequested && !WorldSetupRequested
+        Finish("failed", "Controlled actor AI requires the explicit disposable-world setup.")
+        Return
+    EndIf
+    ; Sven only: inhibit the inspected vanilla inn-entry starter before ANY
+    ; fixture transition. This cannot cancel a previously queued song request.
+    If FixtureHoldRequested && !AcquireAutostartLease(expectedRun)
+        If Active && RunId == expectedRun
+            Finish("failed", "Sven vanilla autostart lease could not be verified.")
+        EndIf
+        Return
+    EndIf
+    If !ContinueRun(expectedRun)
+        Return
+    EndIf
+    If WorldSetupRequested
         SetupDeadline = Utility.GetCurrentRealTime() + 90.0
         If !PrepareDisposableWorld() || !SetupStillAuthorized(expectedRun)
             If Active && RunId == expectedRun
@@ -183,11 +252,6 @@ Function TryAutorun()
             PreparationDeadline = SetupFinishedAt + 90.0
             Deadline = PreparationDeadline
         EndIf
-    EndIf
-    FixtureHoldRequested = JsonUtil.IsPathBool(ControlFile, ".allow_controlled_actor_ai") && JsonUtil.GetPathBoolValue(ControlFile, ".allow_controlled_actor_ai", False)
-    If FixtureHoldRequested && !WorldSetupReady
-        Finish("failed", "Controlled actor AI requires the explicit disposable-world setup.")
-        Return
     EndIf
     ; Verified against the lab's Skyrim.esm: these persistent references share
     ; RiverwoodSleepingGiantInn CELL 000133C6. No cell override is required.
@@ -223,8 +287,10 @@ Function TryAutorun()
     If !ContinueRun(expectedRun)
         Return
     EndIf
-    If Scenario != "ambient_entry"
+    If Scenario != "ambient_entry" || FixtureHoldRequested
         AwaitingFocusedEntry = True
+    ElseIf !ResumeOwnedAdmission(expectedRun)
+        Return
     EndIf
     ; A real engine location transition, not a call to OnLocationChange.
     ; This tests scripted teleport entry, not walking through a door.
@@ -240,6 +306,152 @@ Function TryAutorun()
     If ContinueRun(expectedRun)
         RegisterForSingleUpdate(0.25)
     EndIf
+EndFunction
+
+Bool Function AcquireAutostartLease(String expectedRun)
+    ; Fence the complete native/readback sequence, including a cancelled run
+    ; before mutation. A replacement run may not reuse its shared state.
+    If AutostartPreparing || AutostartIntent || AutostartCallInFlight || AutostartReleaseInFlight
+        Return False
+    EndIf
+    AutostartPreparing = True
+    Bool acquired = PrepareAutostartLease(expectedRun)
+    AutostartPreparing = False
+    Return acquired
+EndFunction
+
+Bool Function PrepareAutostartLease(String expectedRun)
+    If !AutostartPreparing || !Active || !AutomatedFixture || !WorldSetupRequested || !FixtureHoldRequested || !ContinueRun(expectedRun)
+        Return False
+    EndIf
+    AutostartActor = Game.GetFormFromFile(0x00013491, "Skyrim.esm") as Actor
+    AutostartFaction = Game.GetFormFromFile(0x000163FA, "Skyrim.esm") as Faction
+    Quest starter = Game.GetFormFromFile(0x000BE159, "Skyrim.esm") as Quest
+    If !AutostartActor || !AutostartFaction || !starter || Library.FindPerformer(AutostartActor) != "sven"
+        Return False
+    EndIf
+    AutostartDialogueBefore = AutostartActor.IsInDialogueWithPlayer()
+    AutostartSceneBefore = AutostartActor.GetCurrentScene() != None
+    AutostartStarterBefore = starter.IsRunning()
+    Package before = AutostartActor.GetCurrentPackage()
+    If before
+        AutostartPackageBefore = before.GetFormID()
+    EndIf
+    ; An unloaded actor may have no current package. Record that as unknown;
+    ; later loaded/standing readback remains mandatory, not inferred here.
+    If !ContinueRun(expectedRun) || AutostartDialogueBefore || AutostartSceneBefore || AutostartStarterBefore || AutostartPackageBefore == 0x000FB904
+        Return False
+    EndIf
+    AutostartBaselineMember = AutostartActor.IsInFaction(AutostartFaction)
+    AutostartBaselineRank = AutostartActor.GetFactionRank(AutostartFaction)
+    If !ContinueRun(expectedRun)
+        Return False
+    EndIf
+    AutostartBaselineObserved = True
+    If AutostartBaselineMember != (AutostartBaselineRank >= 0)
+        AutostartConflict = True
+        Return False
+    EndIf
+    AutostartIntent = True
+    ; Persist baseline and intent before the single native rank mutation.
+    If !SaveResult("running", "") || !ContinueRun(expectedRun)
+        Return False
+    EndIf
+    Bool member = AutostartActor.IsInFaction(AutostartFaction)
+    Int rank = AutostartActor.GetFactionRank(AutostartFaction)
+    If !ContinueRun(expectedRun)
+        Return False
+    EndIf
+    If member != AutostartBaselineMember || rank != AutostartBaselineRank
+        AutostartConflict = True
+        Return False
+    EndIf
+    If !member
+        ; AddToFaction is a scripted check-then-set wrapper. Use one native
+        ; SetFactionRank and record an unresolved call before it can yield.
+        AutostartWriteIssued = True
+        AutostartCallInFlight = True
+        AutostartActor.SetFactionRank(AutostartFaction, 0)
+        AutostartCallInFlight = False
+        If !ContinueRun(expectedRun)
+            ReleaseAutostartLease()
+            Return False
+        EndIf
+    EndIf
+    If !AutostartLeaseIntact() || !ContinueRun(expectedRun)
+        Return False
+    EndIf
+    AutostartReady = True
+    AutostartAcquired = True
+    Return True
+EndFunction
+
+Bool Function AutostartLeaseIntact()
+    If !AutostartIntent || !AutostartActor || !AutostartFaction || AutostartCallInFlight || AutostartReleaseInFlight
+        Return False
+    EndIf
+    Bool member = AutostartActor.IsInFaction(AutostartFaction)
+    AutostartObservedRank = AutostartActor.GetFactionRank(AutostartFaction)
+    Int expected = 0
+    If AutostartBaselineMember
+        expected = AutostartBaselineRank
+    EndIf
+    Bool intact = member && AutostartObservedRank == expected
+    AutostartConflict = AutostartConflict || !intact
+    Return intact
+EndFunction
+
+Bool Function ReleaseAutostartLease()
+    If !AutostartIntent
+        Return True
+    EndIf
+    If !CleanupAdmissionReady()
+        Return False
+    EndIf
+    If AutostartReleaseInFlight
+        Return False
+    EndIf
+    ; Cover native reads as well as mutation: a reentrant inactive Cleanup
+    ; cannot release ownership and let a new run reset our pending stack.
+    AutostartReleaseInFlight = True
+    Bool released = ReconcileAutostartLease()
+    AutostartReleaseInFlight = False
+    Return released
+EndFunction
+
+Bool Function ReconcileAutostartLease()
+    ; Keep suppression until the owned alias and any pending start have been
+    ; cleaned up. A native return may compensate later, never upgrade evidence.
+    If !AutostartReleaseInFlight || AutostartCallInFlight || FocusedStartInFlight || FixtureHoldIntent || FixtureHoldOwned || FixtureHoldCallInFlight || !AutostartActor || !AutostartFaction
+        Return False
+    EndIf
+    Bool member = AutostartActor.IsInFaction(AutostartFaction)
+    AutostartObservedRank = AutostartActor.GetFactionRank(AutostartFaction)
+    If AutostartBaselineMember
+        ; Preexisting membership is never ours to remove or restore by writing.
+        AutostartReleased = member && AutostartObservedRank == AutostartBaselineRank
+    ElseIf !AutostartWriteIssued
+        AutostartReleased = !member && AutostartObservedRank < 0
+    ElseIf !member && AutostartObservedRank < 0
+        AutostartReleased = True
+    ElseIf member && AutostartObservedRank == 0
+        AutostartActor.RemoveFromFaction(AutostartFaction)
+        member = AutostartActor.IsInFaction(AutostartFaction)
+        AutostartObservedRank = AutostartActor.GetFactionRank(AutostartFaction)
+        ; Native SE returned -2 for an absent entry, despite the imported PSC
+        ; comment mentioning only -1. Preserve the raw rank; membership plus
+        ; a negative rank establishes effective absence, not exact storage.
+        AutostartReleased = !member && AutostartObservedRank < 0
+    Else
+        ; A changed rank is foreign state. Do not erase it to claim restoration.
+        AutostartReleased = False
+    EndIf
+    AutostartConflict = AutostartConflict || !AutostartReleased
+    If AutostartReleased
+        AutostartIntent = False
+        AutostartReady = False
+    EndIf
+    Return AutostartReleased
 EndFunction
 
 Bool Function AcquireFixtureHold(Actor fixtureActor, String expectedRun)
@@ -268,7 +480,9 @@ Bool Function AcquireFixtureHold(Actor fixtureActor, String expectedRun)
     FixtureHoldAlias.ForceRefTo(fixtureActor)
     FixtureHoldCallInFlight = False
     If !FixtureHoldStillAuthorized(expectedRun)
-        ReleaseFixtureHold()
+        If ReleaseFixtureHold()
+            ReleaseAutostartLease()
+        EndIf
         Return False
     EndIf
     If FixtureHoldAlias.GetReference() != fixtureActor
@@ -300,6 +514,9 @@ EndFunction
 Bool Function ReleaseFixtureHold()
     If !FixtureHoldIntent && !FixtureHoldOwned
         Return True
+    EndIf
+    If !CleanupAdmissionReady()
+        Return False
     EndIf
     If !FixtureHoldAlias || !FixtureHeldActor
         Return False
@@ -473,6 +690,9 @@ Bool Function PrimeIntroFromExterior(String expectedRun)
 EndFunction
 
 Bool Function SetupStillAuthorized(String expectedRun)
+    If Finishing
+        Return False
+    EndIf
     If !Active || !AutomatedFixture || !WorldSetupRequested || expectedRun == "" || RunId != expectedRun
         Return False
     EndIf
@@ -491,7 +711,11 @@ EndFunction
 Bool Function ContinueRun(String expectedRun)
     ; Native calls may yield to Cleanup or a changed request. This guard is
     ; shared by manual/ordinary autorun, without requiring optional setup.
-    If !Active || expectedRun == "" || RunId != expectedRun
+    If !Active || Finishing || expectedRun == "" || RunId != expectedRun
+        Return False
+    EndIf
+    If BeginCancellationRequested
+        Finish("cancelled", "Cleanup cancelled initial lab preparation.")
         Return False
     EndIf
     Bool authorized = Guard() && JsonUtil.Load(RequestFile) && JsonUtil.GetPathStringValue(RequestFile, ".run_id", "") == expectedRun
@@ -504,8 +728,11 @@ Bool Function ContinueRun(String expectedRun)
     If FixtureHoldRequested
         authorized = authorized && JsonUtil.IsPathBool(ControlFile, ".allow_controlled_actor_ai") && JsonUtil.GetPathBoolValue(ControlFile, ".allow_controlled_actor_ai", False)
     EndIf
+    If AutostartReady
+        authorized = authorized && AutostartLeaseIntact()
+    EndIf
     ; Guard/readback can themselves yield; never finish a replacement run.
-    If !Active || RunId != expectedRun
+    If !Active || Finishing || RunId != expectedRun
         Return False
     EndIf
     If !authorized
@@ -518,7 +745,7 @@ Bool Function ContinueRun(String expectedRun)
         Finish("failed", "Focused preparation exceeded its fixed 90-second budget.")
         Return False
     EndIf
-    Return Active && RunId == expectedRun
+    Return Active && !Finishing && RunId == expectedRun
 EndFunction
 
 Bool Function HourNear(Float observed, Float expected)
@@ -531,7 +758,7 @@ EndFunction
 ; The runner writes a new run_id before EACH new scenario. Commands during a
 ; scenario (Interrupt, Cleanup, Status) continue its existing request.
 Function ArmAmbient()
-    If Active || FocusedPreparationInFlight || FocusedStartInFlight || FinishDepth > 0
+    If Active || Finishing || BeginRunInFlight || BaselineWorkInFlight || AdmissionTransitionInFlight || FixtureTransitionInFlight || FixtureMovementUnresolved || AdmissionTicket > 0 || AdmissionAcquireInFlight || AdmissionResumeInFlight || FocusedPreparationInFlight || FocusedStartInFlight || FinishDepth > 0
         Return
     EndIf
     AutomatedFixture = False
@@ -541,8 +768,10 @@ Function ArmAmbient()
         Return
     EndIf
     If BeginRun("ambient_entry")
-        Log("HoldMusic LAB: armed; enter the inn normally with Sven present.")
-        RegisterForSingleUpdate(0.25)
+        If ResumeOwnedAdmission(RunId)
+            Log("HoldMusic LAB: armed; enter the inn normally with Sven present.")
+            RegisterForSingleUpdate(0.25)
+        EndIf
     EndIf
 EndFunction
 
@@ -555,7 +784,7 @@ Function FocusedInterrupt()
 EndFunction
 
 Function StartFocused(Bool interruptAfterStart)
-    If Active || FocusedPreparationInFlight || FocusedStartInFlight || FinishDepth > 0
+    If Active || Finishing || BeginRunInFlight || BaselineWorkInFlight || AdmissionTransitionInFlight || FixtureTransitionInFlight || FixtureMovementUnresolved || AdmissionTicket > 0 || AdmissionAcquireInFlight || AdmissionResumeInFlight || FocusedPreparationInFlight || FocusedStartInFlight || FinishDepth > 0
         Return
     EndIf
     AutomatedFixture = False
@@ -586,6 +815,9 @@ EndFunction
 Function RunFocusedPrepared(Location current)
     String expectedRun = RunId
     If !ContinueRun(expectedRun)
+        Return
+    EndIf
+    If !ResumeOwnedAdmission(expectedRun)
         Return
     EndIf
     ; This is explicit direct setup, NOT evidence of a real player-entry event.
@@ -676,9 +908,8 @@ Function RunFocusedPrepared(Location current)
         ; Cleanup cannot atomically cancel the production start stack. Its
         ; terminal result records this pending stop; compensate only after
         ; the start returns, without rewriting that terminal evidence.
-        Controller.StopPerformance("interrupted")
-        Controller.UnregisterForUpdate()
         FocusedStartInFlight = False
+        AdvanceCleanup()
         Return
     EndIf
     FocusedStartInFlight = False
@@ -693,6 +924,27 @@ Function RunFocusedPrepared(Location current)
     If Utility.GetCurrentRealTime() >= PlaybackDeadline
         Finish("failed", "Focused playback evidence was first observed after its fixed deadline.")
         Return
+    EndIf
+    If AutomatedFixture && Scenario == "focused_interrupt" && !InterruptRequested
+        ; The full evidence save took over five seconds in the engine. Issue
+        ; the request before that persistence, after a bounded two-second
+        ; playback observation, so an eight-second fixture is not missed.
+        Float untilRequest = StartTraceAt + 2.0 - Utility.GetCurrentRealTime()
+        If untilRequest > 0.0 && untilRequest <= 2.0
+            Utility.Wait(untilRequest)
+        EndIf
+        If !ContinueRun(expectedRun)
+            Return
+        EndIf
+        If Utility.GetCurrentRealTime() >= StartTraceAt + FixtureDuration
+            InterruptWindowMissed = True
+            Finish("failed", "Fixture ended before the early interruption request could be issued.")
+            Return
+        EndIf
+        Interrupt()
+        If !ContinueRun(expectedRun)
+            Return
+        EndIf
     EndIf
     If !SaveResult("running", "")
         Finish("failed", "Could not save evidence after focused start.")
@@ -757,7 +1009,21 @@ Bool Function Guard()
 EndFunction
 
 Bool Function BeginRun(String name)
-    If Active || GlobalsSaved || GameHourSaved || FixtureHoldIntent || FixtureHoldOwned || FixtureHoldCallInFlight || FocusedPreparationInFlight || FocusedStartInFlight || FinishDepth > 0
+    If BeginRunInFlight || BaselineWorkInFlight || AdmissionTransitionInFlight || FixtureTransitionInFlight || FixtureMovementUnresolved
+        Return False
+    EndIf
+    BeginRunInFlight = True
+    BeginCancellationRequested = False
+    Bool beganRun = BeginRunWork(name)
+    BeginRunInFlight = False
+    If Finishing
+        AdvanceCleanup()
+    EndIf
+    Return beganRun && Active && !Finishing && !BeginCancellationRequested
+EndFunction
+
+Bool Function BeginRunWork(String name)
+    If Active || Finishing || AdmissionTicket > 0 || AdmissionAcquireInFlight || AdmissionResumeInFlight || AdmissionFault || CleanupAdvancing || GlobalsSaved || GameHourSaved || FixtureHoldIntent || FixtureHoldOwned || FixtureHoldCallInFlight || AutostartPreparing || AutostartIntent || AutostartCallInFlight || AutostartReleaseInFlight || FocusedPreparationInFlight || FocusedStartInFlight || FinishDepth > 0
         Log("HoldMusic LAB: a run is active; Cleanup before beginning another.")
         Return False
     EndIf
@@ -789,10 +1055,9 @@ Bool Function BeginRun(String name)
     EndIf
     ; Stop any old controller update before taking baselines. Never clear its
     ; slot locks, receipts, trace, cooldowns, or remembered session count.
-    Controller.StopPerformance("interrupted")
-    TraceBaseline = LastTraceSequence()
-    TraceCursor = TraceBaseline
-    ReceiptBaseline = JsonUtil.PathCount(Library.ReceiptsFile, ".performances")
+    TraceBaseline = 0
+    TraceCursor = 0
+    ReceiptBaseline = 0
     RunId = requestedId
     StartedAtUtc = requestedUtc
     Scenario = name
@@ -874,6 +1139,25 @@ Bool Function BeginRun(String name)
     PackageBeforeHold = 0
     PackageDuringHold = 0
     PackageAfterRelease = 0
+    AutostartFaction = None
+    AutostartActor = None
+    AutostartPreparing = False
+    AutostartIntent = False
+    AutostartBaselineObserved = False
+    AutostartBaselineMember = False
+    AutostartBaselineRank = -1
+    AutostartWriteIssued = False
+    AutostartCallInFlight = False
+    AutostartReleaseInFlight = False
+    AutostartReady = False
+    AutostartAcquired = False
+    AutostartReleased = False
+    AutostartConflict = False
+    AutostartObservedRank = -1
+    AutostartPackageBefore = 0
+    AutostartDialogueBefore = False
+    AutostartSceneBefore = False
+    AutostartStarterBefore = False
     ScanStartedAt = 0.0
     ScanFinishedAt = 0.0
     MatchingFinishedAt = 0.0
@@ -885,18 +1169,84 @@ Bool Function BeginRun(String name)
     EvidenceCollectionMaxSeconds = 0.0
     PreviousResultSaveSeconds = 0.0
     ResultSaveMaxSeconds = 0.0
+    AdmissionTicket = 0
+    AdmissionAcquireInFlight = False
+    AdmissionResumeInFlight = False
+    AdmissionFault = False
+    AdmissionDrainedObserved = False
+    AdmissionRestored = False
+    InitialDrainPending = False
+    BaselinesReady = False
+    AdmissionDeadline = Began + 15.0
+    Finishing = False
+    CleanupAdvancing = False
+    TerminalFrozen = False
+    PendingFinishStatus = ""
+    PendingFinishReason = ""
+    CleanupDeadline = 0.0
+    AwaitingAmbientExit = False
+    AmbientExitObserved = False
+    AmbientEntryAfterResume = False
     JsonUtil.ClearAll(ResultFile)
+    If BeginCancellationRequested
+        Return False
+    EndIf
     Active = True
     ; Establish fresh evidence on disk before enabling/scheduling any test.
     If !SaveResult("running", "")
         Active = False
         Return False
     EndIf
+    String expectedRun = RunId
+    If !AcquireAdmission(expectedRun) || !ContinueRun(expectedRun)
+        If Active && !Finishing
+            Finish("failed", "Could not acquire an owned controller admission ticket.")
+        EndIf
+        Return False
+    EndIf
+    If !Controller.IsAdmissionDrained(AdmissionTicket)
+        InitialDrainPending = True
+        RegisterForSingleUpdate(0.25)
+        Return False
+    EndIf
+    Return CompleteInitialDrain(expectedRun)
+EndFunction
+
+Bool Function CompleteInitialDrain(String expectedRun)
+    If BaselineWorkInFlight
+        Return False
+    EndIf
+    BaselineWorkInFlight = True
+    Bool prepared = CompleteInitialDrainWork(expectedRun)
+    BaselineWorkInFlight = False
+    If Finishing && !BeginRunInFlight
+        AdvanceCleanup()
+    EndIf
+    Return prepared && Active && !Finishing && RunId == expectedRun
+EndFunction
+
+Bool Function CompleteInitialDrainWork(String expectedRun)
+    If !ContinueRun(expectedRun) || !CleanupAdmissionReady()
+        Return False
+    EndIf
+    AdmissionDrainedObserved = True
+    InitialDrainPending = False
+    ; Prior cancellation/stop receipts become visible before these baselines.
+    TraceBaseline = LastTraceSequence()
+    TraceCursor = TraceBaseline
+    ReceiptBaseline = JsonUtil.PathCount(Library.ReceiptsFile, ".performances")
+    If !ContinueRun(expectedRun)
+        Return False
+    EndIf
+    BaselinesReady = True
     OldEnabled = HM_Enabled.GetValue()
     OldInstrumental = HM_InstrumentalPercent.GetValue()
     OldCap = HM_SessionCap.GetValue()
     OldMinDelay = HM_MinDelaySeconds.GetValue()
     OldMaxDelay = HM_MaxDelaySeconds.GetValue()
+    If !ContinueRun(expectedRun)
+        Return False
+    EndIf
     GlobalsSaved = True
     HM_Enabled.SetValue(1.0)
     HM_InstrumentalPercent.SetValue(100.0)
@@ -908,10 +1258,14 @@ Bool Function BeginRun(String name)
     EndIf
     HM_MinDelaySeconds.SetValue(delay)
     HM_MaxDelaySeconds.SetValue(delay)
-    Return True
+    Return ContinueRun(expectedRun)
 EndFunction
 
 Event OnUpdate()
+    If Finishing
+        AdvanceCleanup()
+        Return
+    EndIf
     If StartupPending
         TryAutorun()
         Return
@@ -928,12 +1282,40 @@ Event OnUpdate()
     If !ContinueRun(expectedRun)
         Return
     EndIf
+    If InitialDrainPending
+        If now >= AdmissionDeadline
+            Finish("failed", "Initial controller work did not drain within its fixed budget.")
+        ElseIf Controller.IsAdmissionDrained(AdmissionTicket)
+            If CompleteInitialDrain(expectedRun)
+                If AutomatedFixture
+                    PrepareAutorun()
+                ElseIf Scenario == "ambient_entry"
+                    If ResumeOwnedAdmission(expectedRun)
+                        RegisterForSingleUpdate(0.25)
+                    EndIf
+                Else
+                    StartFocusedPrepared(Game.GetPlayer().GetCurrentLocation())
+                EndIf
+            EndIf
+        Else
+            RegisterForSingleUpdate(0.25)
+        EndIf
+        Return
+    EndIf
+    If AwaitingAmbientExit
+        ContinueAmbientReentry(expectedRun)
+        Return
+    EndIf
     If AwaitingFocusedEntry
         Location current = Game.GetPlayer().GetCurrentLocation()
         Actor fixtureActor = Game.GetFormFromFile(0x00013491, "Skyrim.esm") as Actor
         If current && current.HasKeyword(LocTypeInn) && fixtureActor && fixtureActor.Is3DLoaded() && Game.GetPlayer().Is3DLoaded() && fixtureActor.GetParentCell() == Game.GetPlayer().GetParentCell() && (!FixtureHoldRequested || ObserveStandingFixture())
             AwaitingFocusedEntry = False
-            StartFocusedPrepared(current)
+            If Scenario == "ambient_entry"
+                PrepareAmbientExit(expectedRun)
+            Else
+                StartFocusedPrepared(current)
+            EndIf
         ElseIf now >= Deadline
             RecordFixtureDiagnostics(None, 0, "waiting_for_loaded_fixture")
             Finish("failed", "Timed out waiting for the scripted inn transition and loaded standing fixture.")
@@ -1001,6 +1383,9 @@ Event OnUpdate()
         passed = passed && (!FixtureHoldRequested || FixtureStandingObserved)
         If Scenario == "ambient_entry"
             passed = passed && EntryObserved && ScanObserved && CandidateObserved
+            If FixtureHoldRequested
+                passed = passed && AmbientExitObserved && AmbientEntryAfterResume
+            EndIf
         ElseIf Scenario == "focused_interrupt"
             passed = passed && InterruptRequested && RequestedInterruptGuardObserved
         EndIf
@@ -1045,10 +1430,21 @@ EndFunction
 
 Function Cleanup()
     StartupPending = False
-    If Active
+    If BeginRunInFlight
+        BeginCancellationRequested = True
+    EndIf
+    If Finishing && TerminalFrozen
+        CleanupDeadline = Utility.GetCurrentRealTime() + 15.0
+    EndIf
+    If Active || Finishing
         Finish("cancelled", "Explicit lab Cleanup.")
-    ElseIf GlobalsSaved || GameHourSaved || FixtureHoldIntent || FixtureHoldOwned
-        RestoreGlobals()
+    ElseIf AdmissionTicket > 0 || GlobalsSaved || GameHourSaved || FixtureHoldIntent || FixtureHoldOwned || AutostartIntent
+        ; Reconciliation may release old ownership but never upgrade its
+        ; already published terminal result or silently start another test.
+        Finishing = True
+        TerminalFrozen = True
+        CleanupDeadline = Utility.GetCurrentRealTime() + 15.0
+        AdvanceCleanup()
     Else
         Log("HoldMusic LAB: no active run to clean up.")
     EndIf
@@ -1228,6 +1624,9 @@ Function CollectEvidenceRows()
 EndFunction
 
 Bool Function RestoreGlobals()
+    If FixtureTransitionInFlight || FixtureMovementUnresolved || !CleanupAdmissionReady()
+        Return False
+    EndIf
     If GlobalsSaved
         HM_Enabled.SetValue(OldEnabled)
         HM_InstrumentalPercent.SetValue(OldInstrumental)
@@ -1241,46 +1640,272 @@ Bool Function RestoreGlobals()
         GameHourSaved = !HourNear(LabGameHour.GetValue(), OldGameHour)
     EndIf
     Bool released = ReleaseFixtureHold()
-    Return !GlobalsSaved && !GameHourSaved && released
+    Bool suppressionReleased = False
+    If released
+        suppressionReleased = ReleaseAutostartLease()
+    EndIf
+    Return !GlobalsSaved && !GameHourSaved && released && suppressionReleased
 EndFunction
 
 Function Finish(String status, String reason)
-    If !Active
+    FinishDepth += 1
+    FinishWork(status, reason)
+    FinishDepth -= 1
+EndFunction
+
+Function FinishWork(String status, String reason)
+    If !Active && !Finishing
         Return
     EndIf
-    String expectedRun = RunId
     FinishEpoch += 1
     Int expectedFinish = FinishEpoch
-    FinishDepth += 1
-    UnregisterForUpdate()
-    ; A receipt can become visible before the production stop stack clears
-    ; its private Performer. Reentering StopPerformance then would append a
-    ; duplicate interrupted receipt. Never stop again after evidence of that
-    ; stop; only cancel scheduling. Forced stop bounds unfinished failed tests.
-    If FocusedStartInFlight || ProductionStopSeen || ReceiptObserved
-        Controller.UnregisterForUpdate()
-    Else
-        Controller.StopPerformance("interrupted")
+    Bool firstFinish = !Finishing
+    Finishing = True
+    InitialDrainPending = False
+    AwaitingFocusedEntry = False
+    AwaitingAmbientExit = False
+    PendingFinishStatus = status
+    PendingFinishReason = reason
+    If firstFinish
+        Float nextDeadline = Utility.GetCurrentRealTime() + 15.0
+        If expectedFinish != FinishEpoch
+            Return
+        EndIf
+        CleanupDeadline = nextDeadline
     EndIf
-    Bool restored = RestoreGlobals()
-    ; A nested Cleanup during a native release/wait wins over this older
-    ; completion. New runs cannot begin until every finish stack returns.
-    If !Active || RunId != expectedRun || FinishEpoch != expectedFinish
-        FinishDepth -= 1
+    UnregisterForUpdate()
+    AdvanceCleanup()
+EndFunction
+
+Bool Function AcquireAdmission(String expectedRun)
+    If expectedRun != RunId || AdmissionFault || AdmissionAcquireInFlight || AdmissionResumeInFlight
+        Return False
+    EndIf
+    If AdmissionTicket > 0
+        Return True
+    EndIf
+    AdmissionAcquireInFlight = True
+    Int acquired = Controller.SuspendAdmission()
+    ; BeginRun is blocked throughout the call. Even a cancelled caller owns
+    ; a late positive ticket and must not drop it or borrow a foreign hold.
+    If acquired > 0
+        AdmissionTicket = acquired
+        AdmissionRestored = False
+    Else
+        AdmissionFault = True
+    EndIf
+    AdmissionAcquireInFlight = False
+    Return acquired > 0 && expectedRun == RunId
+EndFunction
+
+Bool Function CleanupAdmissionReady()
+    If AdmissionTicket <= 0 || AdmissionFault || AdmissionAcquireInFlight || AdmissionResumeInFlight || FocusedStartInFlight || FixtureMovementUnresolved
+        Return False
+    EndIf
+    Return Controller.IsAdmissionDrained(AdmissionTicket)
+EndFunction
+
+Bool Function ResumeOwnedAdmission(String expectedRun, Bool finishingCall = False)
+    If AdmissionTransitionInFlight
+        Return False
+    EndIf
+    AdmissionTransitionInFlight = True
+    Bool resumed = ResumeOwnedAdmissionWork(expectedRun, finishingCall)
+    AdmissionTransitionInFlight = False
+    If Finishing && !CleanupAdvancing
+        AdvanceCleanup()
+    EndIf
+    Return resumed && expectedRun == RunId && (finishingCall || (Active && !Finishing))
+EndFunction
+
+Bool Function ResumeOwnedAdmissionWork(String expectedRun, Bool finishingCall = False)
+    If expectedRun != RunId || AdmissionAcquireInFlight || AdmissionResumeInFlight || AdmissionFault
+        Return False
+    EndIf
+    If AdmissionTicket <= 0
+        Return !Finishing && !finishingCall
+    EndIf
+    Int expectedFinish = FinishEpoch
+    Bool ready = CleanupAdmissionReady()
+    If expectedRun != RunId || FinishEpoch != expectedFinish || (!finishingCall && Finishing)
+        Return False
+    EndIf
+    If !ready
+        If !Finishing
+            Finish("failed", "Controller admission was not drained before resume.")
+        EndIf
+        Return False
+    EndIf
+    AdmissionResumeInFlight = True
+    Int consumed = AdmissionTicket
+    Bool resumed = Controller.ResumeAdmission(consumed)
+    If resumed
+        AdmissionTicket = 0
+        AdmissionRestored = True
+    EndIf
+    AdmissionResumeInFlight = False
+    ; The callee's atomic resume does not make its scripted-call boundary
+    ; atomic. A late success after cancellation needs a NEW owned hold.
+    If expectedRun != RunId || FinishEpoch != expectedFinish || (!finishingCall && Finishing)
+        If resumed
+            AcquireAdmission(expectedRun)
+        EndIf
+        Return False
+    EndIf
+    If !resumed && !Finishing
+        Finish("failed", "Owned controller admission could not be resumed.")
+    EndIf
+    If resumed && !finishingCall && !ContinueRun(expectedRun)
+        Return False
+    EndIf
+    Return resumed
+EndFunction
+
+Function AdvanceCleanup()
+    If !Finishing || CleanupAdvancing
         Return
     EndIf
-    If !restored
-        status = "failed"
-        reason = "Global values or owned fixture release did not read back as required."
+    CleanupAdvancing = True
+    FinishDepth += 1
+    ; A direct reconciliation can overtake an already queued pending poll.
+    ; Own entry first, then remove that stale timer before finalizing/resuming.
+    UnregisterForUpdate()
+    String expectedRun = RunId
+    Int expectedFinish = FinishEpoch
+    Bool ready = AcquireAdmission(expectedRun) && !BeginRunInFlight && !BaselineWorkInFlight && !AdmissionTransitionInFlight && !FixtureTransitionInFlight && CleanupAdmissionReady()
+    Bool restorationFailed = False
+    If ready
+        AdmissionDrainedObserved = True
+        ready = RestoreGlobals()
+        restorationFailed = !ready
     EndIf
-    Active = False
-    AwaitingFocusedEntry = False
-    If SaveResult(status, reason)
-        Log("HoldMusic LAB: " + status + " run_id=" + RunId + " " + reason)
+    If ready && PendingFinishStatus == "passed"
+        If !Guard() || !JsonUtil.Load(RequestFile) || JsonUtil.GetPathStringValue(RequestFile, ".run_id", "") != expectedRun
+            PendingFinishStatus = "failed"
+            PendingFinishReason = "Lab guard or request changed during cleanup."
+        EndIf
+    EndIf
+    If ready && expectedRun == RunId && expectedFinish == FinishEpoch
+        ready = ResumeOwnedAdmission(expectedRun, True)
+        restorationFailed = !ready
+    EndIf
+    If expectedRun != RunId || expectedFinish != FinishEpoch
+        CleanupAdvancing = False
+        FinishDepth -= 1
+        If Finishing
+            RegisterForSingleUpdate(0.25)
+        EndIf
+        Return
+    EndIf
+    If ready
+        Active = False
+        Finishing = False
+        If !TerminalFrozen
+            TerminalFrozen = True
+            If !SaveResult(PendingFinishStatus, PendingFinishReason)
+                Log("HoldMusic LAB: failed. Final result could not be serialized or saved.")
+            EndIf
+        EndIf
+    ElseIf AdmissionFault || restorationFailed || FixtureMovementUnresolved || Utility.GetCurrentRealTime() >= CleanupDeadline
+        Active = False
+        UnregisterForUpdate()
+        ; Keep the ticket, leases and cleanup state. No automatic retries
+        ; after this bound; explicit Cleanup can attempt later reconciliation.
+        If !TerminalFrozen
+            TerminalFrozen = True
+            SaveResult("failed", PendingFinishReason + " Controller drain or owned fixture restoration remains pending; globals/leases must be read back before release.")
+        EndIf
     Else
-        Log("HoldMusic LAB: failed run_id=" + RunId + " Final result could not be serialized or saved.")
+        If PendingFinishStatus != "passed" && !TerminalFrozen
+            Active = False
+            TerminalFrozen = True
+            SaveResult("failed", PendingFinishReason + " Controller/fixture cleanup remains pending.")
+        EndIf
+        RegisterForSingleUpdate(0.25)
     EndIf
+    CleanupAdvancing = False
     FinishDepth -= 1
+EndFunction
+
+Function PrepareAmbientExit(String expectedRun)
+    If !ContinueRun(expectedRun) || !CleanupAdmissionReady() || !ObserveStandingFixture()
+        Finish("failed", "Controlled ambient setup did not retain a drained standing fixture.")
+        Return
+    EndIf
+    ObjectReference outside = Game.GetFormFromFile(0x00096595, "Skyrim.esm") as ObjectReference
+    If !outside
+        Finish("failed", "Controlled ambient exterior anchor is unavailable.")
+        Return
+    EndIf
+    If !ContinueRun(expectedRun)
+        Return
+    EndIf
+    AwaitingAmbientExit = True
+    If MoveAmbientPlayer(outside, expectedRun, False)
+        RegisterForSingleUpdate(0.25)
+    EndIf
+EndFunction
+
+Function ContinueAmbientReentry(String expectedRun)
+    If !ContinueRun(expectedRun)
+        Return
+    EndIf
+    Location outside = Game.GetPlayer().GetCurrentLocation()
+    If Utility.GetCurrentRealTime() >= Deadline
+        Finish("failed", "Controlled ambient exit did not finish within the scenario budget.")
+        Return
+    EndIf
+    If !outside || outside.HasKeyword(LocTypeInn) || !Game.GetPlayer().Is3DLoaded() || !CleanupAdmissionReady()
+        RegisterForSingleUpdate(0.25)
+        Return
+    EndIf
+    AmbientExitObserved = True
+    ObjectReference anchor = Game.GetFormFromFile(0x0010FCB7, "Skyrim.esm") as ObjectReference
+    If !anchor
+        Finish("failed", "Controlled ambient inn anchor is unavailable.")
+        Return
+    EndIf
+    AwaitingAmbientExit = False
+    ; Only this post-resume engine transition is the ambient test entry.
+    If !MoveAmbientPlayer(anchor, expectedRun, True)
+        Return
+    EndIf
+    AmbientEntryAfterResume = True
+    RegisterForSingleUpdate(0.25)
+EndFunction
+
+Bool Function MoveAmbientPlayer(ObjectReference anchor, String expectedRun, Bool resumeBeforeMove)
+    If FixtureTransitionInFlight || FixtureMovementUnresolved
+        Return False
+    EndIf
+    FixtureTransitionInFlight = True
+    Bool moved = False
+    Actor player = Game.GetPlayer()
+    If !player && ContinueRun(expectedRun)
+        Finish("failed", "Controlled ambient player reference is unavailable.")
+    EndIf
+    If player && ContinueRun(expectedRun)
+        Bool canMove = True
+        If resumeBeforeMove
+            canMove = ResumeOwnedAdmission(expectedRun)
+        EndIf
+        If canMove && ContinueRun(expectedRun)
+            ; A cancelled submitted teleport may dispatch its location event
+            ; after native return. Keep the hold/leases in that case rather
+            ; than claim an engine-event queue acknowledgment we do not have.
+            FixtureMovementUnresolved = True
+            player.MoveTo(anchor, 0.0, 0.0, 0.0, True)
+            moved = ContinueRun(expectedRun)
+            If moved
+                FixtureMovementUnresolved = False
+            EndIf
+        EndIf
+    EndIf
+    FixtureTransitionInFlight = False
+    If Finishing
+        AdvanceCleanup()
+    EndIf
+    Return moved && Active && !Finishing && expectedRun == RunId
 EndFunction
 
 Bool Function SaveResult(String status, String reason)
@@ -1318,6 +1943,27 @@ Bool Function SaveResultRows(String status, String reason)
     JsonUtil.SetPathIntValue(ResultFile, ".trace_baseline", TraceBaseline)
     JsonUtil.SetPathIntValue(ResultFile, ".trace_cursor", TraceCursor)
     JsonUtil.SetPathIntValue(ResultFile, ".receipt_baseline", ReceiptBaseline)
+    SaveBool(".admission.baselines_ready", BaselinesReady)
+    JsonUtil.SetPathIntValue(ResultFile, ".admission.ticket", AdmissionTicket)
+    SaveBool(".admission.acquire_in_flight", AdmissionAcquireInFlight)
+    SaveBool(".admission.resume_in_flight", AdmissionResumeInFlight)
+    SaveBool(".admission.fault", AdmissionFault)
+    SaveBool(".admission.drained_observed", AdmissionDrainedObserved)
+    SaveBool(".admission.resumed", AdmissionRestored)
+    SaveBool(".admission.cleanup_pending", Finishing)
+    SaveBool(".admission.initial_drain_pending", InitialDrainPending)
+    SaveBool(".admission.begin_in_flight", BeginRunInFlight)
+    SaveBool(".admission.baseline_work_in_flight", BaselineWorkInFlight)
+    SaveBool(".admission.transition_in_flight", AdmissionTransitionInFlight)
+    SaveBool(".admission.fixture_transition_in_flight", FixtureTransitionInFlight)
+    SaveBool(".admission.fixture_movement_unresolved", FixtureMovementUnresolved)
+    JsonUtil.SetPathStringValue(ResultFile, ".admission.pending_finish_reason", PendingFinishReason)
+    JsonUtil.SetPathFloatValue(ResultFile, ".admission.initial_deadline", AdmissionDeadline)
+    JsonUtil.SetPathFloatValue(ResultFile, ".admission.cleanup_deadline", CleanupDeadline)
+    JsonUtil.SetPathStringValue(ResultFile, ".admission.scope", "hold_music_owned_work")
+    SaveBool(".admission.all_engine_work_drained", False)
+    SaveBool(".ambient_fixture_exit_observed", AmbientExitObserved)
+    SaveBool(".ambient_entry_after_resume", AmbientEntryAfterResume)
     JsonUtil.SetPathIntValue(ResultFile, ".receipt_index", ReceiptIndex)
     JsonUtil.SetPathIntValue(ResultFile, ".selected_slot", SelectedSlot)
     JsonUtil.SetPathStringValue(ResultFile, ".selected_identity_key", SelectedIdentity)
@@ -1330,7 +1976,7 @@ Bool Function SaveResultRows(String status, String reason)
     SaveBool(".fixture_moved", FixtureMoved)
     SaveBool(".focused_start_in_flight", FocusedStartInFlight)
     SaveBool(".focused_start_cleanup_pending", FocusedStartInFlight && !Active)
-    SaveBool(".globals_restored", !GlobalsSaved && !GameHourSaved && !Active)
+    SaveBool(".globals_restored", !GlobalsSaved && !GameHourSaved && !Active && !BeginRunInFlight && !BaselineWorkInFlight && !FixtureTransitionInFlight && !FixtureMovementUnresolved)
     SaveBool(".controlled_actor_ai", FixtureHoldAcquired)
     SaveBool(".normal_actor_ai_behavior_verified", False)
     SaveBool(".fixture_ai.requested", FixtureHoldRequested)
@@ -1342,6 +1988,22 @@ Bool Function SaveResultRows(String status, String reason)
     JsonUtil.SetPathIntValue(ResultFile, ".fixture_ai.package_before", PackageBeforeHold)
     JsonUtil.SetPathIntValue(ResultFile, ".fixture_ai.package_during", PackageDuringHold)
     JsonUtil.SetPathIntValue(ResultFile, ".fixture_ai.package_after_release", PackageAfterRelease)
+    SaveBool(".vanilla_autostart.requested", FixtureHoldRequested)
+    SaveBool(".vanilla_autostart.baseline_observed", AutostartBaselineObserved)
+    SaveBool(".vanilla_autostart.baseline_member", AutostartBaselineMember)
+    JsonUtil.SetPathIntValue(ResultFile, ".vanilla_autostart.baseline_rank", AutostartBaselineRank)
+    SaveBool(".vanilla_autostart.intent", AutostartIntent)
+    SaveBool(".vanilla_autostart.write_issued", AutostartWriteIssued)
+    SaveBool(".vanilla_autostart.mutation_in_flight", AutostartCallInFlight || AutostartReleaseInFlight)
+    SaveBool(".vanilla_autostart.verified", AutostartAcquired)
+    SaveBool(".vanilla_autostart.released", AutostartReleased)
+    SaveBool(".vanilla_autostart.conflict", AutostartConflict)
+    JsonUtil.SetPathIntValue(ResultFile, ".vanilla_autostart.observed_rank", AutostartObservedRank)
+    JsonUtil.SetPathIntValue(ResultFile, ".vanilla_autostart.package_before", AutostartPackageBefore)
+    SaveBool(".vanilla_autostart.dialogue_before", AutostartDialogueBefore)
+    SaveBool(".vanilla_autostart.scene_before", AutostartSceneBefore)
+    SaveBool(".vanilla_autostart.starter_running_before", AutostartStarterBefore)
+    SaveBool(".vanilla_autostart.pending_work_drained_verified", False)
     JsonUtil.SetPathFloatValue(ResultFile, ".timing.focused_scan_started", ScanStartedAt)
     JsonUtil.SetPathFloatValue(ResultFile, ".timing.focused_scan_finished", ScanFinishedAt)
     JsonUtil.SetPathFloatValue(ResultFile, ".timing.focused_matching_finished", MatchingFinishedAt)

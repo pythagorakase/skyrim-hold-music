@@ -606,6 +606,329 @@ class StopRaceTests(unittest.TestCase):
                 self.assert_single_stop(v, 'interrupted')
 
 
+class AdmissionTests(unittest.TestCase):
+    """Compiled-code cancellation tests; natives/scheduler remain mocks."""
+
+    inject_once = StopRaceTests.inject_once
+
+    @staticmethod
+    def scan_boundary(point):
+        if point == 'scan':
+            return 'static', lambda owner, name, args: (owner, name) == ('miscutil', 'scancellnpcs')
+        return 'method', lambda obj, name, args: (
+            point == 'find' and name == 'findperformer'
+            or point == 'eligible' and name == 'eligibilityfailure'
+            or point == 'choose' and name == 'chooseslot'
+            or point in ('candidate', 'slot_chosen') and name == 'trace' and args[0] == point
+            or point == 'start_dispatch' and name in ('startperformance', 'startselectedperformance')
+        )
+
+    def test_stop_invalidates_scan_selection_and_last_start_dispatch(self):
+        # These use only the old public API and fail on stopfix01 PEX: a stop
+        # returned, but its already-admitted scan subsequently began playback.
+        for point in ('scan', 'find', 'eligible', 'choose', 'candidate', 'slot_chosen', 'start_dispatch'):
+            for after in ((False,) if point == 'start_dispatch' else (False, True)):
+                with self.subTest(point=point, after=after):
+                    v = VM()
+                    kind, predicate = self.scan_boundary(point)
+                    hits = self.inject_once(v, kind, predicate,
+                        lambda: v.run('hm_controller', 'StopPerformance', 'interrupted'), after=after)
+                    v.enter()
+                    v.advance(15)
+                    self.assertTrue(hits)
+                    self.assertFalse(any(e[0] in ('play', 'idle', 'stop_vanilla') for e in v.effects))
+                    self.assertFalse(v.receipts)
+                    self.assertFalse(v.state['hm_controller']['busy'])
+
+    def test_stop_cancels_late_idle_and_playback_timer_registrations(self):
+        for playing in (False, True):
+            for after in (False, True):
+                with self.subTest(playing=playing, after=after):
+                    v = StopRaceTests.started() if playing else VM()
+                    hits = self.inject_once(v, 'method',
+                        lambda obj, name, args: name == 'registerforsingleupdate',
+                        lambda: v.run('hm_controller', 'StopPerformance', 'interrupted'), after=after)
+                    if playing:
+                        v.run('hm_controller', 'Poll')
+                    else:
+                        v.enter()
+                    self.assertTrue(hits)
+                    self.assertIsNone(v.scheduled)
+                    self.assertEqual(len(v.receipts), int(playing))
+
+    def test_location_departure_invalidates_an_admitted_scan(self):
+        v = VM()
+        hits = self.inject_once(v, 'static',
+            lambda owner, name, args: (owner, name) == ('miscutil', 'scancellnpcs'),
+            lambda: v.enter('outside'), after=True)
+        v.enter()
+        v.advance(15)
+        self.assertTrue(hits)
+        self.assertFalse(any(e[0] == 'play' for e in v.effects))
+        self.assertIsNone(v.scheduled)
+
+    def test_stop_compensates_late_vanilla_idle_reassertion(self):
+        for after in (False, True):
+            with self.subTest(after=after):
+                v = StopRaceTests.started()
+                v.scene_playing[0] = True
+                hits = self.inject_once(v, 'method',
+                    lambda obj, name, args: name == 'playidle' and args == ['IdleLuteStart'],
+                    lambda: v.run('hm_controller', 'StopPerformance', 'interrupted'), after=after)
+                v.run('hm_controller', 'CheckVanillaScenes')
+                self.assertTrue(hits)
+                self.assertEqual([e for e in v.effects if e[0] == 'idle'][-1], ('idle', 'Mikael', 'IdleStop'))
+                self.assertEqual(len(v.receipts), 1)
+                self.assertIsNone(v.scheduled)
+
+    def test_ticket_is_sticky_single_owner_and_resume_has_no_automatic_effects(self):
+        v = VM()
+        settings = v.settings.copy()
+        ticket = v.run('hm_controller', 'SuspendAdmission')
+        self.assertGreater(ticket, 0)
+        self.assertTrue(v.run('hm_controller', 'IsAdmissionDrained', ticket))
+        self.assertEqual(v.run('hm_controller', 'SuspendAdmission'), 0)
+        for wrong in (-1, 0, ticket + 1):
+            self.assertFalse(v.run('hm_controller', 'IsAdmissionDrained', wrong))
+            self.assertFalse(v.run('hm_controller', 'ResumeAdmission', wrong))
+        before = list(v.effects)
+        v.enter()
+        v.advance(15)
+        v.run('hm_controller', 'StartPerformance', 'Sven', 'sven', 'whiterun', 2)
+        v.run('hm_controller', 'ScheduleCheck')
+        v.run('hm_controller', 'Poll')
+        self.assertEqual(v.effects, before)
+        self.assertIsNone(v.scheduled)
+        self.assertEqual(v.settings, settings)
+        self.assertTrue(v.run('hm_controller', 'ResumeAdmission', ticket))
+        self.assertEqual(v.effects, before)
+        self.assertIsNone(v.scheduled)
+        self.assertFalse(v.run('hm_controller', 'IsAdmissionDrained', ticket))
+        self.assertFalse(v.run('hm_controller', 'ResumeAdmission', ticket))
+        v.enter()
+        v.advance(15)
+        self.assertIn(('play', 1, 'Mikael'), v.effects)
+        next_ticket = v.run('hm_controller', 'SuspendAdmission')
+        self.assertGreater(next_ticket, ticket)
+        self.assertFalse(v.run('hm_controller', 'ResumeAdmission', ticket))
+        self.assertTrue(v.run('hm_controller', 'IsAdmissionDrained', next_ticket))
+        self.assertTrue(v.state['hm_library']['locked'][0])
+
+    def test_suspension_does_not_acknowledge_until_scan_stack_returns(self):
+        for point in ('scan', 'find', 'eligible', 'choose', 'candidate', 'slot_chosen', 'start_dispatch'):
+            with self.subTest(point=point):
+                v = VM()
+                tickets = []
+
+                def suspend():
+                    ticket = v.run('hm_controller', 'SuspendAdmission')
+                    tickets.append(ticket)
+                    self.assertGreater(ticket, 0)
+                    self.assertFalse(v.run('hm_controller', 'IsAdmissionDrained', ticket))
+                    self.assertFalse(v.run('hm_controller', 'ResumeAdmission', ticket))
+                    v.run('hm_controller', 'OnUpdate')
+                    v.run('hm_controller', 'StartPerformance', 'Sven', 'sven', 'whiterun', 2)
+
+                kind, predicate = self.scan_boundary(point)
+                self.inject_once(v, kind, predicate, suspend)
+                v.enter()
+                v.advance(15)
+                self.assertEqual(len(tickets), 1)
+                self.assertTrue(v.run('hm_controller', 'IsAdmissionDrained', tickets[0]))
+                self.assertFalse(any(e[0] in ('play', 'idle', 'stop_vanilla') for e in v.effects))
+                self.assertFalse(v.receipts)
+
+    def test_suspension_waits_for_native_start_compensation(self):
+        for point in ('vanilla', 'idle', 'sound', 'start_trace', 'start_timer'):
+            for after in (False, True):
+                with self.subTest(point=point, after=after):
+                    v = VM()
+                    tickets = []
+
+                    def suspend():
+                        ticket = v.run('hm_controller', 'SuspendAdmission')
+                        tickets.append(ticket)
+                        self.assertFalse(v.run('hm_controller', 'IsAdmissionDrained', ticket))
+                        self.assertFalse(v.run('hm_controller', 'ResumeAdmission', ticket))
+                        v.run('hm_controller', 'StartPerformance', 'Sven', 'sven', 'whiterun', 2)
+
+                    hits = self.inject_once(v, 'method', lambda obj, name, args: (
+                        point == 'vanilla' and name == 'stopallsongs'
+                        or point == 'idle' and name == 'playidle' and args == ['IdleLuteStart']
+                        or point == 'sound' and isinstance(obj, tuple) and obj[0] == 'sound' and name == 'play'
+                        or point == 'start_trace' and name == 'trace' and args[0] == 'performance_start'
+                        or point == 'start_timer' and name == 'registerforsingleupdate' and args == [2.0]
+                    ), suspend, after=after)
+                    v.enter()
+                    v.advance(15)
+                    self.assertTrue(hits)
+                    self.assertTrue(v.run('hm_controller', 'IsAdmissionDrained', tickets[0]))
+                    self.assertIsNone(v.scheduled)
+                    self.assertIsNone(v.state['hm_controller']['performer'])
+                    self.assertNotIn(('play', 2, 'Sven'), v.effects)
+                    if point in ('sound', 'start_trace', 'start_timer'):
+                        self.assertEqual(v.effects.count(('stop', 1001)), 1)
+                        self.assertEqual([r['outcome'] for r in v.receipts], ['interrupted'])
+                    else:
+                        self.assertFalse(v.receipts)
+                        self.assertFalse(any(e[0] == 'play' for e in v.effects))
+
+    def test_suspension_waits_for_location_and_timer_stacks(self):
+        for point in ('location_trace', 'location_getter', 'timer'):
+            for after in (False, True):
+                with self.subTest(point=point, after=after):
+                    v = VM()
+                    tickets = []
+
+                    def suspend():
+                        ticket = v.run('hm_controller', 'SuspendAdmission')
+                        tickets.append(ticket)
+                        self.assertFalse(v.run('hm_controller', 'IsAdmissionDrained', ticket))
+                        self.assertFalse(v.run('hm_controller', 'ResumeAdmission', ticket))
+                        v.enter('outside')
+                        self.assertFalse(v.run('hm_controller', 'IsAdmissionDrained', ticket))
+
+                    hits = self.inject_once(v, 'method', lambda obj, name, args: (
+                        point == 'location_trace' and name == 'trace' and args[0] == 'location_enter'
+                        or point == 'location_getter' and obj == 'inn' and name == 'haskeyword'
+                        or point == 'timer' and name == 'registerforsingleupdate'
+                    ), suspend, after=after)
+                    v.enter()
+                    self.assertTrue(hits)
+                    self.assertTrue(v.run('hm_controller', 'IsAdmissionDrained', tickets[0]))
+                    self.assertIsNone(v.scheduled)
+
+    def test_suspension_waits_for_scene_stack_and_compensates_late_idle(self):
+        for point in ('scene', 'vanilla', 'idle'):
+            for after in (False, True):
+                with self.subTest(point=point, after=after):
+                    v = StopRaceTests.started()
+                    v.scene_playing[0] = True
+                    tickets = []
+
+                    def suspend():
+                        ticket = v.run('hm_controller', 'SuspendAdmission')
+                        tickets.append(ticket)
+                        self.assertFalse(v.run('hm_controller', 'IsAdmissionDrained', ticket))
+                        self.assertFalse(v.run('hm_controller', 'ResumeAdmission', ticket))
+
+                    hits = self.inject_once(v, 'method', lambda obj, name, args: (
+                        point == 'scene' and name == 'isplaying'
+                        or point == 'vanilla' and name == 'stopallsongs'
+                        or point == 'idle' and name == 'playidle' and args == ['IdleLuteStart']
+                    ), suspend, after=after)
+                    v.run('hm_controller', 'CheckVanillaScenes')
+                    self.assertTrue(hits)
+                    self.assertTrue(v.run('hm_controller', 'IsAdmissionDrained', tickets[0]))
+                    self.assertEqual([e for e in v.effects if e[0] == 'idle'][-1], ('idle', 'Mikael', 'IdleStop'))
+                    self.assertEqual(v.effects.count(('stop', 1001)), 1)
+                    self.assertEqual(len(v.receipts), 1)
+
+    def test_suspension_during_stop_keeps_first_outcome_and_waits_for_receipt(self):
+        v = StopRaceTests.started()
+        tickets = []
+
+        def suspend():
+            ticket = v.run('hm_controller', 'SuspendAdmission')
+            tickets.append(ticket)
+            self.assertFalse(v.run('hm_controller', 'IsAdmissionDrained', ticket))
+            self.assertFalse(v.run('hm_controller', 'ResumeAdmission', ticket))
+
+        self.inject_once(v, 'method', lambda obj, name, args: name == 'appendreceipt', suspend)
+        v.run('hm_controller', 'StopPerformance', 'completed')
+        self.assertEqual([r['outcome'] for r in v.receipts], ['completed'])
+        self.assertTrue(v.run('hm_controller', 'IsAdmissionDrained', tickets[0]))
+        self.assertEqual(v.effects.count(('stop', 1001)), 1)
+
+    def test_load_with_held_ticket_fails_closed_without_faking_a_drain(self):
+        v = VM()
+        ticket = v.run('hm_controller', 'SuspendAdmission')
+        state = v.state['hm_controller']
+        state['busy'] = True  # Persisted unknown stack; do not reset as evidence.
+        v.run('hm_controller', 'OnPlayerLoadGame')
+        self.assertTrue(state['busy'])
+        self.assertTrue(state['admissionsuspended'])
+        self.assertTrue(state['admissionunsafe'])
+        self.assertFalse(v.run('hm_controller', 'IsAdmissionDrained', ticket))
+        self.assertFalse(v.run('hm_controller', 'ResumeAdmission', ticket))
+        self.assertEqual(v.run('hm_controller', 'SuspendAdmission'), 0)
+        v.run('hm_controller', 'StartPerformance', 'Sven', 'sven', 'whiterun', 2)
+        self.assertFalse(any(e[0] == 'play' for e in v.effects))
+
+    def test_ticket_or_work_epoch_exhaustion_cannot_reuse_an_old_capability(self):
+        for field in ('suspensionserial', 'workepoch'):
+            with self.subTest(field=field):
+                v = VM()
+                v.state['hm_controller'][field] = 2147483646
+                ticket = v.run('hm_controller', 'SuspendAdmission')
+                self.assertTrue(v.state['hm_controller']['admissionunsafe'])
+                self.assertFalse(v.run('hm_controller', 'IsAdmissionDrained', ticket))
+                self.assertFalse(v.run('hm_controller', 'ResumeAdmission', ticket))
+
+    def test_suspension_arriving_inside_load_is_not_a_valid_new_process_ticket(self):
+        v = VM()
+        tickets = []
+        self.inject_once(v, 'method', lambda obj, name, args: name == 'unregisterforupdate',
+                         lambda: tickets.append(v.run('hm_controller', 'SuspendAdmission')))
+        v.run('hm_controller', 'OnPlayerLoadGame')
+        self.assertEqual(tickets, [0])
+        self.assertTrue(v.state['hm_controller']['admissionsuspended'])
+        self.assertTrue(v.state['hm_controller']['admissionunsafe'])
+        self.assertFalse(v.run('hm_controller', 'IsAdmissionDrained', 0))
+        self.assertFalse(v.run('hm_controller', 'ResumeAdmission', 0))
+
+    def test_load_during_native_scan_preserves_unknown_ownership_instead_of_resetting_busy(self):
+        v = VM()
+        v.state['hm_library']['locked'][0] = True
+        v.state['hm_controller']['lastrealtime'] = 200.0
+
+        def load_and_suspend():
+            v.run('hm_controller', 'OnPlayerLoadGame')
+            self.assertTrue(v.state['hm_controller']['busy'])
+            self.assertTrue(v.state['hm_controller']['admissionunsafe'])
+            self.assertTrue(v.state['hm_library']['locked'][0])
+            ticket = v.run('hm_controller', 'SuspendAdmission')
+            self.assertEqual(ticket, 0)
+            self.assertFalse(v.run('hm_controller', 'IsAdmissionDrained', ticket))
+            self.assertFalse(v.run('hm_controller', 'ResumeAdmission', ticket))
+
+        hits = self.inject_once(v, 'static',
+            lambda owner, name, args: (owner, name) == ('miscutil', 'scancellnpcs'), load_and_suspend)
+        v.enter()
+        v.advance(15)
+        self.assertTrue(hits)
+        self.assertFalse(v.state['hm_controller']['busy'])  # Its real stack returned.
+        self.assertTrue(v.state['hm_controller']['admissionunsafe'])
+        self.assertTrue(v.state['hm_library']['locked'][0])
+        self.assertFalse(any(e[0] == 'play' for e in v.effects))
+
+    def test_suspension_is_refused_until_first_real_initialization_finishes(self):
+        attempts = []
+
+        class InitVM(VM):
+            def method(self, obj, name, args):
+                if name == 'resetsession' and not attempts:
+                    ticket = self.run('hm_controller', 'SuspendAdmission')
+                    attempts.append((ticket, self.run('hm_controller', 'IsAdmissionDrained', ticket)))
+                return super().method(obj, name, args)
+
+        v = InitVM()
+        self.assertEqual(attempts, [(0, False)])
+        self.assertTrue(v.state['hm_controller']['admissioninitialized'])
+        ticket = v.run('hm_controller', 'SuspendAdmission')
+        self.assertGreater(ticket, 0)
+        self.assertTrue(v.run('hm_controller', 'IsAdmissionDrained', ticket))
+        self.assertTrue(v.run('hm_controller', 'ResumeAdmission', ticket))
+        # Simulate a saved quest predating this variable, without resetting
+        # other normal controller behavior or inventing an initialization call.
+        v.state['hm_controller']['admissioninitialized'] = False
+        self.assertEqual(v.run('hm_controller', 'SuspendAdmission'), 0)
+        self.assertFalse(v.state['hm_controller']['admissionsuspended'])
+        v.enter()
+        v.advance(15)
+        self.assertIn(('play', 1, 'Mikael'), v.effects)
+
+
 class TraceContractTests(unittest.TestCase):
     def test_all_emitted_event_names_match_frozen_contract(self):
         source=Path(__file__).resolve().parents[1]/'src/Scripts/Source'

@@ -88,6 +88,12 @@ class LabVM(VM):
         self.fixture_alias = None
         self.hold_package_enabled = True
         self.fixture_package = 0xEA072
+        self.autostart_rank = None
+        # Actual isolated SE reports -2 when no entry is present. -1 is also
+        # documented as a nonmember state; do not conflate it with membership.
+        self.autostart_absent_rank = -2
+        self.fixture_scene = None
+        self.starter_running = False
         self.initial_settings = self.settings.copy()
 
     def run(self, owner, method, *params):
@@ -98,6 +104,24 @@ class LabVM(VM):
             self.callers.pop()
 
     def method(self, obj, name, args):
+        if obj == ("quest", "bard_starter") and name == "isrunning":
+            return self.starter_running
+        if obj == "Sven" and name == "getcurrentscene":
+            return self.fixture_scene
+        if obj == "Sven" and args and args[0] == ("faction", 0x163FA):
+            if name == "isinfaction":
+                return self.autostart_rank is not None
+            if name == "getfactionrank":
+                return self.autostart_absent_rank if self.autostart_rank is None else self.autostart_rank
+            if name == "setfactionrank":
+                assert args[1] == 0, "The lease must not overwrite arbitrary ranks."
+                self.effects.append(("autostart_set", args[1]))
+                self.autostart_rank = args[1]
+                return None
+            if name == "removefromfaction":
+                self.effects.append(("autostart_remove", self.autostart_rank))
+                self.autostart_rank = None
+                return None
         if isinstance(obj, tuple) and obj[0] == "self":
             if obj[1] == "hm_labharness" and name == "getalias":
                 assert args == [0]
@@ -206,6 +230,8 @@ class LabVM(VM):
                 0x954D9: ("quest", "intro"), 0x954DA: ("scene", "intro"), 0x38: ("global", "GameHour"),
                 0x4E50D: ("quest", "MQ102"), 0x96595: ("marker", "exterior"), 0x13163: "riverwood",
                 0x10FB3F: ("package", 0x10FB3F),
+                0x163FA: ("faction", 0x163FA),
+                0xBE159: ("quest", "bard_starter"),
             }
             if args[0] in placed:
                 return placed[args[0]]
@@ -829,6 +855,416 @@ class LabHarnessTests(unittest.TestCase):
         vm.files[CONTROL].update(allow_disposable_world_setup=True, allow_controlled_actor_ai=True)
         return vm
 
+    def test_autostart_lease_precedes_every_transition_and_releases_last(self):
+        vm = self.controlled_vm()
+        vm.autorun("focused-complete")
+        self.assertEqual(vm.result["status"], "passed")
+        lease = vm.result["vanilla_autostart"]
+        self.assertTrue(lease["baseline_observed"])
+        self.assertFalse(lease["baseline_member"])
+        self.assertEqual(lease["baseline_rank"], -2)
+        self.assertTrue(lease["write_issued"])
+        self.assertTrue(lease["verified"])
+        self.assertTrue(lease["released"])
+        self.assertFalse(lease["intent"])
+        self.assertFalse(lease["pending_work_drained_verified"])
+        self.assertIsNone(vm.autostart_rank)
+        writes = [e for e in vm.effects if e[0].startswith("autostart_")]
+        self.assertEqual(writes, [("autostart_set", 0), ("autostart_remove", 0)])
+        first = vm.effects.index(("autostart_set", 0))
+        for i, effect in enumerate(vm.effects):
+            if effect[0] in ("move_fixture", "move_story_fixture", "hold_force"):
+                self.assertLess(first, i)
+        self.assertLess(vm.effects.index(("hold_clear", "Sven")), vm.effects.index(("autostart_remove", 0)))
+
+    def test_autostart_existing_membership_preserves_exact_rank_without_writes(self):
+        for rank in (0, 1, 7):
+            with self.subTest(rank=rank):
+                vm = self.controlled_vm()
+                vm.autostart_rank = rank
+                vm.autorun("focused-complete")
+                self.assertEqual(vm.result["status"], "passed")
+                self.assertEqual(vm.autostart_rank, rank)
+                self.assertEqual(vm.result["vanilla_autostart"]["baseline_rank"], rank)
+                self.assertTrue(vm.result["vanilla_autostart"]["released"])
+                self.assertFalse(any(e[0].startswith("autostart_") for e in vm.effects))
+
+    def test_autostart_absent_sentinels_restore_effective_absence_without_normalizing_rank(self):
+        for baseline in (-2, -1):
+            for restored in (-2, -1):
+                with self.subTest(baseline=baseline, restored=restored):
+                    vm = self.controlled_vm()
+                    vm.autostart_absent_rank = baseline
+                    original = vm.method
+
+                    def native_remove(obj, name, args):
+                        value = original(obj, name, args)
+                        if obj == "Sven" and name == "removefromfaction":
+                            vm.autostart_absent_rank = restored
+                        return value
+
+                    vm.method = native_remove
+                    vm.autorun("focused-complete")
+                    self.assertEqual(vm.result["status"], "passed")
+                    lease = vm.result["vanilla_autostart"]
+                    self.assertEqual(lease["baseline_rank"], baseline)
+                    self.assertEqual(lease["observed_rank"], restored)
+                    self.assertTrue(lease["released"])
+                    self.assertFalse(lease["conflict"])
+                    self.assertIsNone(vm.autostart_rank)
+                    self.assertEqual([e for e in vm.effects if e[0].startswith("autostart_")], [("autostart_set", 0), ("autostart_remove", 0)])
+
+    def test_autostart_unwritten_absent_lease_accepts_negative_readback_without_writes(self):
+        for baseline in (-2, -1):
+            for restored in (-2, -1):
+                with self.subTest(baseline=baseline, restored=restored):
+                    vm = self.controlled_vm()
+                    vm.autostart_absent_rank = baseline
+                    original = vm.static
+                    rejected = False
+
+                    def refuse_intent(owner, name, args):
+                        nonlocal rejected
+                        value = original(owner, name, args)
+                        if not rejected and owner == "jsonutil" and name == "save" and args[0] == RESULT and vm.state["hm_labharness"]["autostartintent"]:
+                            rejected = True
+                            vm.autostart_absent_rank = restored
+                            return False
+                        return value
+
+                    vm.static = refuse_intent
+                    vm.autorun("focused-complete")
+                    self.assertEqual(vm.result["status"], "failed")
+                    lease = vm.result["vanilla_autostart"]
+                    self.assertEqual(lease["baseline_rank"], baseline)
+                    self.assertEqual(lease["observed_rank"], restored)
+                    self.assertTrue(lease["released"])
+                    self.assertFalse(lease["write_issued"])
+                    self.assertFalse(lease["conflict"])
+                    self.assertFalse(any(e[0].startswith("autostart_") for e in vm.effects))
+
+    def test_autostart_contradictory_absence_readback_cannot_certify_release(self):
+        for member, rank in ((False, 0), (True, -2)):
+            with self.subTest(member=member, rank=rank):
+                vm = self.controlled_vm()
+                original = vm.method
+                removed = False
+
+                def contradictory(obj, name, args):
+                    nonlocal removed
+                    if removed and obj == "Sven" and args == [("faction", 0x163FA)]:
+                        if name == "isinfaction":
+                            return member
+                        if name == "getfactionrank":
+                            return rank
+                    value = original(obj, name, args)
+                    if obj == "Sven" and name == "removefromfaction":
+                        removed = True
+                    return value
+
+                vm.method = contradictory
+                vm.autorun("focused-complete")
+                self.assertEqual(vm.result["status"], "failed")
+                self.assertFalse(vm.result["vanilla_autostart"]["released"])
+                self.assertTrue(vm.result["vanilla_autostart"]["conflict"])
+                self.assertEqual(len([e for e in vm.effects if e[0] == "autostart_remove"]), 1)
+
+    def test_autostart_lease_is_never_implicit_in_manual_or_uncontrolled_runs(self):
+        for manual in (False, True):
+            with self.subTest(manual=manual):
+                vm = self.controlled_vm() if manual else LabVM()
+                if manual:
+                    vm.actors["P"]["location"] = "inn"
+                    vm.lab("FocusedStart")
+                    vm.tick(12)
+                else:
+                    vm.autorun("focused-complete")
+                self.assertEqual(vm.result["status"], "passed")
+                self.assertFalse(vm.result["vanilla_autostart"]["requested"])
+                self.assertFalse(any(e[0].startswith("autostart_") for e in vm.effects))
+
+    def test_autostart_refuses_observable_prior_activity_before_any_mutation_or_move(self):
+        for obstruction in ("dialogue", "scene", "bard_package", "starter"):
+            with self.subTest(obstruction=obstruction):
+                vm = self.controlled_vm()
+                if obstruction == "dialogue":
+                    vm.actors["Sven"]["dialogue"] = True
+                elif obstruction == "scene":
+                    vm.fixture_scene = ("scene", "foreign")
+                elif obstruction == "bard_package":
+                    vm.fixture_package = 0xFB904
+                else:
+                    vm.starter_running = True
+                vm.autorun("focused-complete")
+                self.assertEqual(vm.result["status"], "failed")
+                self.assertFalse(any(e[0] in ("autostart_set", "autostart_remove", "move_fixture", "move_story_fixture", "hold_force", "play") for e in vm.effects))
+                self.assertEqual(vm.settings, vm.initial_settings)
+
+    def test_autostart_intent_must_persist_before_native_write(self):
+        vm = self.controlled_vm()
+        original = vm.static
+        rejected = False
+
+        def fail_intent(owner, name, args):
+            nonlocal rejected
+            value = original(owner, name, args)
+            if not rejected and owner == "jsonutil" and name == "save" and args[0] == RESULT and vm.state["hm_labharness"]["autostartintent"]:
+                rejected = True
+                return False
+            return value
+
+        vm.static = fail_intent
+        vm.autorun("focused-complete")
+        self.assertTrue(rejected)
+        self.assertEqual(vm.result["status"], "failed")
+        self.assertFalse(vm.result["vanilla_autostart"]["verified"])
+        self.assertFalse(any(e[0].startswith("autostart_") for e in vm.effects))
+
+    def test_autostart_foreign_membership_before_write_is_preserved(self):
+        vm = self.controlled_vm()
+        original = vm.static
+        changed = False
+
+        def foreign_member(owner, name, args):
+            nonlocal changed
+            value = original(owner, name, args)
+            if not changed and owner == "jsonutil" and name == "save" and args[0] == RESULT and vm.state["hm_labharness"]["autostartintent"]:
+                changed = True
+                vm.autostart_rank = 4
+            return value
+
+        vm.static = foreign_member
+        vm.autorun("focused-complete")
+        self.assertEqual(vm.result["status"], "failed")
+        self.assertEqual(vm.autostart_rank, 4)
+        self.assertTrue(vm.result["vanilla_autostart"]["conflict"])
+        self.assertFalse(any(e[0].startswith("autostart_") for e in vm.effects))
+
+    def test_autostart_failed_or_foreign_rank_assignment_never_enters_fixture(self):
+        for after in (None, 5):
+            with self.subTest(after=after):
+                vm = self.controlled_vm()
+                original = vm.method
+
+                def altered(obj, name, args):
+                    value = original(obj, name, args)
+                    if obj == "Sven" and name == "setfactionrank":
+                        vm.autostart_rank = after
+                    return value
+
+                vm.method = altered
+                vm.autorun("focused-complete")
+                self.assertEqual(vm.result["status"], "failed")
+                self.assertEqual(vm.autostart_rank, after)
+                self.assertFalse(any(e[0] in ("move_fixture", "move_story_fixture", "autostart_remove", "play") for e in vm.effects))
+
+    def test_autostart_cancellation_inside_assignment_compensates_late_return(self):
+        for before in (False, True):
+            with self.subTest(before=before):
+                vm = self.controlled_vm()
+                original = vm.method
+                terminal = None
+
+                def cancel(obj, name, args):
+                    nonlocal terminal
+                    targeted = obj == "Sven" and name == "setfactionrank"
+                    if targeted and before:
+                        vm.lab("Cleanup")
+                        terminal = copy.deepcopy(vm.result)
+                        vm.files[REQUEST]["run_id"] = "replacement"
+                        vm.lab("FocusedStart")
+                    value = original(obj, name, args)
+                    if targeted and not before:
+                        vm.lab("Cleanup")
+                        terminal = copy.deepcopy(vm.result)
+                    return value
+
+                vm.method = cancel
+                vm.autorun("focused-complete")
+                self.assertEqual(vm.result, terminal)
+                self.assertEqual(vm.result["status"], "failed")
+                self.assertTrue(vm.result["vanilla_autostart"]["mutation_in_flight"])
+                self.assertIsNone(vm.autostart_rank)
+                self.assertFalse(vm.state["hm_labharness"]["autostartintent"])
+                self.assertFalse(any(e[0] in ("move_fixture", "move_story_fixture", "play") for e in vm.effects))
+                self.assertFalse(vm.timers)
+
+    def test_autostart_revoked_control_or_request_at_native_return_compensates(self):
+        for change in ("request", "control"):
+            with self.subTest(change=change):
+                vm = self.controlled_vm()
+                original = vm.method
+
+                def revoke(obj, name, args):
+                    value = original(obj, name, args)
+                    if obj == "Sven" and name == "setfactionrank":
+                        if change == "request":
+                            vm.files[REQUEST]["run_id"] = "changed"
+                        else:
+                            vm.files[CONTROL]["allow_controlled_actor_ai"] = False
+                    return value
+
+                vm.method = revoke
+                vm.autorun("focused-complete")
+                self.assertEqual(vm.result["status"], "failed")
+                self.assertIsNone(vm.autostart_rank)
+                self.assertFalse(any(e[0] in ("move_fixture", "move_story_fixture", "play") for e in vm.effects))
+
+    def test_autostart_foreign_rank_during_run_is_preserved_and_blocks_pass(self):
+        for baseline in (None, 3):
+            with self.subTest(baseline=baseline):
+                vm = self.controlled_vm()
+                vm.autostart_rank = baseline
+                vm.files[REQUEST].update(auto_run=True, scenario="focused-complete")
+                vm.lab("OnInit")
+                vm.tick(5)
+                vm.autostart_rank = 6
+                vm.tick(12)
+                self.assertEqual(vm.result["status"], "failed")
+                self.assertEqual(vm.autostart_rank, 6)
+                self.assertTrue(vm.result["vanilla_autostart"]["conflict"])
+                self.assertFalse(any(e[0] == "autostart_remove" for e in vm.effects))
+
+    def test_autostart_removal_failure_blocks_pass_and_can_be_reconciled_later(self):
+        vm = self.controlled_vm()
+        original = vm.method
+
+        def refuse_remove(obj, name, args):
+            if obj == "Sven" and name == "removefromfaction":
+                return None
+            return original(obj, name, args)
+
+        vm.method = refuse_remove
+        vm.autorun("focused-complete")
+        self.assertEqual(vm.result["status"], "failed")
+        terminal = copy.deepcopy(vm.result)
+        self.assertEqual(vm.autostart_rank, 0)
+        self.assertTrue(vm.state["hm_labharness"]["autostartintent"])
+        vm.method = original
+        vm.lab("Cleanup")
+        self.assertIsNone(vm.autostart_rank)
+        self.assertEqual(vm.result, terminal)
+
+    def test_autostart_cancellation_during_removal_keeps_terminal_failure(self):
+        vm = self.controlled_vm()
+        original = vm.method
+        terminal = None
+
+        def cancel_remove(obj, name, args):
+            nonlocal terminal
+            if obj == "Sven" and name == "removefromfaction":
+                vm.lab("Cleanup")
+                terminal = copy.deepcopy(vm.result)
+            return original(obj, name, args)
+
+        vm.method = cancel_remove
+        vm.autorun("focused-complete")
+        self.assertNotEqual(terminal["status"], "passed")
+        self.assertEqual(vm.result["status"], "cancelled")
+        self.assertIsNone(vm.autostart_rank)
+        self.assertFalse(vm.state["hm_labharness"]["autostartintent"])
+
+    def test_autostart_is_kept_until_failed_alias_release_is_reconciled(self):
+        vm = self.controlled_vm()
+        original = vm.method
+
+        def refuse_clear(obj, name, args):
+            if obj == ("alias", "fixture") and name == "clear":
+                return None
+            return original(obj, name, args)
+
+        vm.method = refuse_clear
+        vm.autorun("focused-complete")
+        self.assertEqual(vm.result["status"], "failed")
+        self.assertEqual(vm.autostart_rank, 0)
+        self.assertFalse(any(e[0] == "autostart_remove" for e in vm.effects))
+        vm.method = original
+        vm.lab("Cleanup")
+        self.assertIsNone(vm.fixture_alias)
+        self.assertIsNone(vm.autostart_rank)
+
+    def test_autostart_unknown_initial_package_is_not_claimed_as_queue_quiescence(self):
+        vm = self.controlled_vm()
+        original = vm.method
+
+        def initially_unknown(obj, name, args):
+            if obj == "Sven" and name == "getcurrentpackage" and not vm.state["hm_labharness"]["autostartacquired"]:
+                return None
+            return original(obj, name, args)
+
+        vm.method = initially_unknown
+        vm.autorun("focused-complete")
+        self.assertEqual(vm.result["status"], "passed")
+        self.assertEqual(vm.result["vanilla_autostart"]["package_before"], 0)
+        self.assertFalse(vm.result["vanilla_autostart"]["pending_work_drained_verified"])
+        self.assertTrue(vm.result["fixture_ai"]["standing_observed"])
+
+    def test_autostart_repeat_acquisition_cannot_reclassify_our_rank_as_preexisting(self):
+        vm = self.controlled_vm()
+        vm.files[REQUEST].update(auto_run=True, scenario="focused-complete")
+        vm.lab("OnInit")
+        vm.tick(5)
+        before = copy.deepcopy(vm.state["hm_labharness"])
+        self.assertFalse(vm.run("hm_labharness", "AcquireAutostartLease", "run-001"))
+        self.assertFalse(vm.run("hm_labharness", "PrepareAutostartLease", "run-001"))
+        self.assertEqual(vm.state["hm_labharness"], before)
+        vm.tick(12)
+        self.assertEqual(vm.result["status"], "passed")
+        self.assertIsNone(vm.autostart_rank)
+
+    def test_autostart_inactive_release_getter_blocks_reentrant_cleanup_and_new_run(self):
+        vm = self.controlled_vm()
+        original = vm.method
+
+        def leave_pending(obj, name, args):
+            if obj == "Sven" and name == "removefromfaction":
+                return None
+            return original(obj, name, args)
+
+        vm.method = leave_pending
+        vm.autorun("focused-complete")
+        self.assertEqual(vm.result["status"], "failed")
+        terminal = copy.deepcopy(vm.result)
+        nested = False
+
+        def reenter_read(obj, name, args):
+            nonlocal nested
+            if not nested and obj == "Sven" and name == "isinfaction" and args == [("faction", 0x163FA)]:
+                nested = True
+                vm.lab("Cleanup")
+                vm.files[REQUEST]["run_id"] = "replacement"
+                vm.lab("FocusedStart")
+                self.assertEqual(vm.state["hm_labharness"]["runid"], "run-001")
+            return original(obj, name, args)
+
+        vm.method = reenter_read
+        vm.lab("Cleanup")
+        self.assertTrue(nested)
+        self.assertEqual(vm.result, terminal)
+        self.assertIsNone(vm.autostart_rank)
+        self.assertFalse(vm.state["hm_labharness"]["autostartintent"])
+
+    def test_previously_queued_vanilla_package_still_fails_without_start_retries(self):
+        vm = self.controlled_vm()
+        original = vm.static
+        preempted = False
+
+        def late_queue(owner, name, args):
+            nonlocal preempted
+            value = original(owner, name, args)
+            if not preempted and owner == "miscutil" and name == "scancellnpcs":
+                preempted = True
+                vm.fixture_package = 0xFB904
+            return value
+
+        vm.static = late_queue
+        vm.autorun("focused-complete")
+        self.assertTrue(preempted)
+        self.assertEqual(vm.result["status"], "failed")
+        self.assertFalse(vm.result["vanilla_autostart"]["pending_work_drained_verified"])
+        self.assertFalse(any(e[0] in ("play", "idle") for e in vm.effects))
+        self.assertEqual(len([e for e in vm.effects if e[0] == "autostart_set"]), 1)
+
     def test_controlled_alias_is_opt_in_and_manual_commands_never_acquire(self):
         for flag in (None, False, "true", 1):
             with self.subTest(flag=flag):
@@ -848,7 +1284,7 @@ class LabHarnessTests(unittest.TestCase):
         self.assertFalse(any(e[0] == "hold_force" for e in vm.effects))
 
     def test_controlled_alias_success_acquires_after_stage_move_and_releases(self):
-        for scenario in ("ambient-entry", "focused-complete", "focused-interrupt"):
+        for scenario in ("focused-complete", "focused-interrupt"):
             with self.subTest(scenario=scenario):
                 vm = self.controlled_vm()
                 vm.autorun(scenario)
@@ -1325,13 +1761,38 @@ class LabHarnessTests(unittest.TestCase):
         self.assertFalse(vm.timers)
 
     def test_ambient_deadline_remains_fixed_120_seconds_after_world_setup(self):
-        vm = self.controlled_vm()
+        vm = LabVM()
+        vm.files[CONTROL]["allow_disposable_world_setup"] = True
         vm.autorun("ambient-entry")
         self.assertEqual(vm.result["status"], "passed")
         setup = vm.result["world_setup"]
         self.assertEqual(setup["scenario_deadline_real_seconds"], setup["setup_finished_real_seconds"] + 120)
         self.assertEqual(vm.result["focused_preparation_deadline_real_seconds"], 0)
         self.assertEqual(vm.result["focused_playback_deadline_real_seconds"], 0)
+
+    def test_controlled_ambient_resumes_before_real_reentry_without_injection(self):
+        vm = self.controlled_vm()
+        normal_method = vm.method
+        entries = []
+
+        def record_entry(obj, name, args):
+            if obj == "P" and name == "moveto" and args[0] == ("marker", "audience"):
+                entries.append((vm.state["hm_controller"]["admissionsuspended"], vm.fixture_alias, vm.autostart_rank))
+            return normal_method(obj, name, args)
+
+        vm.method = record_entry
+        vm.autorun("ambient-entry")
+        self.assertEqual(vm.result["status"], "passed")
+        self.assertEqual(entries, [(True, "Sven", 0), (False, "Sven", 0)])
+        self.assertTrue(vm.result["ambient_fixture_exit_observed"])
+        self.assertTrue(vm.result["ambient_entry_after_resume"])
+        self.assertTrue(vm.result["assertions"]["real_inn_entry"])
+        self.assertNotIn(("injected_entry_setup",), vm.effects)
+        self.assertFalse(vm.result["normal_actor_ai_behavior_verified"])
+        self.assertTrue(vm.result["admission"]["resumed"])
+        self.assertFalse(vm.result["admission"]["all_engine_work_drained"])
+        self.assertEqual(vm.settings, vm.initial_settings)
+        self.assertFalse(vm.timers)
 
     def test_result_timing_reports_previous_save_without_extra_write(self):
         vm = LabVM()
@@ -1511,12 +1972,19 @@ class LabHarnessTests(unittest.TestCase):
                     vm.method = cancel_start
                     vm.autorun("focused-complete")
                     self.assertTrue(switched)
-                    self.assertEqual(vm.result["status"], "cancelled")
+                    # The faction lease remains unresolved until this native
+                    # start returns. Keep a failed pending terminal result;
+                    # later compensation must not rewrite it as cancelled/pass.
+                    self.assertEqual(vm.result["status"], "failed")
                     self.assertEqual(vm.result, terminal)
                     self.assertTrue(vm.result["focused_start_cleanup_pending"])
+                    self.assertTrue(vm.result["vanilla_autostart"]["intent"])
+                    self.assertFalse(vm.result["vanilla_autostart"]["released"])
                     self.assertFalse(vm.state["hm_labharness"]["focusedstartinflight"])
+                    self.assertFalse(vm.state["hm_labharness"]["autostartintent"])
+                    self.assertIsNone(vm.autostart_rank)
                     self.assertIsNone(vm.state["hm_controller"]["performer"])
-                    self.assertEqual([row["outcome"] for row in vm.receipts], ["interrupted"])
+                    self.assertEqual([row["outcome"] for row in vm.receipts], [] if point == "idle" else ["interrupted"])
                     self.assertIsNone(vm.fixture_alias)
                     self.assertFalse(vm.timers)
                     self.assertEqual(vm.settings, vm.initial_settings)
@@ -1548,7 +2016,9 @@ class LabHarnessTests(unittest.TestCase):
         self.assertTrue(delayed)
         self.assertIsNotNone(terminal)
         self.assertEqual(vm.result["status"], "cancelled")
-        self.assertEqual(vm.result, terminal)
+        # A nested finish cannot publish a terminal while the release call
+        # owns restoration. Cancellation wins when that call returns.
+        self.assertNotEqual(terminal["status"], "passed")
         self.assertEqual([row["outcome"] for row in vm.receipts], ["completed"])
         self.assertEqual(vm.state["hm_labharness"]["finishdepth"], 0)
         self.assertFalse(any(e[0] == "trace" and "LAB: passed" in e[1] for e in vm.effects))
@@ -1569,10 +2039,8 @@ class LabHarnessTests(unittest.TestCase):
         started = vm.result["performance_start_observed_real_seconds"]
         self.assertGreater(started, vm.result["started_real_seconds"] + 2)
         self.assertTrue(vm.result["assertions"]["performance_start"])
-        self.assertFalse(vm.result["assertions"]["stop_request_issued"])
-        vm.tick(0.75)
-        self.assertLess(vm.now, started + 2)
-        self.assertFalse(vm.result["assertions"]["stop_request_issued"])
+        self.assertTrue(vm.result["assertions"]["stop_request_issued"])
+        self.assertGreaterEqual(vm.result["interruption_request_real_seconds"], vm.result["performance_start_trace_real_seconds"] + 2)
         vm.tick(4)
         self.assertEqual(vm.result["status"], "passed")
         self.assertTrue(vm.result["assertions"]["stop_request_issued"])
@@ -1759,6 +2227,10 @@ class LabHarnessTests(unittest.TestCase):
         vm.now += 8
         vm.run("hm_controller", "OnUpdate")
         self.assertTrue(switched)
+        self.assertEqual(vm.result["status"], "running")
+        self.assertTrue(vm.state["hm_controller"]["admissionsuspended"])
+        self.assertNotEqual(vm.settings, vm.initial_settings)
+        vm.lab("OnUpdate")
         self.assertEqual(vm.result["status"], "passed")
         self.assertEqual([row["outcome"] for row in vm.receipts], ["completed"])
         self.assertTrue(vm.result["assertions"]["production_stop_seen"])
@@ -1786,6 +2258,11 @@ class LabHarnessTests(unittest.TestCase):
         vm.run("hm_controller", "OnUpdate")
         self.assertEqual(vm.result["status"], "failed")
         self.assertEqual([row["outcome"] for row in vm.receipts], ["completed"])
+        pending = copy.deepcopy(vm.result)
+        self.assertNotEqual(vm.settings, vm.initial_settings)
+        self.assertTrue(vm.state["hm_controller"]["admissionsuspended"])
+        vm.lab("OnUpdate")
+        self.assertEqual(vm.result, pending)
         self.assertEqual(vm.settings, vm.initial_settings)
 
     def test_protected_boolean_literals_survive_bare_token_case_collision(self):
@@ -1948,6 +2425,443 @@ class LabHarnessTests(unittest.TestCase):
         self.assertIn("waiting for the loaded fixture", vm.result["reason"])
         self.assertEqual(vm.settings, vm.initial_settings)
         self.assertFalse(vm.timers)
+
+
+    def test_initial_admission_waits_for_actual_scan_return_before_baselines(self):
+        vm = LabVM()
+        normal_static = vm.static
+        switched = False
+
+        def begin_inside_scan(owner, name, args):
+            nonlocal switched
+            value = normal_static(owner, name, args)
+            if not switched and owner == "miscutil" and name == "scancellnpcs":
+                switched = True
+                vm.lab("FocusedStart")
+                self.assertTrue(vm.state["hm_labharness"]["initialdrainpending"])
+                self.assertFalse(vm.state["hm_labharness"]["baselinesready"])
+                self.assertEqual(vm.settings, vm.initial_settings)
+                self.assertFalse(vm.receipts)
+            return value
+
+        vm.static = begin_inside_scan
+        vm.enter()
+        vm.run("hm_controller", "OnUpdate")
+        self.assertTrue(switched)
+        vm.tick(12)
+        self.assertEqual(vm.result["status"], "passed")
+        self.assertEqual(len(vm.receipts), 1)
+        self.assertEqual(vm.settings, vm.initial_settings)
+
+    def test_initial_baseline_includes_old_receipt_only_after_owned_stop_returns(self):
+        vm = LabVM()
+        vm.enter()
+        vm.run("hm_controller", "OnUpdate")
+        normal_static = vm.static
+        switched = False
+
+        def begin_during_old_receipt(owner, name, args):
+            nonlocal switched
+            value = normal_static(owner, name, args)
+            if not switched and owner == "jsonutil" and name == "save" and args[0] == "HoldMusic/receipts.json":
+                switched = True
+                vm.lab("FocusedStart")
+                self.assertFalse(vm.state["hm_labharness"]["baselinesready"])
+                self.assertEqual(vm.settings, vm.initial_settings)
+            return value
+
+        vm.static = begin_during_old_receipt
+        vm.now += 8
+        vm.run("hm_controller", "OnUpdate")
+        vm.tick(0.5)
+        self.assertTrue(switched)
+        self.assertEqual(vm.state["hm_labharness"]["receiptbaseline"], 1)
+        self.assertEqual(len(vm.receipts), 1)
+        self.assertFalse(vm.state["hm_labharness"]["receiptobserved"])
+        vm.lab("Cleanup")
+
+    def test_initial_global_native_cancellation_retains_ownership_until_compensation(self):
+        for field in ("HM_Enabled", "HM_InstrumentalPercent", "HM_SessionCap", "HM_MinDelaySeconds", "HM_MaxDelaySeconds"):
+            for operation in ("getvalue", "setvalue"):
+                with self.subTest(field=field, operation=operation):
+                    vm = LabVM()
+                    normal_method = vm.method
+                    switched = False
+                    pending = None
+
+                    def cancel_global(obj, name, args):
+                        nonlocal switched, pending
+                        value = normal_method(obj, name, args)
+                        if not switched and obj == ("global", field) and name == operation and vm.state["hm_labharness"]["baselineworkinflight"]:
+                            switched = True
+                            vm.lab("Cleanup")
+                            pending = copy.deepcopy(vm.result)
+                            self.assertTrue(vm.state["hm_controller"]["admissionsuspended"])
+                            self.assertFalse(vm.result["globals_restored"])
+                            self.assertFalse(vm.run("hm_labharness", "BeginRun", "ambient_entry"))
+                        return value
+
+                    vm.method = cancel_global
+                    vm.lab("ArmAmbient")
+                    self.assertTrue(switched)
+                    self.assertEqual(vm.settings, vm.initial_settings)
+                    self.assertFalse(vm.state["hm_controller"]["admissionsuspended"])
+                    self.assertEqual(vm.result, pending)
+                    self.assertNotEqual(vm.result["status"], "passed")
+                    self.assertFalse(vm.timers)
+
+    def test_cancel_before_begin_active_cannot_admit_replacement_or_enable_globals(self):
+        vm = LabVM()
+        normal_method = vm.method
+        switched = False
+
+        def cancel_pre_active(obj, name, args):
+            nonlocal switched
+            value = normal_method(obj, name, args)
+            if not switched and obj == ("self", "hm_labharness") and name == "getalias":
+                switched = True
+                vm.lab("Cleanup")
+                self.assertFalse(vm.run("hm_labharness", "BeginRun", "ambient_entry"))
+            return value
+
+        vm.method = cancel_pre_active
+        vm.lab("ArmAmbient")
+        self.assertTrue(switched)
+        self.assertEqual(vm.settings, vm.initial_settings)
+        self.assertFalse(vm.state["hm_labharness"]["active"])
+        self.assertFalse(vm.state["hm_controller"]["admissionsuspended"])
+        self.assertFalse(vm.timers)
+
+    def test_late_suspend_and_resume_returns_preserve_cancelled_ownership(self):
+        for call in ("suspendadmission", "resumeadmission"):
+            for after in (False, True):
+                with self.subTest(call=call, after=after):
+                    vm = LabVM()
+                    normal_method = vm.method
+                    switched = False
+                    pending = None
+
+                    def cancel_transition(obj, name, args):
+                        nonlocal switched, pending
+                        if not switched and obj == ("self", "hm_controller") and name == call:
+                            switched = True
+                            if after:
+                                value = normal_method(obj, name, args)
+                            vm.lab("Cleanup")
+                            pending = copy.deepcopy(vm.result)
+                            self.assertFalse(vm.run("hm_labharness", "BeginRun", "ambient_entry"))
+                            if not after:
+                                value = normal_method(obj, name, args)
+                            return value
+                        return normal_method(obj, name, args)
+
+                    vm.method = cancel_transition
+                    vm.lab("ArmAmbient")
+                    vm.tick(0.5)
+                    self.assertTrue(switched)
+                    self.assertEqual(vm.result, pending)
+                    self.assertNotEqual(vm.result["status"], "passed")
+                    self.assertEqual(vm.settings, vm.initial_settings)
+                    self.assertFalse(vm.state["hm_controller"]["admissionsuspended"])
+                    self.assertFalse(vm.timers)
+
+    def test_finish_clock_and_unregister_boundaries_refuse_replacement(self):
+        for boundary in ("clock", "unregister"):
+            vm = LabVM()
+            vm.lab("ArmAmbient")
+            normal_static, normal_method = vm.static, vm.method
+            switched = False
+
+            def attempt_replacement():
+                nonlocal switched
+                switched = True
+                vm.lab("Cleanup")
+                vm.files[REQUEST]["run_id"] = "replacement"
+                vm.lab("ArmAmbient")
+                self.assertEqual(vm.state["hm_labharness"]["runid"], "run-001")
+
+            def hook_static(owner, name, args):
+                if not switched and boundary == "clock" and owner == "utility" and name == "getcurrentrealtime":
+                    attempt_replacement()
+                return normal_static(owner, name, args)
+
+            def hook_method(obj, name, args):
+                if not switched and boundary == "unregister" and obj == ("self", "hm_labharness") and name == "unregisterforupdate":
+                    attempt_replacement()
+                return normal_method(obj, name, args)
+
+            vm.static, vm.method = hook_static, hook_method
+            vm.lab("Cleanup")
+            vm.tick(0.5)
+            self.assertTrue(switched)
+            self.assertEqual(vm.settings, vm.initial_settings)
+            self.assertFalse(vm.state["hm_labharness"]["active"])
+            self.assertFalse(vm.timers)
+
+    def test_drain_timeout_retains_owned_ticket_without_automatic_resume(self):
+        vm = LabVM()
+        normal_static = vm.static
+        switched = False
+        terminal = None
+
+        def expire_inside_scan(owner, name, args):
+            nonlocal switched, terminal
+            value = normal_static(owner, name, args)
+            if not switched and owner == "miscutil" and name == "scancellnpcs":
+                switched = True
+                vm.lab("FocusedStart")
+                vm.now += 16
+                vm.lab("OnUpdate")
+                vm.now += 16
+                vm.lab("OnUpdate")
+                terminal = copy.deepcopy(vm.result)
+                self.assertTrue(vm.state["hm_controller"]["admissionsuspended"])
+                self.assertGreater(vm.state["hm_labharness"]["admissionticket"], 0)
+                self.assertFalse(vm.run("hm_labharness", "BeginRun", "focused_complete"))
+            return value
+
+        vm.static = expire_inside_scan
+        vm.enter()
+        vm.run("hm_controller", "OnUpdate")
+        self.assertEqual(vm.result["status"], "failed")
+        self.assertTrue(vm.state["hm_controller"]["admissionsuspended"])
+        self.assertFalse(vm.timers)
+        vm.lab("Cleanup")
+        self.assertFalse(vm.state["hm_controller"]["admissionsuspended"])
+        self.assertEqual(vm.result, terminal)
+        self.assertEqual(vm.settings, vm.initial_settings)
+
+    def test_slow_first_post_start_save_cannot_consume_interrupt_window(self):
+        vm = self.controlled_vm()
+        normal_static = vm.static
+        delayed = False
+
+        def slow_first_start_save(owner, name, args):
+            nonlocal delayed
+            value = normal_static(owner, name, args)
+            if not delayed and owner == "jsonutil" and name == "save" and args[0] == RESULT and vm.state["hm_labharness"]["startobserved"]:
+                delayed = True
+                self.assertTrue(vm.state["hm_labharness"]["interruptrequested"])
+                self.assertTrue(vm.state["hm_config"]["::StopRequested_var".lower()])
+                vm.now += 5.37
+                vm.run("hm_controller", "OnUpdate")
+            return value
+
+        vm.static = slow_first_start_save
+        vm.autorun("focused-interrupt")
+        self.assertTrue(delayed)
+        self.assertEqual(vm.result["status"], "passed")
+        self.assertTrue(vm.result["assertions"]["requested_interruption_guard"])
+        receipt = vm.receipts[-1]
+        self.assertLess(vm.result["interruption_request_real_seconds"], receipt["started_real_seconds"] + 8)
+        self.assertEqual(receipt["outcome"], "interrupted")
+        self.assertEqual(vm.settings, vm.initial_settings)
+
+    def test_scripted_drain_return_cancellation_cannot_resume_or_start_stale_work(self):
+        vm = LabVM()
+        vm.actors["P"]["location"] = "inn"
+        normal_method = vm.method
+        switched = False
+
+        def cancel_drain_return(obj, name, args):
+            nonlocal switched
+            value = normal_method(obj, name, args)
+            if not switched and obj == ("self", "hm_controller") and name == "isadmissiondrained" and ("hm_labharness", "resumeownedadmissionwork") in vm.callers:
+                switched = True
+                vm.lab("Cleanup")
+                self.assertFalse(vm.run("hm_labharness", "BeginRun", "focused_complete"))
+            return value
+
+        vm.method = cancel_drain_return
+        vm.lab("FocusedStart")
+        vm.tick(0.5)
+        self.assertTrue(switched)
+        self.assertNotEqual(vm.result["status"], "passed")
+        self.assertNotIn(("injected_entry_setup",), vm.effects)
+        self.assertFalse(any(e[0] == "play" for e in vm.effects))
+        self.assertFalse(vm.state["hm_controller"]["admissionsuspended"])
+        self.assertEqual(vm.settings, vm.initial_settings)
+
+    def test_revocation_during_resume_reacquires_cleanup_before_stale_entry(self):
+        for revoke in ("request", "control"):
+            for after in (False, True):
+                with self.subTest(revoke=revoke, after=after):
+                    vm = LabVM()
+                    vm.actors["P"]["location"] = "inn"
+                    normal_method = vm.method
+                    switched = False
+
+                    def revoke_resume(obj, name, args):
+                        nonlocal switched
+                        if not switched and obj == ("self", "hm_controller") and name == "resumeadmission":
+                            switched = True
+                            if after:
+                                value = normal_method(obj, name, args)
+                            if revoke == "request":
+                                vm.files[REQUEST]["run_id"] = "changed"
+                            else:
+                                vm.files[CONTROL]["enabled"] = False
+                            if not after:
+                                value = normal_method(obj, name, args)
+                            return value
+                        return normal_method(obj, name, args)
+
+                    vm.method = revoke_resume
+                    vm.lab("FocusedStart")
+                    vm.tick(0.5)
+                    self.assertTrue(switched)
+                    self.assertEqual(vm.result["status"], "failed")
+                    self.assertNotIn(("injected_entry_setup",), vm.effects)
+                    self.assertFalse(any(e[0] == "play" for e in vm.effects))
+                    self.assertFalse(vm.state["hm_controller"]["admissionsuspended"])
+                    self.assertEqual(vm.settings, vm.initial_settings)
+
+    def test_foreign_admission_hold_is_not_borrowed_or_resumed(self):
+        vm = LabVM()
+        foreign = vm.run("hm_controller", "SuspendAdmission")
+        self.assertGreater(foreign, 0)
+        vm.lab("ArmAmbient")
+        self.assertEqual(vm.result["status"], "failed")
+        self.assertTrue(vm.result["admission"]["fault"])
+        self.assertEqual(vm.result["admission"]["ticket"], 0)
+        self.assertEqual(vm.state["hm_controller"]["suspensionticket"], foreign)
+        self.assertTrue(vm.state["hm_controller"]["admissionsuspended"])
+        self.assertEqual(vm.settings, vm.initial_settings)
+        self.assertFalse(vm.run("hm_labharness", "BeginRun", "ambient_entry"))
+        vm.lab("Cleanup")
+        self.assertEqual(vm.state["hm_controller"]["suspensionticket"], foreign)
+
+    def test_controlled_ambient_cancel_at_exit_anchor_read_prevents_stale_movement(self):
+        vm = self.controlled_vm()
+        normal_static = vm.static
+        switched = False
+        movement_at_cancel = None
+
+        def cancel_exit_read(owner, name, args):
+            nonlocal switched, movement_at_cancel
+            value = normal_static(owner, name, args)
+            if not switched and owner == "game" and name == "getformfromfile" and args[0] == 0x96595 and ("hm_labharness", "prepareambientexit") in vm.callers:
+                switched = True
+                vm.lab("Cleanup")
+                movement_at_cancel = [e for e in vm.effects if e[0] in ("move_fixture", "move_story_fixture")]
+            return value
+
+        vm.static = cancel_exit_read
+        vm.autorun("ambient-entry")
+        self.assertTrue(switched)
+        self.assertEqual([e for e in vm.effects if e[0] in ("move_fixture", "move_story_fixture")], movement_at_cancel)
+        self.assertEqual(vm.result["status"], "cancelled")
+        self.assertIsNone(vm.fixture_alias)
+        self.assertIsNone(vm.autostart_rank)
+        self.assertFalse(vm.receipts)
+        self.assertFalse(vm.timers)
+        self.assertFalse(vm.state["hm_controller"]["admissionsuspended"])
+        self.assertEqual(vm.settings, vm.initial_settings)
+
+    def test_ambient_movement_native_cancellation_retains_owned_work_and_unresolved_event_hold(self):
+        for phase in ("prepareambientexit", "continueambientreentry"):
+            for boundary in ("getplayer", "moveto"):
+                for after in (False, True):
+                    with self.subTest(phase=phase, boundary=boundary, after=after):
+                        vm = self.controlled_vm()
+                        normal_static, normal_method = vm.static, vm.method
+                        switched = False
+                        pending = None
+
+                        def cancel_move():
+                            nonlocal switched, pending
+                            switched = True
+                            vm.lab("Cleanup")
+                            pending = copy.deepcopy(vm.result)
+                            self.assertTrue(vm.result["admission"]["fixture_transition_in_flight"])
+                            self.assertTrue(vm.state["hm_controller"]["admissionsuspended"])
+                            self.assertEqual(vm.fixture_alias, "Sven")
+                            self.assertEqual(vm.autostart_rank, 0)
+                            self.assertFalse(vm.result["globals_restored"])
+                            self.assertFalse(vm.run("hm_labharness", "BeginRun", "ambient_entry"))
+
+                        def target_phase():
+                            return ("hm_labharness", phase) in vm.callers and vm.callers[-1] == ("hm_labharness", "moveambientplayer")
+
+                        def hook_static(owner, name, args):
+                            if not switched and boundary == "getplayer" and owner == "game" and name == "getplayer" and target_phase():
+                                if after:
+                                    value = normal_static(owner, name, args)
+                                cancel_move()
+                                if not after:
+                                    value = normal_static(owner, name, args)
+                                return value
+                            return normal_static(owner, name, args)
+
+                        def hook_method(obj, name, args):
+                            if not switched and boundary == "moveto" and obj == "P" and name == "moveto" and target_phase():
+                                if after:
+                                    value = normal_method(obj, name, args)
+                                cancel_move()
+                                if not after:
+                                    value = normal_method(obj, name, args)
+                                return value
+                            return normal_method(obj, name, args)
+
+                        vm.static, vm.method = hook_static, hook_method
+                        vm.autorun("ambient-entry")
+                        self.assertTrue(switched)
+                        self.assertEqual(vm.result, pending)
+                        self.assertEqual(vm.result["status"], "failed")
+                        self.assertFalse(vm.receipts)
+                        self.assertFalse(any(e[0] == "play" for e in vm.effects))
+                        self.assertFalse(vm.timers)
+                        if boundary == "moveto":
+                            self.assertTrue(vm.state["hm_labharness"]["fixturemovementunresolved"])
+                            self.assertTrue(vm.state["hm_controller"]["admissionsuspended"])
+                            self.assertEqual(vm.fixture_alias, "Sven")
+                            self.assertEqual(vm.autostart_rank, 0)
+                            self.assertNotEqual(vm.settings, vm.initial_settings)
+                            # A delayed real location callback is still refused;
+                            # native return did not authorize event-queue drain.
+                            vm.run("hm_controller", "OnLocationChange", "riverwood", "inn")
+                            vm.tick(3)
+                            vm.lab("Cleanup")
+                            self.assertTrue(vm.state["hm_controller"]["admissionsuspended"])
+                            self.assertFalse(vm.receipts)
+                            self.assertFalse(vm.timers)
+                            self.assertEqual(vm.result, pending)
+                        else:
+                            self.assertFalse(vm.state["hm_labharness"]["fixturemovementunresolved"])
+                            self.assertFalse(vm.state["hm_controller"]["admissionsuspended"])
+                            self.assertIsNone(vm.fixture_alias)
+                            self.assertIsNone(vm.autostart_rank)
+                            self.assertEqual(vm.settings, vm.initial_settings)
+
+    def test_unsafe_load_during_owned_scan_drain_retains_ticket_and_leases(self):
+        vm = LabVM()
+        normal_static = vm.static
+        switched = False
+
+        def load_inside_scan(owner, name, args):
+            nonlocal switched
+            value = normal_static(owner, name, args)
+            if not switched and owner == "miscutil" and name == "scancellnpcs":
+                switched = True
+                vm.lab("FocusedStart")
+                vm.run("hm_controller", "OnPlayerLoadGame")
+                vm.now += 16
+                vm.lab("OnUpdate")
+                vm.now += 16
+                vm.lab("OnUpdate")
+            return value
+
+        vm.static = load_inside_scan
+        vm.enter()
+        vm.run("hm_controller", "OnUpdate")
+        self.assertTrue(switched)
+        self.assertEqual(vm.result["status"], "failed")
+        self.assertTrue(vm.state["hm_controller"]["admissionunsafe"])
+        self.assertGreater(vm.state["hm_labharness"]["admissionticket"], 0)
+        self.assertFalse(vm.result["admission"]["resumed"])
+        vm.lab("Cleanup")
+        self.assertTrue(vm.state["hm_controller"]["admissionsuspended"])
+        self.assertEqual(vm.settings, vm.initial_settings)
 
 
 if __name__ == "__main__":
