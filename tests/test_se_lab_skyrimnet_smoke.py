@@ -153,6 +153,44 @@ class SmokeTests(unittest.TestCase):
         with self.assertRaises(ValueError): self.collect(token)
         self.assertFalse(self.calls)
 
+    def _pin_prisma_archive_path(self, relative):
+        row=next(row for row in self.modules if row["name"].casefold()=="prismaui.dll")
+        old=Path(row["path"])
+        files=self.inputs["instance"]["files"]
+        prior=files.pop(old.relative_to(self.root/smoke.tier.INSTANCE).as_posix())
+        path=self.root/smoke.tier.INSTANCE/relative
+        path.parent.mkdir(parents=True,exist_ok=True)
+        path.write_bytes(old.read_bytes())
+        files[relative]=prior
+        row["path"]=str(path)
+        self.run["inputs_sha256"]=smoke.tier._digest(self.inputs)
+        self.write_documents()
+        return row,path,prior
+
+    def test_actual_prisma_lowercase_plugins_keeps_exact_pinned_path_and_hash(self):
+        row,path,prior=self._pin_prisma_archive_path("mods/PrismaUI 1.5.1/SKSE/plugins/PrismaUI.dll")
+        report=self.plan()
+        self.assertEqual(report["binding"]["modules"]["prismaui.dll"],dict(path=str(path),sha256=prior["sha256"]))
+        row["path"]=str(self.root/"Game/Data/SKSE/plugins/PrismaUI.dll")
+        with self.assertRaisesRegex(ValueError,"physical path"):self.plan()
+        row["path"]=str(path)
+        path.write_bytes(b"changed")
+        with self.assertRaisesRegex(ValueError,"module changed"):self.plan()
+
+    def test_prisma_structural_false_path_and_duplicate_pins_are_rejected(self):
+        _,_,prior=self._pin_prisma_archive_path("mods/PrismaUI 1.5.1/SKSE/plugins-extra/PrismaUI.dll")
+        with self.assertRaisesRegex(ValueError,"Ambiguous pinned"):self.plan()
+        files=self.inputs["instance"]["files"]
+        files.pop("mods/PrismaUI 1.5.1/SKSE/plugins-extra/PrismaUI.dll")
+        first="mods/PrismaUI 1.5.1/SKSE/plugins/PrismaUI.dll"
+        second="mods/Other Prisma/SKSE/Plugins/prismaui.dll"
+        for relative in (first,second):
+            path=self.root/smoke.tier.INSTANCE/relative
+            path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(b"prismaui.dll")
+            files[relative]=prior
+        self.run["inputs_sha256"]=smoke.tier._digest(self.inputs);self.write_documents()
+        with self.assertRaisesRegex(ValueError,"Ambiguous pinned"):self.plan()
+
     def test_changed_launch_document_invalidates_review_without_http(self):
         token = self.plan()["review_token"]
         self.launch["capture_note"] = "later observation"
@@ -203,6 +241,20 @@ class SmokeTests(unittest.TestCase):
         report = self.collect(transport=change)
         self.assertFalse(report["identity_stable"])
         self.assertFalse(report["disabled_controls_observed"])
+
+    def test_final_context_cannot_overrun_batch_deadline(self):
+        token=self.plan()["review_token"]
+        clock=[0.0];calls=[0];original=smoke._context
+        def slow_final(*args,**kwargs):
+            result=original(*args,**kwargs);calls[0]+=1
+            if calls[0]==2:clock[0]+=61.0
+            return result
+        with patch.object(smoke.time,"monotonic",side_effect=lambda:clock[0]),patch.object(smoke,"_context",side_effect=slow_final):
+            report=self.collect(token)
+        self.assertTrue(report["identity_stable"])
+        self.assertFalse(report["live_snapshot_complete"])
+        self.assertFalse(report["disabled_controls_observed"])
+        self.assertEqual(report["observation_failure"],"bounded_observation_failed")
 
     def test_cli_sanitizes_preflight_errors(self):
         import io
@@ -257,6 +309,19 @@ class HTTPTests(unittest.TestCase):
         with patch.object(smoke.socket,"socket",return_value=sock),self.assertRaises(ValueError):
             smoke._http_get(smoke.ROUTES[0],12,time.monotonic()-1,lambda:None,lambda:tcp())
         self.assertFalse(sock.connected)
+    def test_final_live_or_listener_probe_cannot_overrun_exchange_deadline(self):
+        for slow_probe in ("live","listeners"):
+            clock=[0.0];calls={"live":0,"listeners":0}
+            sock=FakeSocket(self.raw())
+            rows=tcp()+[dict(local_address="127.0.0.1",local_port=18880,remote_address="127.0.0.1",remote_port=53123,state="Established",pid=12)]
+            def probe(name):
+                calls[name]+=1
+                if name==slow_probe and calls[name]==2:clock[0]+=10.0
+            def live():probe("live")
+            def connections():probe("listeners");return rows
+            with self.subTest(slow_probe=slow_probe),patch.object(smoke.time,"monotonic",side_effect=lambda:clock[0]),patch.object(smoke.socket,"socket",return_value=sock),self.assertRaisesRegex(ValueError,"timed out"):
+                smoke._http_get(smoke.ROUTES[0],12,60.0,live,connections)
+            self.assertEqual(len(sock.sent),1)
     def test_redirect_auth_chunked_compressed_and_wrong_length_refuse(self):
         for raw in (self.raw(status=b'302 Found',extra=b'Location: http://evil.invalid/\r\n'),
                     self.raw(status=b'401 Unauthorized'),self.raw(extra=b'Transfer-Encoding: chunked\r\n'),

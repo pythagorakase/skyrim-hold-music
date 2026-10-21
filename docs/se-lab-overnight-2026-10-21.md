@@ -5,7 +5,92 @@ Continue until 08:00 America/Chicago on 21 October, then summarize and pause the
 `hold-music-offline-overnight-development` heartbeat. The old Echo watcher stays
 paused. The former Steam-use deferral is lifted for the isolated lab only.
 
-## Current checkpoint (02:44 CDT)
+## Current checkpoint (04:08 CDT)
+
+- Corrected run `20261021T090334Z-6b4447114828` also failed before Skyrim
+  started. Its separate MO2 PID 14048 crashed at the same `0xEF486` offset and
+  identical seven-frame module stack. The Qt path defect was real, but fixing it
+  did not resolve this native startup failure. No live lab processes remain.
+- Capture `a49b5783fe8c49438910a5636c553c42` reports
+  `incomplete_process_evidence`, protected paths unchanged, one changed file
+  (the MO2 crash dump), and zero private runtime files. Shared SE log bytes and
+  timestamps are identical before/after; no SkyrimNet log appeared. No HTTP,
+  MCP, provider or paid generation call has occurred.
+- The second crash, events, exact INI, module stack and ten frozen implementation
+  files are archived in
+  `checkpoints/skyrimnet-corrected-boot-failure-20261021/`. Both failed
+  attempts remain distinct. The next investigation compares startup configuration
+  and application payload with the working baseline and maps the crash using
+  matching official MO2 symbols. Do not mutate this retained attempt to retry.
+
+### Corrected installation checkpoint (04:02 CDT)
+
+- The Qt-safe seed/preflight correction is frozen: 81 tests ran, 80 passed and
+  one expected Windows permissions case skipped. Both actual bundled Qt 6.7.1
+  regressions passed. Independent review passed 13 focused methods and blocked
+  all 17 adversarial INI representations; the smoke/MCP regression passed all
+  49 cases against the final corrected source. First boot requires the exact
+  generated UTF-8 bytes for both INIs; ordinary semantic parsing is insufficient.
+- The failed instance and both control directories were retained intact under
+  `checkpoints/skyrimnet-qsettings-failed-attempt-20261021/`. The reviewed move
+  completed `retained_verified`, including 5,573 instance files, original source
+  archive `c31046d`, per-step inventories and unchanged protected paths. No files
+  were deleted or overwritten. Fresh corrected transaction
+  `da5291644a274e938d460eafb72bbcd1` completed `installed_disabled` with unchanged
+  protected paths. Its preflight returned `prepared_files_verified` and its
+  launch plan accepted all three baseline captures. The explicit launch is now
+  in progress, using a 60-second native process observation window.
+- The original failed run remains historical evidence below. The path defect is
+  confirmed; whether the corrected seed resolves the native startup failure is
+  still awaiting a new attributed launch.
+- Current corrected receipts (SHA256): install
+  `57ac09bc7f63bea0badba52f20af7ce7965c0352cb7a03cf6dbf1bdd4b60be41`,
+  preflight `65c1149e50eafde98105be72906979d1ae86c86b4d5347fbc7d152b68e6c9abb`,
+  launch plan `01160514d2ba4d1fc586736479cfdd39f184a9e87268ba89d5469a4aea582969`.
+  Shared logs were archived again under
+  `checkpoints/skyrimnet-corrected-shared-logs-before-20261021/`; they still
+  matched the earlier baseline hashes, and no shared SkyrimNet log existed.
+- Final independently reviewed observation tooling passes 80/80 synthetic
+  tests: smoke 24, routing 27 and MCP discovery 29. Smoke now handles the actual
+  PrismaUI archive's lowercase `SKSE/plugins` component while retaining exact
+  full physical-path/hash matching; final exchange/batch deadline checks refuse
+  overruns. Routing requires explicitly observed legacy credentials and reports
+  skipped provider/variant/slot coverage as incomplete. No live requests yet.
+
+### Prior first-boot checkpoint (03:27 CDT)
+
+- `c31046d` is synchronized on Halcyon, GitHub and clean Echo. The prior
+  `450e6b5` checkpoint remains in history; local equivalent commits are retained
+  on checkpoint branches. The new installer/launcher suite completed with
+  69 passes and one expected Windows skip. Smoke checks pass 20 synthetic tests;
+  the separately reviewed MCP discovery client passes 29, with no live calls yet.
+- Separate `MO2-SkyrimNet` installation transaction
+  `1e71f9713bf44146a5dba215388366be` completed `installed_disabled`, and its
+  post-install preflight passed. The installer published 5,572 files, including
+  the fresh MO2 application support. The stricter runtime recipe checks 3,939
+  selected payload files. Baseline MO2/shared Game are preserved.
+- First-boot run `20261021T082018Z-7ec91cdb271c` failed before a game process
+  was observed. WER identifies the separate MO2 process (39800) crashing with
+  `0xc0000005` at `ModOrganizer.exe+0xEF486`. Native process snapshots are now
+  empty. The retained result is `launch_observation_incomplete`, not acceptance.
+  Local capture `22338b26947a47ed8c0593f633d3c325` reports protected paths
+  unchanged, one changed tier file (the crash dump) and no private runtime files.
+- The actual bundled Qt 6.7.1 parser confirms a seed/preflight defect: single
+  backslashes in generated paths are parsed as INI escapes. For example,
+  `gamePath` becomes `C:GOoldMusic-SE-Labame`, despite `QSettings.NoError`.
+  The working baseline uses Qt-safe paths. A narrow writer/validation fix and
+  native decoder regression are in progress. This is a definite configuration
+  bug; the precise native crash mechanism remains unconfirmed.
+- Preserve this failed instance, both control directories and their receipts.
+  Root is preparing an explicit, reviewed retention into a new checkpoint before
+  a fresh corrected installation. Do not reset or reuse the original attempt.
+  Crash files, Windows events, stack projection and all ten exact original
+  implementation sources are archived under
+  `checkpoints/skyrimnet-first-boot-failure-20261021/`.
+- The following previous checkpoint details remain historical evidence; later
+  continuation entries supersede their pending-work and live-process statements.
+
+### Prior baseline checkpoint (02:44 CDT)
 
 - Three-scenario checkpoint `450e6b5` is synchronized on Halcyon, GitHub and
   clean Echo. The identical-tree local commit is retained on

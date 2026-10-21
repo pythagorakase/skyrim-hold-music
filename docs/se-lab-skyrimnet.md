@@ -260,6 +260,18 @@ tavern behavior or general vanilla-scene quiescence.
 Launch rechecks the exact recipe, acceptance files, implementation, protected
 Game/baseline inventories, process closure and clean environment under writer
 locks. It stores durable intent in `.skyrimnet-tier-runtime` before `Popen`.
+Generated MO2 INI paths use forward slashes. First-boot preflight requires the
+exact generated UTF-8 bytes for both `ModOrganizer.ini` and the selected profile's
+`settings.ini`. This fresh-instance contract rejects custom formatting, BOMs,
+other encodings, aliases and even otherwise valid alternative Qt representations.
+Additional parsed checks provide diagnostics; they cannot admit a noncanonical
+file. It does not rewrite either file. Python's INI parser alone is insufficient:
+Qt can silently discard unescaped Windows backslashes and their
+following letters while returning `NoError`. A temporary-fixture regression
+against the pinned MO2 Qt 6.7.1 parser can be enabled with
+`HOLD_MUSIC_TEST_QT_ROOT` pointing to that MO2 distribution; it does not launch MO2
+or change its settings. A configuration defect does not establish the exact
+cause of an application crash without further evidence.
 Only fixed `MO2-SkyrimNet/ModOrganizer.exe`, the disabled profile and fixed lab
 SKSE loader are dispatched. The observation timeout is finite, 1–60 seconds;
 it never kills a process or repeats a launch. Any retained attempt, including an

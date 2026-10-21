@@ -1,6 +1,7 @@
 """Only synthetic archives and temporary installations; no real lab mutations."""
 from contextlib import redirect_stdout, redirect_stderr
 import hashlib
+import configparser
 import io
 import json
 import os
@@ -115,9 +116,13 @@ class SkyrimNetTierTests(unittest.TestCase):
         self.write(prefix + "loadorder.txt", "".join(name + "\n" for name in report["enabled_plugins"]).encode())
 
     def ini(self, extra="", game=None):
+        if not extra and game is None:
+            seed = tier._instance_seeds(self.root, dict(active_mods=[], enabled_plugins=[]))["ModOrganizer.ini"]
+            self.write(tier.INSTANCE + "/ModOrganizer.ini", seed.encode("utf-8"))
+            return
         self.write(tier.INSTANCE + "/ModOrganizer.ini", (
             "[General]\ngameName=Skyrim Special Edition\nselected_profile=@ByteArray(" + tier.PROFILE
-            + ")\ngamePath=@ByteArray(" + str(game or self.root / "Game") + ")\n" + extra).encode())
+            + ")\ngamePath=@ByteArray(" + (game or self.root / "Game").as_posix() + ")\n" + extra).encode())
 
     @staticmethod
     def codes(report):
@@ -209,10 +214,86 @@ class SkyrimNetTierTests(unittest.TestCase):
 
     def test_separate_instance_does_not_accept_baseline_redirect(self):
         self.prepare_fixture()
-        self.ini(extra="[Settings]\noverwrite_directory=" + str(self.root / "MO2/overwrite") + "\n")
+        self.ini(extra="[Settings]\noverwrite_directory=" + (self.root / "MO2/overwrite").as_posix() + "\n")
         self.assertIn("directory_redirect", self.codes(tier.preflight()))
         self.ini(game=self.root.parent / "Steam/Skyrim")
         self.assertIn("mo2_identity", self.codes(tier.preflight()))
+
+    def test_preflight_rejects_single_backslash_qt_paths(self):
+        self.prepare_fixture()
+        self.ini()
+        path = self.root / tier.INSTANCE / "ModOrganizer.ini"
+        raw = path.read_text()
+        path.write_text(raw.replace((self.root / "Game").as_posix(), str(self.root / "Game").replace("/", "\\")))
+        self.assertIn("mo2_ini", self.codes(tier.preflight()))
+        self.ini(extra="[Settings]\nmod_directory=" + str(self.root / tier.INSTANCE / "mods").replace("/", "\\") + "\n")
+        self.assertIn("mo2_ini", self.codes(tier.preflight()))
+
+    def test_preflight_rejects_even_correct_noncanonical_qt_escaped_backslashes(self):
+        self.prepare_fixture()
+        if os.name != "nt":
+            self.skipTest("Windows path semantics; decoder coverage runs independently on every host")
+        path = self.root / tier.INSTANCE / "ModOrganizer.ini"
+        raw = path.read_text()
+        path.write_text(raw.replace((self.root / "Game").as_posix(), str(self.root / "Game").replace("\\", "\\\\")))
+        self.assertIn("mo2_ini_seed", self.codes(tier.preflight()))
+
+    def test_preflight_rejects_explicit_empty_directory_overrides(self):
+        self.prepare_fixture()
+        for key in ("base_directory", "mod_directory", "profiles_directory", "overwrite_directory", "cache_directory"):
+            with self.subTest(key=key):
+                self.ini(extra="[Settings]\n" + key + "=\n")
+                self.assertIn("directory_redirect", self.codes(tier.preflight()))
+
+    def test_preflight_rejects_qt_section_and_encoded_key_aliases(self):
+        self.prepare_fixture()
+        for extra in ("[general]\ngamePath=@ByteArray(C:/Steam/Skyrim)\n",
+                      "%67amePath=@ByteArray(C:/Steam/Skyrim)\n",
+                      "game%50ath=@ByteArray(C:/Steam/Skyrim)\n",
+                      "Settings\\mod_directory=C:/Steam/mods\n",
+                      "Settings/mod_directory=C:/Steam/mods\n",
+                      "[Settings]\nmod%5Fdirectory=C:/Steam/mods\n",
+                      "[Settings]\nmod_directory=%BASE_DIR%/mods\n[settings]\nmod_directory=C:/Steam/mods\n",
+                      "[DEFAULT]\nmod_directory=C:/Steam/mods\n",
+                      "[Unknown]\nkey=value\n"):
+            with self.subTest(extra=extra):
+                self.ini(extra=extra)
+                self.assertIn("mo2_ini_seed", self.codes(tier.preflight()))
+
+    def test_preflight_rejects_noncanonical_mo2_encoding_delimiters_and_formatting(self):
+        self.prepare_fixture()
+        path = tier.INSTANCE + "/ModOrganizer.ini"
+        canonical = (self.root / path).read_bytes()
+        for raw in (canonical.decode("utf-8").encode("utf-16"), b"\xef\xbb\xbf" + canonical,
+                    canonical.replace(b"\n", b"\r\n"), canonical + b"\n# custom comment\n",
+                    canonical.replace(b"gamePath=", b"gamePath:"),
+                    canonical.replace(b"gamePath=", b"gamePath =")):
+            with self.subTest(raw_sha256=hashlib.sha256(raw).hexdigest()):
+                self.write(path, raw)
+                before = self.files()
+                report = tier.preflight()
+                self.assertIn("mo2_ini_seed", self.codes(report))
+                self.assertFalse(report["can_launch"])
+                self.assertEqual(self.files(), before)
+
+    def test_preflight_rejects_noncanonical_profile_settings_aliases_and_encodings(self):
+        self.prepare_fixture()
+        path = tier.INSTANCE + "/profiles/" + tier.PROFILE + "/settings.ini"
+        canonical = (self.root / path).read_bytes()
+        for raw in (canonical + b"[general]\nLocalSaves=false\nLocalSettings=false\n",
+                    canonical + b"%4cocalSaves=false\nLocal%53ettings=false\n",
+                    canonical.replace(b"LocalSaves=", b"LocalSaves:"),
+                    b"[DEFAULT]\nLocalSaves=true\nLocalSettings=true\n[General]\n",
+                    canonical + b"[Unknown]\nkey=value\n", canonical + b"# custom comment\n",
+                    canonical.decode("utf-8").encode("utf-16"), b"\xef\xbb\xbf" + canonical,
+                    canonical.replace(b"\n", b"\r\n")):
+            with self.subTest(raw_sha256=hashlib.sha256(raw).hexdigest()):
+                self.write(path, raw)
+                before = self.files()
+                report = tier.preflight()
+                self.assertIn("local_profile_seed", self.codes(report))
+                self.assertFalse(report["can_launch"])
+                self.assertEqual(self.files(), before)
 
     def test_unknown_mod_plugin_and_private_state_block(self):
         self.prepare_fixture()
@@ -1079,6 +1160,115 @@ tier.install(tier.installation_plan()['review_token'],process_probe=lambda:dict(
         with patch.object(tier, "collect", side_effect=ValueError("PRIVATE_ERROR_SENTINEL")), redirect_stderr(error):
             self.assertEqual(cli.main(["collect", "--run-id", "20261021T010001Z-" + "1" * 12]), 1)
         self.assertNotIn("PRIVATE_ERROR_SENTINEL", error.getvalue())
+
+
+class QtIniEncodingTests(unittest.TestCase):
+    def test_safe_literal_subset_matches_windows_path_and_byte_array_forms(self):
+        for encoded in ("C:/MGO/HoldMusic-SE-Lab/Game", "@ByteArray(C:/MGO/HoldMusic-SE-Lab/Game)",
+                        r"C:\\MGO\\HoldMusic-SE-Lab\\Game", r"@ByteArray(C:\\MGO\\HoldMusic-SE-Lab\\Game)"):
+            with self.subTest(encoded=encoded):
+                self.assertEqual(tier._qt_ini_string(encoded).replace("\\", "/"), "C:/MGO/HoldMusic-SE-Lab/Game")
+        self.assertEqual(tier._qt_ini_string("@ByteArray(" + tier.PROFILE + ")"), tier.PROFILE)
+
+    def test_ambiguous_qt_syntax_is_rejected_instead_of_differently_decoded(self):
+        for encoded in (r"C:\MGO\HoldMusic-SE-Lab\Game", r"@ByteArray(C:\MGO\HoldMusic-SE-Lab\Game)",
+                        "C:/Game\\", r"C:\\MGO\Game", r"C:/Game\n", r"C:/Game\x20", '"C:/Game"',
+                        "C:/Game,other", "C:/Game;comment", "@Variant(private)", "@ByteArray(unclosed", "bad\npath"):
+            with self.subTest(encoded=encoded), self.assertRaises(ValueError): tier._qt_ini_string(encoded)
+
+    def test_generator_uses_forward_slashes_for_every_qt_path(self):
+        root = Path(tempfile.gettempdir()).resolve() / "path fixture"
+        seed = tier._instance_seeds(root, dict(active_mods=[], enabled_plugins=[]))["ModOrganizer.ini"]
+        parsed = configparser.ConfigParser(interpolation=None); parsed.read_string(seed)
+        self.assertEqual(tier._qt_ini_string(parsed.get("General", "gamePath")), (root / "Game").as_posix())
+        self.assertNotIn("\\", seed)
+        for key, value in parsed.items("Settings"):
+            self.assertTrue(Path(tier._qt_ini_string(value)).is_relative_to(root / tier.INSTANCE), key)
+
+    @unittest.skipUnless(os.name == "nt" and os.environ.get("HOLD_MUSIC_TEST_QT_ROOT"),
+                         "Set HOLD_MUSIC_TEST_QT_ROOT to the pinned MO2 Qt6.7.1 distribution for native parser proof")
+    def test_real_qt_reads_generated_paths_and_exposes_old_single_backslash_bug(self):
+        root = Path(tempfile.gettempdir()).resolve() / "qt path fixture"
+        corrected = tier._instance_seeds(root, dict(active_mods=[], enabled_plugins=[]))["ModOrganizer.ini"]
+        old = corrected.replace(root.as_posix(), str(root)).replace("/", "\\")
+        with tempfile.TemporaryDirectory() as temporary:
+            paths = []
+            alias = corrected + "\n[general]\ngamePath=@ByteArray(C:/Steam/Skyrim)\n"
+            for name, text in (("old.ini", old), ("corrected.ini", corrected), ("alias.ini", alias)):
+                path = Path(temporary) / name; path.write_text(text, encoding="utf-8"); paths.append(path)
+            original = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
+            script = r'''
+import hashlib,json,os,sys
+from pathlib import Path
+root=Path(sys.argv[1]); handles=[os.add_dll_directory(str(root/'dlls')),os.add_dll_directory(str(root))]
+sys.path.insert(0,str(root/'plugins/plugin_python/libs'))
+from PyQt6.QtCore import QSettings,QByteArray,qVersion
+rows=[]
+for name in sys.argv[2:]:
+ settings=QSettings(name,QSettings.Format.IniFormat)
+ keys=['gamePath','Settings/base_directory','Settings/mod_directory','Settings/profiles_directory',
+       'Settings/overwrite_directory','Settings/download_directory','Settings/cache_directory']
+ values={}
+ for key in keys:
+  value=settings.value(key);values[key]=bytes(value).decode('utf-8') if isinstance(value,QByteArray) else value
+ rows.append(dict(values=values,status=settings.status().name));del settings
+print(json.dumps(dict(version=qVersion(),rows=rows)))
+'''
+            result = subprocess.run([sys.executable, "-B", "-X", "utf8", "-c", script,
+                os.environ["HOLD_MUSIC_TEST_QT_ROOT"], *map(str, paths)], check=True, capture_output=True,
+                text=True, timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
+            report = json.loads(result.stdout)
+            self.assertEqual(report["version"], "6.7.1")
+            self.assertEqual([row["status"] for row in report["rows"]], ["NoError", "NoError", "NoError"])
+            self.assertNotEqual(report["rows"][0]["values"]["gamePath"], str(root / "Game"))
+            parsed = configparser.ConfigParser(interpolation=None);parsed.read_string(corrected)
+            self.assertEqual(report["rows"][1]["values"], {"gamePath": (root / "Game").as_posix(),
+                **{"Settings/" + key: value for key, value in parsed.items("Settings")}})
+            self.assertEqual(report["rows"][2]["values"]["gamePath"], "C:/Steam/Skyrim")
+            self.assertEqual(original, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths})
+
+    @unittest.skipUnless(os.name == "nt" and os.environ.get("HOLD_MUSIC_TEST_QT_ROOT"),
+                         "Set HOLD_MUSIC_TEST_QT_ROOT to the pinned MO2 Qt6.7.1 distribution for native parser proof")
+    def test_real_qt_profile_aliases_and_encodings_require_canonical_bytes(self):
+        root = Path(tempfile.gettempdir()).resolve()
+        canonical = tier._instance_seeds(root, dict(active_mods=[], enabled_plugins=[]))[
+            "profiles/" + tier.PROFILE + "/settings.ini"]
+        cases = [canonical.encode("utf-8"),
+                 (canonical + "[general]\nLocalSaves=false\nLocalSettings=false\n").encode("utf-8"),
+                 (canonical + "%4cocalSaves=false\nLocal%53ettings=false\n").encode("utf-8"),
+                 canonical.replace("=", ":").encode("utf-8"), canonical.encode("utf-16")]
+        with tempfile.TemporaryDirectory() as temporary:
+            paths = [Path(temporary) / (str(index) + ".ini") for index in range(len(cases))]
+            for path, raw in zip(paths, cases): path.write_bytes(raw)
+            script = r'''
+import json,os,sys
+from pathlib import Path
+root=Path(sys.argv[1]); handles=[os.add_dll_directory(str(root/'dlls')),os.add_dll_directory(str(root))]
+sys.path.insert(0,str(root/'plugins/plugin_python/libs'))
+from PyQt6.QtCore import QSettings,qVersion
+rows=[]
+for name in sys.argv[2:]:
+ settings=QSettings(name,QSettings.Format.IniFormat)
+ rows.append(dict(local_saves=settings.value('LocalSaves',type=bool),
+                  local_settings=settings.value('LocalSettings',type=bool),
+                  present=[settings.contains(key) for key in ['LocalSaves','LocalSettings']],
+                  status=settings.status().name));del settings
+print(json.dumps(dict(version=qVersion(),rows=rows)))
+'''
+            result = subprocess.run([sys.executable, "-B", "-X", "utf8", "-c", script,
+                os.environ["HOLD_MUSIC_TEST_QT_ROOT"], *map(str, paths)], check=True, capture_output=True,
+                text=True, timeout=10, creationflags=subprocess.CREATE_NO_WINDOW)
+            report = json.loads(result.stdout)
+            self.assertEqual(report["version"], "6.7.1")
+            self.assertEqual(report["rows"][0], dict(local_saves=True, local_settings=True,
+                present=[True, True], status="NoError"))
+            for row in report["rows"][1:3]:
+                self.assertEqual(row, dict(local_saves=False, local_settings=False,
+                    present=[True, True], status="NoError"))
+            for row in report["rows"][3:]:
+                self.assertEqual(row["present"], [False, False])
+                self.assertEqual(row["status"], "FormatError")
+            self.assertEqual([path.read_bytes() for path in paths], cases)
 
 
 class NativeProcessObserverTests(unittest.TestCase):

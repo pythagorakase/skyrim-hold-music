@@ -40,6 +40,11 @@ The review token binds the run and launch document hashes, game identity,
 module paths/hashes, listeners, fixed route list and the new smoke module/tool
 hashes. Installation or launch tokens do not authorize collection.
 
+The pinned archive's Windows structural components (`mods`, `SKSE`, `plugins`)
+are recognized case-insensitively, including PrismaUI's shipped lowercase
+`plugins` directory. The exact pinned full physical path and file hash still
+must match; this does not permit guessing a physical path from a virtual path.
+
 `collect` repeats that review under the existing lab/tier writer locks. It makes
 one sequential GET per fixed category, with no retries. The only routes are
 `/config?api=get&name=` followed by one of:
@@ -66,6 +71,9 @@ one decimal Content-Length and identity encoding. Redirects, authentication
 errors, chunked/compressed responses, duplicate headers, malformed/duplicate-key
 JSON and nonfinite numbers fail closed. Unsupported response framing may require
 a separately reviewed extension; no automatic fallback is attempted.
+The exchange deadline is checked after the final live/listener probes, and the
+batch deadline after the final complete context recheck; slow identity probes
+cannot produce a successful observation outside those bounds.
 
 ## What the evidence means
 

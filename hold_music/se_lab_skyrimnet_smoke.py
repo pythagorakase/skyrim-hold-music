@@ -152,7 +152,10 @@ def _context(run_id, process_probe, module_probe, connection_probe):
         parts = Path(relative).parts
         name = parts[-1].casefold()
         if name in tier.NATIVE_DLLS:
-            if (len(parts) != 5 or parts[0] != "mods" or parts[2:4] != ("SKSE", "Plugins")
+            # These are Windows structural components, not reconstructed VFS
+            # paths. Keep the original pinned full path and hash below.
+            if (len(parts) != 5 or parts[0].casefold() != "mods"
+                    or tuple(part.casefold() for part in parts[2:4]) != ("skse", "plugins")
                     or name in expected or not isinstance(row, dict)
                     or not isinstance(row.get("sha256"), str)):
                 raise ValueError("Ambiguous pinned native module")
@@ -262,6 +265,7 @@ def _http_get(route, pid, deadline, verify_live, connection_probe):
             raise ValueError("Unexpected HTTP body length")
         verify_live()
         _listeners(connection_probe(), pid)
+        remaining()
         return body
 
 
@@ -315,6 +319,8 @@ def collect_smoke(run_id, review_token, *, process_probe=None, module_probe=None
             stable = after == binding
         except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
             stable = False
+        if time.monotonic() >= deadline:
+            failure = "bounded_observation_failed"
         complete = failure is None and stable and len(observations) == len(CHECKS)
         passed = complete and all(row["all_match"] for row in observations)
         report = dict(version=VERSION, tier=tier.TIER, operation="skyrimnet_smoke_capture", run_id=run_id,
