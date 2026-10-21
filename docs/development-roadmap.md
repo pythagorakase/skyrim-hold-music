@@ -57,8 +57,13 @@ and exact source snapshots are preserved. Matching official symbols identify
 MO2's unchecked `getenv("USERNAME")` in startup logging: the launch allowlist
 removed that required variable. The inherited-value correction and explicit
 Steam-edition seed pass 83 tests plus one expected Windows skip, including the
-actual Qt parser, and independent review. A new isolated installation is in
-progress; native SkyrimNet acceptance remains pending until a new launch.
+actual Qt parser, and independent review. The next launch passed that crash and
+stopped at a bundled Python plugin error before Skyrim: the restricted
+environment also omitted `ProgramW6432`. An audit of 270 bundled Python files
+and MO2/uibase core sources supports adding that variable and requiring
+nonempty, unambiguous `USERNAME`, `PATH` and `ProgramW6432` before launch.
+The third attempt's source, files and dialog evidence are retained; native
+SkyrimNet acceptance remains pending until a new launch.
 
 A separate [read-only native/config smoke collector](se-lab-skyrimnet-smoke.md)
 has passed 24 synthetic tests and independent review. It requires the exact

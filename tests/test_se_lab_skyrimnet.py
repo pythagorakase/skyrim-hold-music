@@ -13,7 +13,7 @@ import tempfile
 import time
 import unittest
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import zipfile
 
 from hold_music import se_lab_skyrimnet as tier
@@ -29,7 +29,8 @@ class SkyrimNetTierTests(unittest.TestCase):
         self.root.mkdir()
         self.addCleanup(patch.stopall)
         # The target is Windows, including when fake-tree tests run elsewhere.
-        patch.dict(os.environ, {"USERNAME": "fixture-user"}).start()
+        patch.dict(os.environ, {"USERNAME": "fixture-user", "PATH": "fixture-path",
+                                "ProgramW6432": "fixture-program-files"}).start()
         patch.object(tier, "LAB_ROOT", self.root).start()
         patch.object(tier.baseline, "_file_version", return_value="1.6.1170.0").start()
         patch.object(tier, "_ports_available", return_value=True).start()
@@ -111,7 +112,8 @@ class SkyrimNetTierTests(unittest.TestCase):
         self.write(tier.INSTANCE + "/portable.txt", b"")
         self.ini()
         self.write(prefix + "settings.ini", b"[General]\nLocalSaves=true\nLocalSettings=true\n")
-        self.write(prefix + "Skyrim.ini", b"[General]\nsLanguage=ENGLISH\n")
+        self.write(prefix + "Skyrim.ini", tier.SKYRIM_INI_SEED.encode("utf-8"))
+        self.write(prefix + "SkyrimCustom.ini", b"")
         self.write(prefix + "SkyrimPrefs.ini", b"[Display]\nbFull Screen=0\n")
         self.write(prefix + "modlist.txt", "".join("+" + name + "\n" for name in report["active_mods"]).encode())
         self.write(prefix + "plugins.txt", "".join("*" + name + "\n" for name in report["enabled_plugins"]).encode())
@@ -187,6 +189,28 @@ class SkyrimNetTierTests(unittest.TestCase):
                 self.assertEqual(report["status"], "blocked")
                 self.assertIn("mo2_ini_seed", self.codes(report))
                 self.assertEqual((self.root / relative).read_bytes(), raw)
+
+    def test_preflight_requires_exact_vendor_default_and_empty_custom_profile_seeds(self):
+        seeds = tier._instance_seeds(self.root, dict(active_mods=[], enabled_plugins=[]))
+        prefix = "profiles/" + tier.PROFILE + "/"
+        vendor = seeds[prefix + "Skyrim.ini"].encode("utf-8")
+        self.assertEqual(len(vendor), 1859)
+        self.assertEqual(hashlib.sha256(vendor).hexdigest(),
+                         "61c151bc60d5d737dad3d65a99a48d9bb8b50812b6b9f1f993323f0337813fa8")
+        self.assertEqual(seeds[prefix + "SkyrimCustom.ini"], "")
+        self.prepare_fixture()
+        for name, expected in (("Skyrim.ini", vendor), ("SkyrimCustom.ini", b"")):
+            path = self.root / tier.INSTANCE / prefix / name
+            for raw in (None, b"[General]\nsLanguage=ENGLISH\n", b"\xef\xbb\xbf" + expected):
+                with self.subTest(name=name, missing=raw is None):
+                    if raw is None: path.unlink()
+                    else: path.write_bytes(raw)
+                    before = self.files()
+                    report = tier.preflight()
+                    self.assertEqual(report["status"], "blocked")
+                    self.assertIn("profile_ini_seed", self.codes(report))
+                    self.assertEqual(before, self.files())
+                    path.write_bytes(expected)
 
     def test_pinned_archive_drift_rejected_before_payload_trust(self):
         self.archives[0]["path"].write_bytes(b"replaced")
@@ -377,24 +401,28 @@ class SkyrimNetTierTests(unittest.TestCase):
                 tier.preparation_plan()
 
     def test_clean_environment_has_no_inherited_keys_tokens_or_proxies(self):
-        source = {"SystemRoot": r"C:\Windows", "PATH": "fixture-path", "APPDATA": "fixture-appdata",
-                  "uSeRnAmE": "exact fixture user",
+        source = {"SystemRoot": r"C:\Windows", "pAtH": "fixture-path", "APPDATA": "fixture-appdata",
+                  "uSeRnAmE": "exact fixture user", "pRoGrAmW6432": "exact fixture program files",
                   "OPENROUTER_API_KEY": "secret-a", "AWS_SECRET_ACCESS_KEY": "secret-b",
                   "HTTP_PROXY": "private-proxy", "UNKNOWN_SECRET": "secret-c", "SteamAppId": "611670"}
         clean = tier.clean_launch_environment(source)
         self.assertEqual(clean, {"SystemRoot": r"C:\Windows", "PATH": "fixture-path", "APPDATA": "fixture-appdata",
-                                 "USERNAME": "exact fixture user",
+                                 "USERNAME": "exact fixture user", "ProgramW6432": "exact fixture program files",
                                  "SteamAppId": "489830", "SteamGameId": "489830"})
         self.assertEqual(source["SteamAppId"], "611670")
         self.assertNotIn("USERNAME", source)
 
-    def test_clean_environment_rejects_missing_empty_and_ambiguous_username(self):
-        for source in ({}, {"USERNAME": ""}, {"USERNAME": None}, {"USERNAME": "PRIVATE\0VALUE"},
-                       {"USERNAME": "PRIVATE_A", "username": "PRIVATE_B"},
-                       {"USERNAME": "PRIVATE_A", "UserName": "PRIVATE_A"}):
-            with self.subTest(names=sorted(source)), self.assertRaisesRegex(ValueError, "USERNAME") as error:
-                tier.clean_launch_environment(source)
-            self.assertNotIn("PRIVATE", str(error.exception))
+    def test_clean_environment_rejects_missing_empty_and_ambiguous_required_values(self):
+        for name in ("USERNAME", "PATH", "ProgramW6432"):
+            base = dict(USERNAME="fixture-user", PATH="fixture-path", ProgramW6432="fixture-program")
+            base.pop(name)
+            for value in ({}, {name: ""}, {name: None}, {name: "PRIVATE\0VALUE"},
+                          {name: "PRIVATE_A", name.swapcase(): "PRIVATE_B"},
+                          {name: "PRIVATE_A", name.swapcase(): "PRIVATE_A"}):
+                source = {**base, **value}
+                with self.subTest(required=name, names=sorted(source)), self.assertRaisesRegex(ValueError, name) as error:
+                    tier.clean_launch_environment(source)
+                self.assertNotIn("PRIVATE", str(error.exception))
 
     def test_alias_rejected_without_following_target(self):
         destination = self.root / "Game/Data/aliased"
@@ -989,21 +1017,21 @@ tier.install(tier.installation_plan()['review_token'],process_probe=lambda:dict(
         with self.assertRaisesRegex(ValueError, "attempt already"):
             tier.launch_plan(references)
 
-    def test_launch_rejects_missing_empty_or_changed_username_before_attempt(self):
+    def test_launch_rejects_missing_empty_or_changed_required_environment_before_attempt(self):
         references = self.runtime_fixture()
         plan = tier.launch_plan(references)
         source = dict(os.environ)
-        source.pop("USERNAME", None)
-        for username in (None, "", "PRIVATE_CHANGED_USERNAME"):
-            environment = dict(source)
-            if username is not None: environment["USERNAME"] = username
-            with self.subTest(username_present=username is not None), patch.dict(os.environ, environment, clear=True), \
-                    patch.object(tier.baseline, "_require_windows"), patch.object(tier.subprocess, "Popen") as spawn:
-                with self.assertRaises(ValueError) as error:
-                    tier.launch(references, plan["review_token"], process_probe=self.closed)
-                spawn.assert_not_called()
-                self.assertNotIn("PRIVATE_CHANGED_USERNAME", str(error.exception))
-                self.assertFalse((self.root / tier.RUNTIME_CONTROL).exists())
+        for name in ("USERNAME", "PATH", "ProgramW6432"):
+            for value in (None, "", "PRIVATE_CHANGED_VALUE"):
+                environment = {key: old for key, old in source.items() if key.casefold() != name.casefold()}
+                if value is not None: environment[name] = value
+                with self.subTest(required=name, present=value is not None), patch.dict(os.environ, environment, clear=True), \
+                        patch.object(tier.baseline, "_require_windows"), patch.object(tier.subprocess, "Popen") as spawn:
+                    with self.assertRaises(ValueError) as error:
+                        tier.launch(references, plan["review_token"], process_probe=self.closed)
+                    spawn.assert_not_called()
+                    self.assertNotIn("PRIVATE_CHANGED_VALUE", str(error.exception))
+                    self.assertFalse((self.root / tier.RUNTIME_CONTROL).exists())
 
     def test_process_lineage_refuses_missing_loader_foreign_parent_old_and_reused_pid(self):
         references = self.runtime_fixture()
@@ -1212,6 +1240,37 @@ tier.install(tier.installation_plan()['review_token'],process_probe=lambda:dict(
 
 
 class QtIniEncodingTests(unittest.TestCase):
+    @unittest.skipUnless(os.name == "nt" and os.environ.get("HOLD_MUSIC_TEST_QT_ROOT"),
+                         "Set HOLD_MUSIC_TEST_QT_ROOT to the pinned MO2 distribution for bundled-source proof")
+    def test_bundled_ea_scan_requires_retained_programw6432_without_private_reads(self):
+        source = (Path(os.environ["HOLD_MUSIC_TEST_QT_ROOT"])
+                  / "plugins/basic_games/eadesktop_utils.py").read_bytes()
+        self.assertEqual(hashlib.sha256(source).hexdigest(),
+                         "5ba876d0565705bdc17025f6cb9055b365e8b0c355842aaf4eb73cba2985ed8f")
+        namespace = {"__name__": "isolated_bundled_source_test"}
+        exec(compile(source, "bundled/eadesktop_utils.py", "exec"), namespace)
+        clean = tier.clean_launch_environment(dict(USERNAME="fixture-user", PATH="fixture-path",
+            ProgramW6432="fixture-program", LOCALAPPDATA="fixture-local"))
+        for retained in (False, True):
+            settings = Mock(); settings.exists.return_value = True
+            settings.glob.return_value = ["synthetic.ini"]
+            local = Mock(); local.joinpath.return_value = settings
+            install = Mock(); install.exists.return_value = False
+            program = Mock(); program.__truediv__ = Mock(return_value=install)
+            paths = Mock(side_effect=[local, program])
+            environment = dict(clean)
+            if not retained: environment.pop("ProgramW6432")
+            with self.subTest(retained=retained), patch.dict(os.environ, environment, clear=True), \
+                    patch.dict(namespace, {"Path": paths}), \
+                    patch("builtins.open", return_value=io.StringIO("user.other=true\n")) as opened:
+                if retained:
+                    self.assertEqual(namespace["find_games"](), {})
+                    self.assertEqual(paths.call_args_list[1].args, ("fixture-program",))
+                else:
+                    with self.assertRaisesRegex(KeyError, "ProgramW6432"):
+                        namespace["find_games"]()
+                opened.assert_called_once_with("synthetic.ini")
+
     def test_safe_literal_subset_matches_windows_path_and_byte_array_forms(self):
         for encoded in ("C:/MGO/HoldMusic-SE-Lab/Game", "@ByteArray(C:/MGO/HoldMusic-SE-Lab/Game)",
                         r"C:\\MGO\\HoldMusic-SE-Lab\\Game", r"@ByteArray(C:\\MGO\\HoldMusic-SE-Lab\\Game)"):

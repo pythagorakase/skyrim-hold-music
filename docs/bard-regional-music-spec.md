@@ -214,8 +214,14 @@ passed but reproduced the same early MO2 crash before Skyrim. Both attempts are
 preserved. Matching official symbols identify an omitted `USERNAME` launch
 variable causing MO2's startup logger to dereference null. The inherited-value
 correction and explicit Steam-edition seed pass the full 84-case suite (one
-expected Windows skip) and independent review. Native SkyrimNet compatibility
-remains unverified until the next isolated launch and observations.
+expected Windows skip) and independent review. The next launch passed that
+native crash and stopped before Skyrim at a bundled plugin's missing
+`ProgramW6432` requirement. Its exact source and complete instance are retained.
+The next seed also supplies the profile's required empty `SkyrimCustom.ini`
+and the pinned shipped Skyrim INI defaults; these avoid a source-confirmed MO2
+repair dialog and preserve the known baseline's vendor startup settings.
+Native SkyrimNet compatibility remains unverified until the next isolated
+launch and observations. No musical recipes or listening decisions change.
 
 The separate [native/config smoke collector](se-lab-skyrimnet-smoke.md) adds
 bounded, read-only GET checks after exact process, module and listener

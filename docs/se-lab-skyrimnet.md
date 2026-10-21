@@ -100,8 +100,8 @@ or account state into the lab. See the
 ordered mod/plugin/loadorder lists, local saves/settings, fixed game/profile
 and directory configuration, and disabled config winners. Extra mod/overwrite
 files, auth files, databases, old saves, altered hashes, aliases and redirects
-block it. Profiles contain their own Skyrim.ini and SkyrimPrefs.ini; optional
-SkyrimCustom.ini is observed. The first-boot contract intentionally rejects
+block it. Profiles contain their own SkyrimPrefs.ini, the exact vendor
+Skyrim.ini seed and a required empty SkyrimCustom.ini. The first-boot contract intentionally rejects
 generated/changed configs and runtime data after a launch; a later runtime
 collector must interpret those changes rather than weakening this check.
 
@@ -113,14 +113,27 @@ start time to the exact launched lab game. A port number alone proves nothing.
 
 `clean_launch_environment()` is an allowlist helper for the explicit
 launcher: OS paths survive, arbitrary credential/proxy variables do not, and
-Steam app/game IDs are pinned to 489830. The exact inherited `USERNAME` is
-required and passed under that canonical name: MO2 2.5.2's
+Steam app/game IDs are pinned to 489830. The exact inherited `USERNAME`, `PATH`
+and `ProgramW6432` values are required and passed under those canonical names.
+MO2 2.5.2's
 [logging initializer](https://github.com/ModOrganizer2/modorganizer/blob/v2.5.2/src/loglist.cpp#L371)
-uses it without checking for a missing value. Missing, empty, NUL-containing or
-case-ambiguous values fail before launch; no fallback identity is invented.
+uses `USERNAME` without checking for a missing value. The pinned application's
+`plugins/plugin_python/libs/PyQt6/__init__.py:30` directly reads `PATH`, and
+`plugins/basic_games/eadesktop_utils.py:45` directly reads `ProgramW6432` when an
+EA settings file omits its download directory. That scan runs from
+`BasicGame.setup()` during plugin import even when Skyrim is selected.
+Missing, empty, NUL-containing or case-ambiguous required values fail before
+review or launch; no fallback identity or directory is invented.
 The helper does not mutate the caller's
 environment. Reports disclose names of retained variables, never their values.
 The launcher passes this environment explicitly to the separate MO2 executable.
+The bundled-source audit parsed all 270 application Python files and checked
+embedded Windows path handling plus MO2/uibase 2.5.2 native environment access.
+Other observed OS-path inputs are already retained; optional debug, Python,
+provider and proxy variables stay excluded. This bounds the audit to the
+inspected source, rather than asserting every native dependency has no further
+environment requirements. The bundled EA regression uses a pinned source hash
+and mocked settings/path access; it never reads real EA account configuration.
 
 The original inspection reports keep `can_apply` false. Installation/recovery
 reviews can report `can_apply=true`, meaning only that their explicit file action
@@ -287,6 +300,20 @@ claim that its complete source was matched to the shipped DLL.
 The seed leaves `first_start`, `version` and custom executables absent: the
 [direct CLI run path](https://github.com/ModOrganizer2/modorganizer/blob/v2.5.2/src/main.cpp#L121)
 returns before the main window's tutorial and version-migration handling.
+The fresh profile also includes all three Skyrim INIs. Its `Skyrim.ini` is an
+immutable copy of the clean lab game's public `Skyrim_Default.ini`: 1,859 bytes,
+SHA-256 `61c151bc60d5d737dad3d65a99a48d9bb8b50812b6b9f1f993323f0337813fa8`,
+including its original CRLF endings, archive lists and DLC entries. Generation
+reads no existing user profile. The separate windowed `SkyrimPrefs.ini` stays
+minimal, and `SkyrimCustom.ini` is empty. First-boot preflight requires exact
+vendor/default and empty-custom seed bytes; it never repairs mismatches.
+The [SE plugin's INI list](https://github.com/ModOrganizer2/modorganizer-game_skyrimSE/blob/82ac42f83f717b4884c8c551cb67b545e15177bc/src/gameskyrimse.cpp#L281)
+includes `SkyrimCustom.ini`, and
+[MO2's profile check](https://github.com/ModOrganizer2/modorganizer/blob/v2.5.2/src/profile.cpp#L884)
+copies configuration and shows a warning when a listed file is absent, including
+on the direct CLI setup path. Empty custom-file presence avoids that branch.
+Default-file parity and source inspection establish the preparation contract;
+they do not establish successful game startup or effective runtime settings.
 Only fixed `MO2-SkyrimNet/ModOrganizer.exe`, the disabled profile and fixed lab
 SKSE loader are dispatched. The observation timeout is finite, 1–60 seconds;
 it never kills a process or repeats a launch. Any retained attempt, including an
@@ -326,11 +353,16 @@ capture. Captures are new files under `.skyrimnet-tier-runtime/captures`; they
 never replace runtime state or original baseline evidence. Local metadata is
 not proof that a plugin initialized or accepted a configuration.
 
-No HTTP/MCP client is implemented in this checkpoint. `native_verified`,
-`effective_config_verified`, `vfs_verified`, `runtime_verified` and
-`egress_verified` remain false even when launch ancestry is attributed. Native
-loading, effective disabled settings, write destinations and listener ownership
-still need a separate bounded smoke test before any enabled AI pathway.
+This base launcher and local collector make no HTTP/MCP calls. Their
+`native_verified`, `effective_config_verified`, `vfs_verified`,
+`runtime_verified` and `egress_verified` flags remain false even when launch
+ancestry is attributed. Separate tools now provide bounded
+[disabled-config smoke observation](se-lab-skyrimnet-smoke.md),
+[routing inspection](se-lab-skyrimnet-routing.md), and
+[MCP discovery](se-lab-mcp-discovery.md). Each requires its own reviewed evidence
+and operation token; their implementation does not establish a successful live
+run. Native loading, effective settings and listener ownership still need
+actual smoke evidence before any enabled AI pathway.
 
 The disabled configuration and absent credentials supply no provider billing
 authority; they are not independent proof of zero network egress. Windows

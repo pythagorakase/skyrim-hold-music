@@ -5,7 +5,110 @@ Continue until 08:00 America/Chicago on 21 October, then summarize and pause the
 `hold-music-offline-overnight-development` heartbeat. The old Echo watcher stays
 paused. The former Steam-use deferral is lifted for the isolated lab only.
 
-## Current checkpoint (04:24 CDT)
+## Current checkpoint (05:00 CDT)
+
+- The final tier suite passed 86 cases: 85 passed and one expected Windows
+  symlink-permission skip, in 481.318 seconds. Both actual Qt checks and the
+  pinned bundled-EA regression ran. Log SHA256:
+  `6921d8e040ba3008a13e4394b62b075834d13c2017b75c96b9b2bfe165b5c3b2`.
+  The frozen implementation remains `f085e72a...93ac40b`.
+- Installation `05164efc80de4f3a839c0a299acb41b2` completed
+  `installed_disabled`; `protected_changed_since_install=false`.
+  Post-install preflight returned `prepared_files_verified`, 3,939 selected
+  payload files and no blockers. The exact vendor/default/empty custom INI
+  hashes were independently checked in the installed profile. Receipt SHA256:
+  `f836d3535fbe9c2e0308544c6b8bd7e84b7f4957c727db1e00ea3cf0757e42a3`.
+- Prelaunch shared log evidence is retained under
+  `checkpoints/skyrimnet-profile-ready-shared-logs-before-20261021/`; the
+  earlier logs are unchanged and SkyrimNet.log is still absent. The launch
+  review is in progress. No live HTTP/MCP/provider request has occurred.
+
+### Reviewed startup correction (04:54 CDT)
+
+- The final environment/profile correction is frozen at module SHA256
+  `f085e72a2f71d980a2a88ce5e4148f8c4d7c12620bd7e67faed2a4b3193ac40b`.
+  Independent final profile/edition/Qt/EA checks passed 5/5 with no skips;
+  generated `Skyrim.ini` bytes equal the clean vendor file, `SkyrimCustom.ini`
+  is empty, and blocked-read tests prove seed generation imports no profile.
+  No autorun or baseline-only Launcher field is added.
+- The three observation suites pass against that source: 80 tests in 4.978s,
+  log SHA256
+  `da60bbc94ad9589ebf44fa3002ed02e69da3f722acf9b6f311a34af4fe47ed46`.
+  The final 86-case tier suite is running; its completion is required before
+  launch. The new installation plan has no blockers and covers 5,573 files;
+  explicit installation is in progress. No live endpoint call has occurred.
+
+### Retained third attempt (04:51 CDT)
+
+- Third-attempt retention completed `retained_verified`, with protected paths
+  unchanged: 5,595 instance files, two install files and four runtime files now
+  remain under `checkpoints/skyrimnet-programw6432-failed-attempt-20261021/`.
+  The original `cb79d30` source archive is SHA256
+  `7db79d2950416ec64b4a726a0b5571d7e75a21cf763a62824d08c5328e919559`;
+  all ten raw source snapshots match the run, with archive differences limited
+  to CRLF/LF normalization. The retention helper passed 12 fixture tests twice,
+  including exact confirmed-cleanup identity requirements.
+- The three-variable environment repair passed five focused tests independently,
+  including the bundled EA-source reproduction. A broader source audit found
+  that MO2's direct CLI setup also checks for `SkyrimCustom.ini` when local INIs
+  are enabled. An absent file triggers configuration copying and a warning;
+  an empty file satisfies the check. The new seed will provide an empty file
+  and reject missing/changed initial bytes before launching.
+- The corrected profile will use the exact clean shipped `Skyrim_Default.ini`
+  content (1,859 bytes, SHA256
+  `61c151bc60d5d737dad3d65a99a48d9bb8b50812b6b9f1f993323f0337813fa8`)
+  as its `Skyrim.ini`. This preserves the vendor DLC/archive entries also used
+  by the successful baseline. It adds no baseline-only autorun/debug settings
+  or shared-profile imports. The prior minimal seed's engine fallback behavior
+  is unverified. Minimal windowed preferences remain unchanged.
+- Full tests for the environment-only intermediate change were intentionally
+  stopped when the profile findings arrived; their partial log is retained,
+  not reported as a test failure or completed suite. The final combined change
+  will receive fresh focused and full checks before installation.
+
+### Third startup diagnosis (04:43 CDT)
+
+- Third launch `20261021T093337Z-4ff5fdf6348c` gets past the original native
+  crash and initializes MO2 logging/plugins. It stops on the bundled
+  `basic_games` plugin's `KeyError: 'ProgramW6432'`, before a game process
+  starts. Read-only accessibility inspection identified the exact error; no
+  dialog input was sent. The recorded MO2 PID 35276 was closed through the
+  reviewed same-handle identity/termination helper, with exit confirmed.
+- Capture `e471f994f689462883f1ad234c73df85` is
+  `incomplete_process_evidence`, with protected paths unchanged, 24 changed
+  files and zero private runtime files. The ten exact implementation files,
+  run/launch evidence and dialog projection are retained under
+  `checkpoints/skyrimnet-startup-dialog-20261021/`. Before/after shared log
+  hashes and timestamps are identical; no SkyrimNet log exists.
+- Two independent audits cover all 270 bundled Python files and official
+  MO2/uibase v2.5.2 core sources. The only additional missing startup variable
+  found is `ProgramW6432`, directly indexed by unconditional EA discovery
+  during the bundled plugin import. A fully mocked source reproduction
+  confirms that failure without reading actual launcher settings.
+  `USERNAME` and `PATH` are the other direct requirements; `COMSPEC` has a
+  native fallback. The next correction adds only `ProgramW6432` and validates
+  these three values before launch. Credentials, proxy settings and Python
+  overrides stay excluded. This bounded audit does not cover every native DLL.
+- No HTTP, MCP, provider or paid generation request has occurred. Full retention
+  of this third instance and the corrected-environment tests are in progress.
+
+### Corrected startup installation (04:29 CDT)
+
+- Startup fix checkpoint `c738aa2` is synchronized on Halcyon, GitHub and clean
+  Echo; identical-tree local `cb79d30` is retained on
+  `checkpoint/se-lab-startup-20261021-0426`. Four focused environment/edition
+  tests also pass on Echo's Python3.13.
+- New installation `f5e6692b7c224e9eb94fe159329d35b9` completed
+  `installed_disabled`, with protected paths unchanged. Post-install preflight
+  returned `prepared_files_verified`: 3,939 selected files, no blockers, expected
+  ports available. The installed canonical INI explicitly selects Steam and
+  retains Qt-safe paths. Shared logs are archived under
+  `checkpoints/skyrimnet-startup-shared-logs-before-20261021/`; their contents
+  still match the previous baseline and SkyrimNet.log remains absent.
+- First boot under the corrected environment is next. Its review binds the
+  three accepted baseline captures. No live HTTP/MCP/provider call has occurred.
+
+### Accepted correction checkpoint (04:24 CDT)
 
 - Second retention completed `retained_verified`: all three directories, 5,573
   instance files, raw journals and original `327cc4f` source archive are intact

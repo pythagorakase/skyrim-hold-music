@@ -54,6 +54,76 @@ MO2_ARCHIVE = dict(path=Path(r"C:\MGO\download\Mod.Organizer-2.5.2.7z"),
     kind="tar", prefixes=("",))
 CONTROL = ".skyrimnet-tier-install"
 INSTALL_VERSION = 1
+
+# Exact public Game/Skyrim_Default.ini from the pinned SE 1.6.1170 lab.
+# 1859 bytes, SHA256 61c151bc60d5d737dad3d65a99a48d9bb8b50812b6b9f1f993323f0337813fa8.
+# Keep CRLF bytes without reading any shared profile at seed-generation time.
+SKYRIM_INI_SEED = (
+    '[General]\r\n'
+    'sLanguage=ENGLISH\r\n'
+    'sTestFile1=Dawnguard.esm\r\n'
+    'sTestFile2=HearthFires.esm\r\n'
+    'sTestFile3=Dragonborn.esm\r\n'
+    '\r\n'
+    'uExterior Cell Buffer=36\r\n'
+    '\r\n'
+    '[Display]\r\n'
+    'fShadowLODMaxStartFade=1000.0\r\n'
+    'fSpecularLODMaxStartFade=2000.0\r\n'
+    'fLightLODMaxStartFade=3500.0\r\n'
+    'fLightLODStartFade=3500.0\r\n'
+    'iShadowMapResolutionPrimary=2048\r\n'
+    'bAllowScreenshot=1\r\n'
+    'fTreesMidLODSwitchDist=9999999.0000\r\n'
+    'fFirstSliceDistance=2000.0000\r\n'
+    'fDynamicDOFFarBlur=0.4\r\n'
+    'fDDOFFocusCenterweightExt=2\r\n'
+    'fDOFMaxDepthParticipation=10000\r\n'
+    '\r\n'
+    '[Audio]\r\n'
+    'fMusicDuckingSeconds=6.0\r\n'
+    'fMusicUnDuckingSeconds=8.0\r\n'
+    'fMenuModeFadeOutTime=3.0\r\n'
+    'fMenuModeFadeInTime=1.0\r\n'
+    '\r\n'
+    '[Grass]\r\n'
+    'bAllowCreateGrass=1\r\n'
+    'bAllowLoadGrass=0\r\n'
+    'fGrassMaxStartFadeDistance=7000.0000\r\n'
+    'fGrassMinStartFadeDistance=0.0000\r\n'
+    '\r\n'
+    '[Decals]\r\n'
+    'uMaxSkinDecalPerActor=60\r\n'
+    '\r\n'
+    '[LightingShader]\r\n'
+    'fDecalLODFadeStart=0.45\r\n'
+    'fDecalLODFadeEnd=0.5\r\n'
+    '\r\n'
+    '[Imagespace]\r\n'
+    'iRadialBlurLevel=2\r\n'
+    '\r\n'
+    '[GeneralWarnings]\r\n'
+    'SGeneralMasterMismatchWarning=One or more plugins could not find the correct versions of the master files they depend on. Errors may occur during load or game play. Check the "Warnings.txt" file for more information.\r\n'
+    '\r\n'
+    '[Archive]\r\n'
+    'sResourceArchiveList=Skyrim - Misc.bsa, Skyrim - Shaders.bsa, Skyrim - Interface.bsa, Skyrim - Animations.bsa, Skyrim - Meshes0.bsa, Skyrim - Meshes1.bsa, Skyrim - Sounds.bsa\r\n'
+    'sResourceArchiveList2=Skyrim - Voices_en0.bsa, Skyrim - Textures0.bsa, Skyrim - Textures1.bsa, Skyrim - Textures2.bsa, Skyrim - Textures3.bsa, Skyrim - Textures4.bsa, Skyrim - Textures5.bsa, Skyrim - Textures6.bsa, Skyrim - Textures7.bsa, Skyrim - Textures8.bsa, Skyrim - Patch.bsa\r\n'
+    'bLoadArchiveInMemory=1\r\n'
+    'sArchiveToLoadInMemoryList=Skyrim - Animations.bsa\r\n'
+    '\r\n'
+    '[Combat]\r\n'
+    'fMagnetismStrafeHeadingMult=0.0\r\n'
+    'fMagnetismLookingMult=0.0\r\n'
+    '\r\n'
+    '[Actor]\r\n'
+    'bUseNavMeshForMovement=0\r\n'
+    '\r\n'
+    '[Papyrus]\r\n'
+    'fPostLoadUpdateTimeMS=500.0\r\n'
+    'bEnableLogging=0\r\n'
+    'bEnableTrace=0\r\n'
+    'bLoadDebugInformation=0\r\n'
+)
 ARCHIVES = (
     dict(mod="SkyrimNet beta26-rc4 Clean", path=REPO / "local/se-lab-downloads/skyrimnet-beta26-rc4.zip",
          sha256="6b1646d52d10f71b938d09b55bb766b57af517ece11ea174b646d0a1a51fbcef", kind="zip", prefixes=("",)),
@@ -84,19 +154,22 @@ def clean_launch_environment(environment=None):
     Values are intentionally excluded from public reports.
     """
     environment = os.environ if environment is None else environment
-    # MO2 2.5.2 initLogging() concatenates getenv("USERNAME") without a null
-    # check. Preserve exactly one inherited value under its canonical Windows
-    # name; do not invent one from a path or accept ambiguous casing aliases.
-    usernames = [value for key, value in environment.items() if key.casefold() == "username"]
-    if (len(usernames) != 1 or not isinstance(usernames[0], str)
-            or not usernames[0] or "\0" in usernames[0]):
-        raise ValueError("One nonempty inherited USERNAME is required for MO2 startup")
+    # MO2 logging, PyQt discovery and the bundled EA-library scan directly read
+    # these names. Preserve exactly one inherited value per canonical name;
+    # do not invent paths or accept ambiguous Windows casing aliases.
+    required = {}
+    for name in ("USERNAME", "PATH", "ProgramW6432"):
+        values = [value for key, value in environment.items() if key.casefold() == name.casefold()]
+        if (len(values) != 1 or not isinstance(values[0], str)
+                or not values[0] or "\0" in values[0]):
+            raise ValueError("One nonempty inherited " + name + " is required for MO2 startup")
+        required[name] = values[0]
     allowed = {"systemroot", "windir", "comspec", "temp", "tmp", "userprofile",
                "appdata", "localappdata", "programdata", "programfiles",
                "programfiles(x86)", "commonprogramfiles", "commonprogramfiles(x86)",
-               "path", "pathext", "systemdrive", "homedrive", "homepath"}
+               "pathext", "systemdrive", "homedrive", "homepath"}
     result = {key: value for key, value in environment.items() if key.casefold() in allowed}
-    result.update(USERNAME=usernames[0], SteamAppId="489830", SteamGameId="489830")
+    result.update(required, SteamAppId="489830", SteamGameId="489830")
     return result
 
 
@@ -417,7 +490,10 @@ def _inspect(prepared):
         for name in ("Skyrim.ini", "SkyrimPrefs.ini"):
             if not snapshot.read(profile / name)["exists"]:
                 block("profile_ini", "Missing local profile INI: " + name)
-        snapshot.read(profile / "SkyrimCustom.ini")
+        for name in ("Skyrim.ini", "SkyrimCustom.ini"):
+            _, raw = snapshot.read(profile / name, content=True)
+            if raw != instance_seeds["profiles/" + PROFILE + "/" + name].encode("utf-8"):
+                block("profile_ini_seed", "Initial local profile INI must exactly match its seed: " + name)
         for name, expected, marker in (("modlist.txt", active, "+"), ("plugins.txt", expected_plugins, "*"),
                                         ("loadorder.txt", expected_plugins, "")):
             _, raw = snapshot.read(profile / name, content=True)
@@ -534,7 +610,8 @@ def _instance_seeds(root, recipe):
                 ("overwrite_directory", "overwrite"), ("download_directory", "downloads"),
                 ("cache_directory", "webcache"))) + "\n",
         profile + "settings.ini": "[General]\nLocalSaves=true\nLocalSettings=true\n",
-        profile + "Skyrim.ini": "[General]\nsLanguage=ENGLISH\n",
+        profile + "Skyrim.ini": SKYRIM_INI_SEED,
+        profile + "SkyrimCustom.ini": "",
         profile + "SkyrimPrefs.ini": "[Display]\nbFull Screen=0\nbBorderless=0\niSize W=1280\niSize H=720\n",
         profile + "modlist.txt": "".join("+" + value + "\n" for value in recipe["active_mods"]),
         profile + "plugins.txt": "".join("*" + value + "\n" for value in recipe["enabled_plugins"]),
