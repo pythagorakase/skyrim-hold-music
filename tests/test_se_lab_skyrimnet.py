@@ -160,7 +160,7 @@ class SkyrimNetTierTests(unittest.TestCase):
         self.assertFalse(report["egress_verified"])
         self.assertFalse(report["runtime_verified"])
         self.assertFalse(report["writes_performed"])
-        self.assertEqual(report["tier"], "skyrimnet-beta26-rc4-qasmoke-disabled-v2")
+        self.assertEqual(report["tier"], "skyrimnet-beta26-rc4-qasmoke-disabled-v3")
         self.assertEqual(report["startup_intent"], tier.STARTUP_INTENT)
         self.assertFalse(any("ignored" in row["path"] for row in report["files"]))
         seeds = {row["virtual_path"]: json.loads(row["text"]) for row in report["configuration_seeds"]
@@ -366,11 +366,12 @@ class SkyrimNetTierTests(unittest.TestCase):
     def test_startup_models_require_exact_catalog_no_sidecars_and_correct_winners(self):
         self.prepare_fixture()
         report = tier.preflight()
+        self.assertEqual(len(report["model_winners"]), 4)
         self.assertEqual(set(report["model_winners"]), set(self.model_files))
         for relative, winner in report["model_winners"].items():
             self.assertEqual(winner["sha256"], self.model_catalog[relative]["sha256"])
             self.assertIn(tier.STARTUP_MODEL_MOD, winner["path"])
-        relative = next(iter(self.model_files))
+        relative = "SKSE/Plugins/SkyrimNet/models/ggml-skyrim-small.bin"
         shadow = tier.INSTANCE + "/mods/" + tier.CONFIG_MOD + "/" + relative
         self.write(shadow, self.model_files[relative])
         self.assertIn("model_winner", self.codes(tier.preflight()))
@@ -379,6 +380,31 @@ class SkyrimNetTierTests(unittest.TestCase):
         path.write_bytes(b"altered-model")
         self.assertIn("file_hash", self.codes(tier.preflight()))
         self.assertIn("model_winner", self.codes(tier.preflight()))
+
+    def test_fourth_startup_model_cannot_be_missing_substituted_or_sidecar_verified(self):
+        spec = self.archives[-1]
+        relative = "SKSE/Plugins/SkyrimNet/models/ggml-skyrim-small.bin"
+        self.assertIn(relative, self.model_files)
+        self.assertEqual(len(self.model_files), 4)
+        for case in ("previous_three_file_cache", "wrong_model", "wrong_destination", "verified_sidecar"):
+            members = dict(self.model_files)
+            if case == "previous_three_file_cache":
+                members.pop(relative)
+            elif case == "wrong_model":
+                members[relative] = b"different-whisper-model"
+            elif case == "wrong_destination":
+                members[relative.replace("ggml-skyrim-small.bin", "ggml-skyrim-whisper-small.bin")] = members.pop(relative)
+            else:
+                members[relative + ".verified"] = b"previous-native-verification"
+            with self.subTest(case=case):
+                with zipfile.ZipFile(spec["path"], "w") as archive:
+                    for name, raw in members.items(): archive.writestr(name, raw)
+                spec.update(sha256=hashlib.sha256(spec["path"].read_bytes()).hexdigest(),
+                            size=spec["path"].stat().st_size)
+                before = self.files()
+                with self.assertRaisesRegex(ValueError, "(catalog|Fixed archive)"):
+                    tier.preparation_plan()
+                self.assertEqual(before, self.files())
 
     def test_model_archive_rejects_wrong_missing_extra_and_verified_sidecar_members(self):
         spec = self.archives[-1]

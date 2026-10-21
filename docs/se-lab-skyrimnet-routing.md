@@ -103,10 +103,12 @@ diagnostic needs its own reviewed selector, exact model/provider binding and
 protocol checks; this collector cannot authorize it.
 
 Required missing values stay incomplete unless an exact scoped schema field
-establishes a correctly typed default for a supported scalar. UI display defaults
-are not adopted. Base and variant endpoint/credential fields, key-loan state and
-every passthrough field require explicit observed values; schema defaults cannot
-establish them. Oversized provider
+establishes a correctly typed default for a supported scalar, or the pinned
+native sparse serialization rule below establishes that exact omission. UI
+display defaults are not adopted. Base and variant endpoint/credential fields
+and every passthrough field require explicit observed values; schema defaults
+cannot establish them. The only accepted omitted key-loan state is the native
+serializer's empty `api_key_from` case below. Oversized provider
 lists report skipped record counts and incomplete coverage, never a successful
 audit of all returned providers. Skipped malformed/oversized slot or variant
 collections also clear the slot-coverage flag. Unknown fields, malformed types,
@@ -115,6 +117,35 @@ Retry, timeout, enabled, role and rotation values are checked even for inactive
 slots. The source comments disagree about variant timeout fallback in native
 code: unequal inherited variant/base values are marked unresolved; the report
 never claims native inheritance verification.
+
+### Native sparse serialization
+
+The contract `beta26-rc4-sparse-save-to-node-v1` recognizes these specific native
+serialization forms, under the same exact DLL hash gate:
+
+| Scope and observed form | Interpreted value |
+| --- | --- |
+| Provider record omits `api_key_from` | Empty string; no key lender |
+| Document routing omits `profile` or `quantization_floor` | Empty string |
+| Document routing omits `ttft_abort_multiplier` | `2.0` |
+| Document routing omits `ttft_abort_floor_ms` | `2500` |
+| Base or variant default parameters contain explicit null `stop_sequences` | Empty list |
+
+The provider serializer skips an empty lender at `0x18026744d–0x1802674de`.
+The document serializer skips empty selectors and the two numeric defaults at
+`0x18026a52c–0x18026a741`; the loader establishes those defaults at
+`0x180255850–0x180255e3e`. Its empty default stop-vector nodes become JSON null
+through the YAML-to-JSON converter at `0x180210920`. The slot serializer instead
+constructs an explicitly typed sequence, so null slot stop sequences or numeric
+controls remain invalid. These are static disassembly findings, corroborated by
+the public response reconstruction, not live native request execution.
+
+Explicit null or invalid scalar values are never replaced by omission defaults.
+Other missing controls, nonempty key lenders, unknown fields, and unsafe routing
+values still make the audit incomplete. In particular, missing experimental
+policy flags cannot be treated as false. The report separately exposes
+`native_serialization_normalization` with the contract name and fixed per-case
+counts; it does not export field values, dynamic paths or identifiers.
 
 ### Explicit null and empty passthrough
 
@@ -176,3 +207,11 @@ environment credentials, native memory, external traffic or provider billing.
 
 Tests use synthetic configs, sockets, processes and temporary evidence trees.
 No live endpoint or provider calls are part of these tests.
+
+The sixth run's retained routing capture remains incomplete. Two public seed
+reconstructions exactly match its configuration response bytes by size and
+SHA256; their provenance and limits are recorded in
+[the fixture notes](../tests/fixtures/README-skyrimnet-routing.md). The corrected
+interpretation passes 49 offline routing tests, including rejection of malformed
+nearby cases. This is an offline serializer correction; it does not establish a
+new native routing observation or change any runtime, override or egress claim.

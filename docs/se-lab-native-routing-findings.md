@@ -1,6 +1,13 @@
 # Disabled-tier routing candidate — 2026-10-21
 
-This is an offline proposal, not an installed configuration or permission to call a provider. The fifth run remains unchanged. `candidate-seeds.json` contains candidate **live configuration** documents for `Providers.yaml` and `OpenRouter.yaml`; it is not an exported preset.
+This preserves the original offline proposal and its source evidence. The fifth
+run remains unchanged. A later six-provider seed based on this work was installed
+and read back in the [sixth isolated run](se-lab-overnight-2026-10-21.md).
+The [routing inspector](se-lab-skyrimnet-routing.md) records the subsequent
+serializer correction. The investigation below itself made no provider request
+or installed change. `candidate-seeds.json` contains candidate **live
+configuration** documents for `Providers.yaml` and `OpenRouter.yaml`; it is not
+an exported preset.
 
 Candidate SHA256: `72ed3310e76b9a65f15af54a51a2a97e8b2a0026c00ea70385a72dbdde80506f`.
 
@@ -93,10 +100,16 @@ now traces the pinned chat builder. A final resolved null adds no body keys;
 null at a slot can still inherit. A conservative audit may accept only explicit
 null or `{}` at every present, fully covered configured layer. Missing fields
 remain incomplete. Actor/faction/group overrides are a separate native input
-that the four GETs do not cover. No collector relaxation or provider invocation
-has been implemented from this finding.
+that the four GETs do not cover. At the time of that finding, no collector
+adaptation or provider invocation had been implemented. The later bounded
+adaptation is described in the [current routing audit](se-lab-skyrimnet-routing.md).
 
-## Next review boundary
+## Original next review boundary (historical)
+
+The following was the boundary at the end of this original audit. The fifth and
+sixth runs are now retained; the seed and bounded collector adaptations have
+since been implemented. Fresh v3 readback is the next runtime step, as described
+in the [current routing audit](se-lab-skyrimnet-routing.md).
 
 After the parent closes and retains the fifth run, implement the seed and collector changes as a separate reviewed checkpoint with fixtures for native reinsertion, disabled decisions preservation, exact style retention, variant fallback keys, custom schema descriptors, null-vs-missing passthrough, unknown fields, overflow and redaction. A fresh disabled native boot/readback must then confirm that all six catalog endpoints and both slot bindings retain the candidate values. Only a separate subsequent decision can authorize a fake listener or one-shot chat diagnostic.
 

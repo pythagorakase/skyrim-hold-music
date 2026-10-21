@@ -28,7 +28,10 @@ Addresses below refer to this exact DLL. Adjacent `.txt` files retain static dis
 | Memory schema `0x180859f40–0x18085c364`, loader `0x18085c370–0x18085cda2` | `enable_background_processing` controls background memory processing/generation. The inspected fields provide no embedding-init/download-disable setting. |
 | Catalog builder `0x180f8b3a0–0x180f8b916`; `180f8b3a0.txt` | Looks up a pinned catalog entry and copies its URL, expected hash and size into a download request. |
 
-The Whisper verification queue is gated on an STT configuration object being available, rather than a visible backend comparison in `OnPostLoad`. Its downstream task was not followed far enough to claim whether `backend=none` prevents a Whisper download. Do not extend the embedding/VAD finding to Whisper without that follow-up.
+The Whisper verification queue is gated on an STT configuration object being
+available, rather than a visible backend comparison in `OnPostLoad`. The initial
+audit left its downstream task unresolved. The sixth-run follow-up below now
+traces that task and finds no backend/global-AI guard on the inspected path.
 
 ## Verified existing-file branch
 
@@ -92,3 +95,86 @@ sizes and hashes. Archive membership, CRC and extracted hashes were verified.
 No model download or installation occurred during this staging operation.
 Using this seed and observing native sidecar destinations remain separate
 installation/runtime steps.
+
+## Sixth-run local reuse and additional Whisper activity
+
+The fresh archived log from run `20261021T120618Z-1473fc07a7ba`, SHA256
+`fe9b492cb5338d2900b70de49f0a615898b44fac3c37fa5779f4ac53dec52951`,
+has one successful existing-file SHA verification marker for each of the three
+seeded basenames. None has a hash-mismatch download marker. This supports their
+local reuse through the verified `EnsureFile` branch above.
+
+The aggregate download summary also includes a fourth job. It records one
+queued `ggml-skyrim-whisper-small.bin`, one Whisper success callback and one
+transfer-progress record reporting positive progress. The generic embedding
+and Whisper success callbacks can also follow local verification; success
+wording alone is not transfer proof. However, the progress message is emitted
+by `State::OnTransferProgress` at `0x180f8b199`, after a time-throttle check,
+not unconditionally on startup. This is evidence of additional native transfer
+activity in this run. The fixed-pattern review does not establish the complete
+packet stream, endpoint or transferred byte count.
+
+Additional inspection of the same pinned DLL follows `ModelVerifyWhisper`:
+`OnPostLoad` queues it at `0x1801c6629` after the non-null STT-config check at
+`0x1801c6572`; task `0x1801c97e0` calls `DownloadWhisperIfNotExists` at
+`0x1801c981a`. Wrapper `0x1805f8f30` reads the configured model, invokes the
+model overload at `0x1805f9197`, and submits `StartDownload` at `0x1805f8dbe`.
+No backend or global-AI gate appears in that inspected path. Thus `backend=none`
+does not suppress this startup model check in beta26-rc4.
+
+The known basename is the finetuned Skyrim Whisper small model, distinct from
+the standard `ggml-small.bin`. Its clean catalog path is at `0x181961778`, with
+the Numbat URL at `0x1819617b0` and pinned revision
+`e3b03d07939ce9114b762604ffb25c585ef35828`. Do not substitute the standard
+model's hash or fabricate a verification sidecar. The subsequent retained-file
+check and four-model seed below completed without another download. The next
+runtime step is fresh v3 observation; a general no-egress claim would still
+require a separately verified network restriction or measurement.
+
+Sanitized evidence is under `local/sixth-native-model-marker-review-20261021/`;
+`review.md` SHA256 is
+`947d65d4d74a2164c9e4880858f6c26995ce0430b18e11ba3c21113ba3dc0730`.
+Only known model names and fixed counts leave the archived-log review. Preloading
+the original three models did not eliminate all startup transfer activity;
+zero egress remains unverified. No provider inference or paid generation was
+requested by this inspection.
+
+### Retained Whisper file identity
+
+After the sixth run was closed and retained, the exact public file was verified
+at `checkpoints/skyrimnet-qasmoke-world-observed-20261021/MO2-SkyrimNet/overwrite/SKSE/Plugins/SkyrimNet/models/ggml-skyrim-small.bin`.
+It is 487,601,967 bytes with SHA256
+`a8ea2ae79712cf4f5fa51a68ffb0bdc8d108b82099566d834a0b445181317160`,
+matching both the clean finetuned-small catalog and retained before/after
+inventories. The file is ordinary, singly linked and unchanged during hashing.
+Its 146-byte verification sidecar was hashed opaquely and preserved, not parsed
+or trusted as model proof. Neither was present in the three-file startup mod.
+
+The catalog key `whisper-skyrim/ggml-skyrim-whisper-small.bin` and native disk
+name differ. Filename getter `0x1805f9340` constructs `ggml-skyrim-` plus the
+configured model and `.bin`; path getter `0x1805f9a80` joins it to the model
+directory. Request construction retains that destination while selecting the
+catalog URL/hash. A future seed must use the native disk name.
+
+Evidence: `local/sixth-retained-whisper-inventory-20261021/inventory-alias.json`,
+SHA256 `2c4ce965553351ed34780e715e236cf6f52b175a4f8d24991366749756ec9bc4`.
+The initial absent result using the catalog basename remains separately retained.
+No download or installed change was part of this read-only verification.
+
+### Four-model cache for the future v3 recipe
+
+The exact four public files were subsequently staged in a new exclusive local
+ZIP_STORED archive, `local/se-lab-startup-model-cache-v3-20261021/startup-models.zip`.
+Size is 581,087,797 bytes; SHA256 is
+`19347f2a64830fdd3e7917e2ce2c3b9ef0a63dd012ad9d69a59b869a546c7d17`.
+The archive includes only the three original model paths plus native
+`SKSE/Plugins/SkyrimNet/models/ggml-skyrim-small.bin`. It excludes all old
+verification sidecars. Independent checks confirmed membership, CRC, decompressed
+sizes/hashes, unchanged retained sources and the unchanged older archive.
+
+The provenance receipt SHA256 is
+`184bec5131db12447184eac224fa9e0238b3e1677dad802fa13a482ce5bc2c03`.
+The future v3 recipe now pins these bytes, and its read-only installation plan
+passes. The archive was assembled locally without a new download. No v3
+installation or native observation has occurred; this is preparation for the
+next isolated run, not proof that all startup egress is eliminated.

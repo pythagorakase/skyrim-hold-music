@@ -39,7 +39,7 @@ LAB_ROOT = Path(r"C:\MGO\HoldMusic-SE-Lab")
 REPO = Path(__file__).resolve().parents[1]
 INSTANCE = "MO2-SkyrimNet"
 PROFILE = "Hold Music SE Lab - SkyrimNet Disabled"
-TIER = "skyrimnet-beta26-rc4-qasmoke-disabled-v2"
+TIER = "skyrimnet-beta26-rc4-qasmoke-disabled-v3"
 STARTUP_INTENT = {"version": 1, "checkpoint": "disabled_qasmoke_world_readiness",
                   "starting_cell": "QASmoke", "hold_music_enabled": False,
                   "harness_enabled": False, "scenario_armed": False,
@@ -139,6 +139,8 @@ STARTUP_MODEL_FILES = {
         "size": 711661, "sha256": "da0e79933b9ed51798a3ae27893d3c5fa4a201126cef75586296df9b4d2c62a0"},
     "SKSE/Plugins/SkyrimNet/models/silero_vad.onnx": {
         "size": 2327524, "sha256": "2623a2953f6ff3d2c1e61740c6cdb7168133479b267dfef114a4a3cc5bdd788f"},
+    "SKSE/Plugins/SkyrimNet/models/ggml-skyrim-small.bin": {
+        "size": 487601967, "sha256": "a8ea2ae79712cf4f5fa51a68ffb0bdc8d108b82099566d834a0b445181317160"},
 }
 STARTUP_MODEL_MOD = "Hold Music SkyrimNet Startup Models"
 ARCHIVES = (
@@ -156,9 +158,9 @@ ARCHIVES = (
          sha256="d20b6ffc7369de040b914e55e3ce6b6bde1f56b59d5151ae0d9b82d8d014e0ed", kind="tar",
          prefixes=("powerofthree's Tweaks FOMOD Installer/Required/",
                    "powerofthree's Tweaks FOMOD Installer/AE/")),
-    dict(mod=STARTUP_MODEL_MOD, path=REPO / "local/se-lab-startup-model-cache-20261021/startup-models.zip",
-         sha256="1979b976999bab8b3e66acb290786b978f0ae9e2964611e92f9288e4f0fa62fc",
-         size=93485572, kind="zip", prefixes=("",), expected_files=STARTUP_MODEL_FILES),
+    dict(mod=STARTUP_MODEL_MOD, path=REPO / "local/se-lab-startup-model-cache-v3-20261021/startup-models.zip",
+         sha256="19347f2a64830fdd3e7917e2ce2c3b9ef0a63dd012ad9d69a59b869a546c7d17",
+         size=581087797, kind="zip", prefixes=("",), expected_files=STARTUP_MODEL_FILES),
 )
 
 

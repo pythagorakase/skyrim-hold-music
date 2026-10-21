@@ -106,3 +106,40 @@ start a world, move the player, enable AI, or make a paid generation call.
 Detailed offline disassemblies and the static contract are retained in
 `local/se-lab-player-info-audit-20261021/`. The fixture suite is
 `python -B -m unittest discover -s tests -p test_se_lab_mcp_player.py -v`.
+
+## Optional dependency notice during the sixth run
+
+In run `20261021T120618Z-1473fc07a7ba`, a visible interior was covered by a
+SkyrimNet notice about missing optional UIExtensions support for the wheel menu
+and original Dragonborn Voice Over v1.1.1 support for silent voice playback and
+the Universal Translator. The notice remained visible after one Okay click and
+Return. Subsequent guarded `get_plugins` and `get_player_info` calls passed;
+the player observation confirmed the canonical player form. This establishes
+successful native readback despite the notice, not successful notice dismissal.
+
+Static inspection used the clean beta26-rc4 DLL with SHA-256
+`2cbb5ae8fa5aac0ff98f64d5728d1938f58c991473dbfbc39b9c88094c08e35a`.
+The addresses below are preferred virtual addresses, not live process addresses.
+
+- `get_player_info` calls the readiness predicate at `0x180cf5715`, and
+  `get_plugins` calls the same predicate at `0x180cf632f`. The predicate at
+  `0x18098fb90` accepts lifecycle states 4, 5, 7 and 8. It does not directly
+  inspect optional dependencies or menu visibility.
+- The optional notice constructs Okay as button index 0 and Ignore as index 1
+  (`0x1801d636b–0x1801d63d5`). Its callback at `0x1801d4a20` returns immediately
+  for every index except 1. Okay therefore performs no configuration mutation
+  in this callback.
+- Ignore stores the current warning signature in the game configuration's
+  `diagnostics.ignored_optional_signature` field, then calls
+  `ConfigManager::SaveConfig("game")` at `0x1801d4ae2`. It attempts persistent
+  suppression through a game-config save; the callback ignores the save return
+  value, so selecting Ignore alone would not prove successful persistence.
+
+The notice is queued through `QueueMessageSequence` at `0x180451c80`.
+This inspection does not establish whether the engine was paused, whether the
+click or Return reached the intended button, or whether another notice was
+queued. Neither the visual observation nor the player reply establishes the
+exact cell as QASmoke. No additional dependency installation or Ignore selection
+was needed for these successful readbacks. Any future Ignore selection should
+be recorded as an intentional configuration-save action, not treated as ordinary
+nonpersistent dismissal.

@@ -85,20 +85,33 @@ fix; one guarded `get_plugins` call confirms all five expected profile plugins.
 Keep generation disabled while routing is diagnosed. These observations do not
 establish a world-loaded or playback result with SkyrimNet.
 
-The next isolated checkpoint explicitly starts QASmoke with production playback
-and harness autorun disabled. It seeds three exact-hash public startup models
-from the retained run and supplies all native provider defaults as loopback,
-empty-key entries. Fresh typed readback must validate the resulting graph; the
-seed is not evidence that native overrides or egress are controlled. A separate
-[fixed player snapshot](se-lab-mcp-player.md) is ready for one reviewed call after
-smoke and discovery, with UUID/alias bookkeeping disclosed and no claim of cell
-identity from its reply. Visual scene observation remains separate.
+The sixth isolated run used fixed QASmoke startup with production playback and
+harness autorun disabled. All 29 effective disabled-control checks passed;
+MCP discovery, the five expected plugins and a canonical
+[player snapshot](se-lab-mcp-player.md) were observed with stable identity.
+The visible interior is consistent with QASmoke, but the player reply has no
+cell field and an optional-dependency notice remained visible. Unpaused gameplay
+and performance with SkyrimNet remain unverified. Both owned processes are now
+closed. The three catalog-matching startup models were seeded successfully;
+other automatic model initialization remains a separate concern.
+
+The six-provider loopback seed removed the earlier non-test endpoint and skipped
+branch issues. All ten configured passthrough layers are explicit null, but the
+four-GET capture remains incomplete. Its serializer/default mismatch is now
+fixed in source with 49 passing routing tests and exact public reconstructions
+of both returned configuration hashes. Next take fresh guarded readback in a
+new retained-source run. The future v3 recipe includes the verified fourth
+Whisper model; its actual 5,578-file installation plan has no blockers, but
+v3 is not installed or runtime-tested. Keep generation
+disabled and preserve the failed capture. Actor/group overrides, native fallback
+and egress remain unverified; no paid request is required for this work.
 
 The [pinned native routing findings](se-lab-native-routing-findings.md) explain
 why a custom-only provider catalog expands and an omitted decisions variant
-returns. They preserve the explicit loopback seed proposal and unresolved
-serializer/null behavior for the next isolated checkpoint. No candidate has
-been applied, and no provider request is authorized by that proposal.
+returns. That explicit loopback seed was applied in the sixth isolated run;
+the remaining serializer interpretation is recorded separately in the
+[routing inspector](se-lab-skyrimnet-routing.md). These collectors made no
+provider inference request.
 The [startup model investigation](se-lab-native-model-initialization.md) records
 unconditional embedding/VAD verification and an exact-hash local reuse path.
 It cannot turn disabled AI settings into a general no-egress guarantee.

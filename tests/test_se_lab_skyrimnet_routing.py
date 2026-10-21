@@ -179,16 +179,19 @@ class GraphTests(unittest.TestCase):
             with self.subTest(container=container,key=key):
                 self.assertFalse(self.audit(data)["configured_graph_fake_only"])
 
-    def test_routing_policy_and_key_loan_state_cannot_be_omitted_or_defaulted(self):
+    def test_only_native_sparse_policy_and_empty_lender_omissions_are_normalized(self):
+        native_omissions={"profile","quantization_floor","ttft_abort_multiplier","ttft_abort_floor_ms"}
         for key in routing.ROUTING_FIELDS:
             data=native_candidate();del data[0]["data"]["routing"][key]
-            self.assertFalse(self.audit(data)["configured_graph_fake_only"])
+            self.assertEqual(self.audit(data)["configured_graph_fake_only"],key in native_omissions,key)
         for key,value in (("mode","smart"),("profile",SECRET),("quantization_floor",SECRET),
                           ("ttft_race_first_token",True),("ttft_abort_floor_ms",False)):
             data=native_candidate();data[0]["data"]["routing"][key]=value
             self.assertFalse(self.audit(data)["configured_graph_fake_only"])
         data=native_candidate();del data[1]["data"]["providers"][4]["api_key_from"]
-        self.assertFalse(self.audit(data)["configured_graph_fake_only"])
+        result=self.audit(data)
+        self.assertTrue(result["configured_graph_fake_only"])
+        self.assertEqual(result["native_serialization_normalization"]["counts"]["provider_empty_api_key_from"],1)
 
     def test_unknown_fields_in_native_layers_and_malformed_rows_preserve_privacy_and_coverage(self):
         for target in ("doc","routing","variant","defaults","provider","slot"):

@@ -24,6 +24,7 @@ ROUTES = ("/config?api=get&name=OpenRouter", "/config?api=get&name=Providers",
           "/config?api=schema&name=OpenRouter", "/config?api=schema&name=Providers")
 FAILURES = discovery.FAILURES
 EXPECTED_MODEL = "hold-music-lab-disabled"
+NATIVE_SERIALIZATION_CONTRACT = "beta26-rc4-sparse-save-to-node-v1"
 SOURCE_BASIS = {
     "archive_sha256": "6b1646d52d10f71b938d09b55bb766b57af517ece11ea174b646d0a1a51fbcef",
     "dll_sha256": "2cbb5ae8fa5aac0ff98f64d5728d1938f58c991473dbfbc39b9c88094c08e35a",
@@ -33,6 +34,7 @@ SOURCE_BASIS = {
     "schema_envelope": "direct_fields",
     "slot_binding": "comma_split_index",
     "native_inheritance_verified": False,
+    "native_serialization_contract": NATIVE_SERIALIZATION_CONTRACT,
 }
 
 
@@ -84,6 +86,18 @@ class _Audit:
             "passthrough_objects", "passthrough_nulls", "passthrough_fields", "non_chat_providers",
             "non_chat_slots", "decisions_slots", "base_enabled_chat_slots", "active_variant_labels")}
         self.passthrough_complete = True
+        self.native_normalizations = {key: 0 for key in (
+            "provider_empty_api_key_from", "routing_empty_profile", "routing_empty_quantization_floor",
+            "routing_default_ttft_multiplier", "routing_default_ttft_floor",
+            "base_empty_stop_sequences", "variant_empty_stop_sequences")}
+
+    def native_omitted(self, obj, key, value, code):
+        # Only callers for the exact pinned SaveToNode omissions use this.
+        # Explicit null/wrong values are never replaced by an omission default.
+        if key not in obj:
+            self.native_normalizations[code] += 1
+            return {**obj, key: value}
+        return obj
 
     def bad(self, code): self.issues.add(code)
 
@@ -196,6 +210,14 @@ def _audit_graph(payloads):
             audit.bad("invalid_active_variant_metadata")
         else: audit.counts["active_variant_labels"] = len(labels)
     routing = audit.shape(root_doc.get("routing"), ROUTING_FIELDS)
+    # The pinned native serializer emits these members only when different
+    # from their native defaults. All other routing members remain explicit.
+    for key, value, code in (
+            ("profile", "", "routing_empty_profile"),
+            ("quantization_floor", "", "routing_empty_quantization_floor"),
+            ("ttft_abort_multiplier", 2.0, "routing_default_ttft_multiplier"),
+            ("ttft_abort_floor_ms", 2500, "routing_default_ttft_floor")):
+        routing = audit.native_omitted(routing, key, value, code)
     for key, kind in ROUTING_FIELDS.items():
         value = audit.scalar(routing, key, kind, schemas[0], "routing." + key)
         if key == "mode" and value != "legacy": audit.bad("unsupported_routing_policy")
@@ -215,6 +237,9 @@ def _audit_graph(payloads):
     for index, value in enumerate(records):
         if not isinstance(value, dict): provider_coverage = False
         record = audit.shape(value, PROVIDER_FIELDS)
+        # SaveToNode omits the lender string only when it is empty. The key
+        # and endpoint themselves must still be explicitly observed.
+        record = audit.native_omitted(record, "api_key_from", "", "provider_empty_api_key_from")
         audit.counts["providers"] += 1
         prefix = "providers." + str(index) + "."
         identifier = audit.scalar(record, "id", "string", schemas[1], prefix + "id")
@@ -305,6 +330,13 @@ def _audit_graph(payloads):
         if not names or len(names) != len(params) or any(not name for name in names): audit.bad("slot_count_mismatch")
         if any(name != EXPECTED_MODEL for name in names): audit.bad("model_not_lab_fixture")
         defaults = audit.shape(rotation.get("default_params"), PARAMS)
+        # Empty default stop vectors round-trip through an untyped YAML node
+        # as explicit null. Slot vectors are explicitly sequences and retain
+        # their existing strict list rule; missing is not treated as null.
+        if "stop_sequences" in defaults and defaults["stop_sequences"] is None:
+            defaults = {**defaults, "stop_sequences": []}
+            code = "base_empty_stop_sequences" if variant is None else "variant_empty_stop_sequences"
+            audit.native_normalizations[code] += 1
         for key, value in defaults.items():
             if key in PARAMS and not _typed(value, PARAMS[key]): audit.bad("invalid_typed_value")
         mode = rotation.get("rotation_mode")
@@ -355,6 +387,8 @@ def _audit_graph(payloads):
                     else: control = base_controls[key]
                 valid_control(key, control)
     return dict(configured_graph_fake_only=not audit.issues, counts=audit.counts,
+        native_serialization_normalization=dict(contract=NATIVE_SERIALIZATION_CONTRACT,
+            counts=audit.native_normalizations),
         configured_endpoint_inventory_complete=not audit.issues,
         configured_passthrough_empty=audit.passthrough_complete and provider_coverage and slot_coverage,
         interpretation_scope="returned_configured_graph_only", diagnostic_selection_performed=False,

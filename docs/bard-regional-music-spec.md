@@ -249,22 +249,29 @@ remains main-menu evidence. Generation stays disabled while routing is diagnosed
 Explicit missing credentials, ambiguous inheritance and
 skipped provider/slot branches remain incomplete, without enabling diagnostics.
 The [native routing investigation](se-lab-native-routing-findings.md) records
-the source-pinned reinsertion rules and an unapplied loopback-only candidate.
+the source-pinned reinsertion rules and the loopback-only candidate subsequently
+used in the sixth isolated run below.
 MCP transport diagnostics identify duplicate identical Content-Type headers
 from this build's SSE handler; the narrowly scoped compatibility change passes
 live discovery and the combined 68-case fake suite. The [startup model audit](se-lab-native-model-initialization.md)
 separately explains why disabled AI does not suppress every model check.
 These findings do not change musical recipes or require listening validation.
 
-The next isolated world-readiness tier uses a fixed QASmoke startup, disables
-production playback and harness autorun, and seeds three catalog-matching public
-models from retained files without old verification sidecars. Its explicit native
-provider defaults need fresh effective readback. The revised routing audit passes
-40 synthetic cases while keeping diagnostics, actor/group overrides, native
-fallback and egress unverified. A [fixed player snapshot](se-lab-mcp-player.md)
-passes 24 independently reviewed cases and permits one literal query after
-same-run smoke/discovery. It may persist lab identity bookkeeping; its response
-contains no cell identifier. A real world-startup result is still pending.
+The sixth isolated run used fixed QASmoke startup with production playback and
+harness autorun disabled. The effective disabled controls, MCP discovery,
+expected plugins and [canonical player snapshot](se-lab-mcp-player.md) passed.
+The observed interior is consistent with QASmoke; an optional-dependency notice
+remained visible, and the player reply contains no cell identifier. Unpaused
+gameplay and performance with SkyrimNet are still unverified. The player query
+may persist lab identity bookkeeping. Both owned processes were closed afterward.
+Three catalog-matching public models were seeded without old verification
+sidecars. The explicit six-provider seed improved routing coverage, but its
+capture remains incomplete. The serializer/default correction now passes 49
+offline routing tests. A future v3 recipe adds the verified fourth Whisper
+model, with a separate four-file cache and a successful read-only installation
+plan; it has not been installed or launched. Preserve the old capture and keep
+diagnostics, actor/group overrides, fallback and egress unverified. None of
+these engineering checks requires musical approval.
 
 Runtime receipts can inherit Papyrus string casing (`Sven` versus authored
 `sven`). The history adapter resolves only unambiguous source spellings within
@@ -285,10 +292,11 @@ receipt. It temporarily suppresses the verified fresh vanilla starter through
 Sven-only faction membership, restoring exact preexisting membership or effective
 absence; it does not claim that already queued vanilla work is drained. The
 duplicate-stop fix has native normal-completion evidence and compiled concurrency
-regressions. A further reviewed controller admission protocol must acknowledge
-its own outstanding native work before fixture release, preserve unresolved
-ownership, and resume before real ambient entry. Native validation of that
-protocol and deliberate interruption remain pending. The
+regressions. The reviewed controller admission protocol acknowledges its own
+outstanding native work before fixture release, preserves unresolved ownership,
+and resumes before real ambient entry. That protocol and deliberate interruption
+now have controlled SE evidence from the same accepted three-scenario pair;
+ordinary NPC behavior and VR compatibility remain unverified. The
 [production performer lifecycle proposal](performer-lifecycle-design.md)
 defines a distinct future AI lease, frozen recording identity, cancellation and
 save/load contract; it is not implemented by the lab fixture.

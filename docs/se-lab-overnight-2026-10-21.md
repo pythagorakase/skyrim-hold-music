@@ -5,7 +5,151 @@ Continue until 08:00 America/Chicago on 21 October, then summarize and pause the
 `hold-music-offline-overnight-development` heartbeat. The old Echo watcher stays
 paused. The former Steam-use deferral is lifted for the isolated lab only.
 
-## QASmoke preparation checkpoint
+## Sixth run: player observed, controls disabled (07:20 CDT)
+
+The QASmoke preparation was published as `0b9831b` and synchronized to clean
+Halcyon/GitHub/Echo before installation. Echo's seven-suite verification passed
+287 tests with six expected platform skips (293 total, 56.262 seconds). Its log
+is `local/se-lab-echo-qasmoke-v2-0b9831b-20261021.log`, SHA256
+`8938bab862944619314a016671fa93ad98b2c3c7ba2c14f0523365e4f36d58aa`.
+Windows passed 108 tier cases plus one expected skip, 183 combined observer cases
+plus one expected skip, and all 22 owned-process cleanup cases. These are test
+results; the actual observations below are separate evidence.
+
+Installation transaction `1acfa126b9c24448899c6444227b2263` staged 5,577 files;
+preflight verified all seven native DLL winners, eighteen configuration winners
+and the three exact public model inputs. Run `20261021T120618Z-1473fc07a7ba`
+then launched with `native-filetime-v2` attribution. The saved history binds
+game PID50156, loader PID21668 and MO2 PID43528 to exact paths and creation
+ticks. Twenty-one raw source files and their receipt were preserved before
+launch at `local/se-lab-qasmoke-v2-source-20261021`; this is distinct from a
+Git archive whose line endings may be normalized.
+
+| Observation | Capture | Result |
+|---|---|---|
+| Disabled controls | `bc518e689d8d478c92d44edee64b199c` | All 29 typed checks across 13 categories pass; seven DLLs and loopback listeners attributed |
+| Routing | `826a769b8d384345979184cc471de585` | Four GETs complete, but graph remains incomplete |
+| MCP discovery | `8ee59ff26eee434bb514768436fc0aba` | Successful tool inventory and matched final context |
+| Loaded plugins | `871ccd9890c1408e84871f08a122550f` | All five expected plugins present among ten loaded plugins |
+| Player snapshot | `b822bd766b304fae80282199a18a5b92` | Canonical player exists; UUID, level and coordinates pass typed checks |
+
+The player query made one literal tool call after its prerequisites; raw name,
+UUID and coordinates were not exported. It may persist lab identity bookkeeping.
+No returned field identifies the cell. A stone interior, chests and compass were
+visually observed, consistent with the fixed QASmoke startup. A SkyrimNet notice
+about optional UIExtensions and original DragonbornVoiceOver requirements
+remained visible after an Okay click and Return. No Ignore action or optional
+dependency installation occurred. Do not claim confirmed notice dismissal,
+unpaused gameplay, a programmatically identified cell, natural AI or playback.
+
+The routing audit now sees all six providers, both rotations, both slots and
+all ten explicit-null passthrough layers, with no skipped providers or unknown
+fields. It reports four remaining issue categories: missing explicit/schema
+value, unsupported routing policy, invalid retry/timeout and invalid typed value.
+No provider diagnostic, inference or paid generation request was sent by these
+collectors. Actor/group overrides, fallback and egress remain unverified. Keep
+the original incomplete capture immutable while investigating serializer defaults.
+
+Metadata capture `28a9515fdb364e4cbe636edc3a5f1044` and same-handle cleanup passed.
+All relevant processes are closed, original assets are unchanged and runtime
+storage was within the explicitly reviewed contract. Literal protected-path
+equality is **false** because PrismaUI added its three permitted cookie database
+files. Do not replace that result with an all-paths-unchanged claim.
+
+Shared logs are archived under
+`checkpoints/skyrimnet-qasmoke-v2-shared-logs-after-20261021`. The fresh
+SkyrimNet log has 4,379 lines, 609,720 bytes and SHA256
+`fe9b492cb5338d2900b70de49f0a615898b44fac3c37fa5779f4ac53dec52951`.
+Fixed-pattern analysis finds no error/critical or configuration-load failure
+markers and thirteen warning lines. It also finds a model-download start and
+two download/verification completion markers; disabled AI is not proof of
+zero startup traffic. The archived Papyrus.0.log matches its old hash and is
+**not** fresh sixth-run world evidence. Retention and the final handoff follow
+below; no second launch of this one-shot instance is authorized by its old token.
+
+## Sixth-run retention and next bounded task (07:33 CDT)
+
+Whole-tier retention completed at
+`checkpoints/skyrimnet-qasmoke-world-observed-20261021`: 5,842 MO2 files,
+two installation-journal files and nine runtime evidence files. Three exclusive
+directory moves preserved their inventoried bytes and identities. The active
+SkyrimNet tier paths are now absent; the baseline MO2/Game installation remains.
+The source archive for `0b9831b` and the separate raw 21-file snapshot retain
+their distinct lineage. Retention receipt SHA256:
+`79ce07f90473ce8083820a525a7bc4ce034441ea44a57851f477cd6aca2cc521`.
+
+The separate opaque-cache operation also completed. It moved only the three
+permitted cookie database files into the checkpoint's `private-runtime-cache`,
+without parsing their contents. Preexisting protected files remained unchanged
+and `Game/default` is absent afterward. Cache receipt SHA256:
+`da24a50856cb0562c2fd539d673d9d18e242c90e2e0315baaea38847187d7f4c`.
+Neither operation changes the original literal protected-path result or upgrades
+the incomplete routing capture. Root's retention/cache fixture suite passed
+42/42 in 45.434 seconds, with independent 42-case runs also passing.
+
+Exact public-seed reconstructions now match both sixth routing response hashes:
+OpenRouter 2,155 bytes / `87f15080268d5bee81dd64f0dd73ea8de5fe33b053f0441b39781fd73e401179`;
+Providers 1,813 bytes / `b26625cf5364f9dc6842d03530fab55be8c841c947eeb16077f6fadad0f34adf`.
+They explain every reported issue: six omitted empty lender strings, four
+omitted native routing defaults and two null default stop-sequence vectors.
+The actual slot controls were explicit and valid. The reviewed correction
+normalizes only those pinned serializer cases and reports fixed counts; malformed
+explicit values and other required omissions still fail. The applied correction
+passed 49/49 routing tests in Root's run (3.705 seconds), plus independent
+mutation review. This source checkpoint does not rewrite the retained observation.
+
+The seeded embedding/VAD models each logged local SHA verification. The extra
+startup transfer concerned the finetuned Whisper small model. A source-backed
+retained-file check found it at
+`MO2-SkyrimNet/overwrite/SKSE/Plugins/SkyrimNet/models/ggml-skyrim-small.bin`,
+487,601,967 bytes, SHA256
+`a8ea2ae79712cf4f5fa51a68ffb0bdc8d108b82099566d834a0b445181317160`.
+This matches the clean catalog and retention inventory. The catalog basename
+includes `whisper`; the native destination omits it. Its old sidecar remains
+preserved and is not a substitute for checking the model bytes.
+
+The future recipe is now `skyrimnet-beta26-rc4-qasmoke-disabled-v3`, with the
+same disabled provider/playback seeds and an exact four-file model catalog.
+Its new local cache is
+`local/se-lab-startup-model-cache-v3-20261021/startup-models.zip`, 581,087,797
+bytes, SHA256 `19347f2a64830fdd3e7917e2ce2c3b9ef0a63dd012ad9d69a59b869a546c7d17`.
+It contains only the three original public models plus the verified native
+Whisper destination, with no sidecars. Membership, CRC, every decompressed
+hash and unchanged retained sources were independently checked. No download
+was needed. Provenance receipt SHA256:
+`184bec5131db12447184eac224fa9e0238b3e1677dad802fa13a482ce5bc2c03`.
+
+The actual read-only v3 installation plan has 5,578 files and no blockers,
+recorded at `local/se-lab-qasmoke-v3-install-plan-20261021.json`. It performed
+no installation. Four focused recipe tests pass, including rejection of an old
+three-model cache, the wrong Whisper bytes/name, sidecars, corruption and a
+shadowing winner. The frozen tier/routing suite then passed 155 cases with four
+skips (159 total, 652.001 seconds). Three skips were native Qt/bundled-source
+checks whose optional bundle-path environment variable was absent; all three
+passed in a separate 0.166-second run against the verified retained distribution.
+The remaining skip is Windows symlink creation. The other five observer suites
+passed 143 cases with one expected platform skip (144 total, 41.908 seconds).
+Together this covers 301 passing cases and two platform skips across the
+303-case suite. No implementation changed between these runs.
+
+Full-suite log: `local/se-lab-qasmoke-v3-full-root-tests-20261021.log`, SHA256
+`19408855f9b225f05bd351ce7051abeaace70facc53e0cf0bce454c53d0f83aa`.
+Observer log: `local/se-lab-qasmoke-v3-observer-root-tests-20261021.log`, SHA256
+`d946552decfa666a95279b4d6b7e44994e02639c56826082c2a402ce0f35fc8d`.
+The supplemental Qt log is `local/se-lab-qasmoke-v3-qt-root-tests-20261021.log`.
+V3 has not been installed or launched; future runtime readback must be a fresh
+observation. The actual installation-plan artifact remains an unapplied review.
+
+The next live session should consume a reviewed four-model seed in a **new**
+disabled instance, exercise the corrected routing audit with fresh attribution,
+and deliberately resolve/observe the optional-dependency notice before claiming
+unpaused gameplay. Keep generation disabled. After that, add one explicitly
+bounded fake-provider dispatch check with its override context accounted for,
+then test controlled Hold Music coexistence and ordinary NPC packages separately.
+SE success still cannot clear the VR-specific native scan CTD or establish
+musical/audible quality. Listening validation remains independent of this work.
+
+## QASmoke preparation checkpoint (historical)
 
 The working MCP checkpoint is synchronized at `0f5bdc6` on Halcyon, GitHub and
 clean Echo. Echo's six-suite run passed 242 tests with six expected platform

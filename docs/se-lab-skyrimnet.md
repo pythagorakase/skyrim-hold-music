@@ -1,11 +1,23 @@
 # Disabled SkyrimNet SE lab preparation
 
-The current fixed tier is `skyrimnet-beta26-rc4-qasmoke-disabled-v2`. It prepares
+The current fixed tier is `skyrimnet-beta26-rc4-qasmoke-disabled-v3`. It prepares
 a fresh disposable QASmoke world with production Hold Music and its lab harness
 disabled. This replaces the earlier main-menu seed for the next installation;
-it does not upgrade the retained first-boot results or count as another accepted
+it does not upgrade the retained v2/first-boot results or count as another accepted
 Hold Music scenario. The startup intent is explicit in preparation, installation,
 and launch inputs. There is no arbitrary starting-cell or profile option.
+
+Actual run `20261021T120618Z-1473fc07a7ba` passed preflight, attributed launch,
+all 29 disabled-control checks, MCP discovery, the expected plugin query and
+canonical-player readback. A visible interior was consistent with QASmoke,
+but the optional-dependency notice remained visible; unpaused gameplay and
+playback with SkyrimNet are not established. Its routing audit is incomplete.
+The owned game and MO2 processes are closed. See the
+[sixth-run evidence](se-lab-overnight-2026-10-21.md) before preparing a new
+instance; historical one-shot launch/collection tokens must not be reused.
+That run used v2 with three startup models. V3 adds the catalog-verified
+finetuned Whisper model found afterward, using a new four-file archive without
+old verification sidecars. V3 has not been installed or launched.
 
 `tools/se_lab_skyrimnet.py` reviews a concrete preparation recipe, checks a
 first-boot installation, explicitly installs a separate disabled tier, and offers
@@ -54,7 +66,7 @@ adds these pinned archives:
 | Media Keys Fix 1.0.1 7z | Complete Data-relative package |
 | Papyrus Extender 6.4.3 7z | FOMOD `Required/` plus `AE/` (1.6.1170+) |
 | po3 Tweaks 1.15.1 7z | FOMOD `Required/` plus `AE/` (1.6.629+) |
-| Reviewed startup-model cache ZIP | Exactly three catalog-pinned model files; no sidecars |
+| Reviewed startup-model cache ZIP | Exactly four catalog-pinned model files; no sidecars |
 
 Archive paths and release SHA256 pins are constants in
 `hold_music/se_lab_skyrimnet.py`. ZIP members are read in memory; 7z members are
@@ -70,8 +82,8 @@ private libraries remain part of the pinned archive payload. This inventory
 does not establish successful native loading.
 
 The model component is `Hold Music SkyrimNet Startup Models`, supplied by
-`local/se-lab-startup-model-cache-20261021/startup-models.zip`: 93,485,572 bytes,
-SHA256 `1979b976999bab8b3e66acb290786b978f0ae9e2964611e92f9288e4f0fa62fc`.
+`local/se-lab-startup-model-cache-v3-20261021/startup-models.zip`: 581,087,797 bytes,
+SHA256 `19347f2a64830fdd3e7917e2ce2c3b9ef0a63dd012ad9d69a59b869a546c7d17`.
 It maps only these files below `SKSE/Plugins/SkyrimNet/models/`:
 
 | File | Bytes | SHA256 |
@@ -79,6 +91,7 @@ It maps only these files below `SKSE/Plugins/SkyrimNet/models/`:
 | all-MiniLM-L6-v2.onnx | 90,445,823 | `994a58868f7abacacbf2192aa0aae8f56da8c4505dbde2740c861b24426ede6b` |
 | all-MiniLM-L6-v2-tokenizer.json | 711,661 | `da0e79933b9ed51798a3ae27893d3c5fa4a201126cef75586296df9b4d2c62a0` |
 | silero_vad.onnx | 2,327,524 | `2623a2953f6ff3d2c1e61740c6cdb7168133479b267dfef114a4a3cc5bdd788f` |
+| ggml-skyrim-small.bin | 487,601,967 | `a8ea2ae79712cf4f5fa51a68ffb0bdc8d108b82099566d834a0b445181317160` |
 
 The archive and every member have independent byte-size/hash checks, and
 preflight verifies their loose-file winners. Missing, changed, additional, or
@@ -87,8 +100,13 @@ The pinned native catalog and existing-file branch are documented in the ignored
 `local/se-lab-model-download-audit-20261021/` evidence. Native embedding and VAD
 verification still runs unconditionally. A matching local digest bypasses their
 transfer branch but may write `.verified` sidecars; no sidecar is preseeded.
-Actual VFS reads and write locations need new runtime evidence. This component
-does not disable initialization, establish Whisper behavior, or prove no egress.
+The sixth run verified local reuse of the first three models but also logged
+Whisper transfer progress. Its exact fourth file was then found and checked in
+retained overwrite. The [startup-model audit](se-lab-native-model-initialization.md)
+records the separate Whisper initialization path and catalog/destination alias.
+V3's four-model VFS reads and writes still need fresh runtime evidence. This
+component does not disable initialization or prove no egress. The older
+three-file archive and every historical run remain intact.
 
 ## Concrete disabled configuration
 
