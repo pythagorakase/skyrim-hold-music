@@ -20,11 +20,47 @@ The existing publication transaction work below remains a parallel engineering
 task, independent of regional listening validation.
 
 The lab now has its three pinned Nexus dependencies installed; 442 preflight
-checks passed. The first Hold Music run reached the inn and stopped on Sven's
-eligibility check before playback. Next run the corrected diagnostic harness
-on a fresh disposable world, then prove completion, requested interruption and
-ambient entry. Runtime reruns are deferred while the user uses Steam; offline
-fixes and tests can proceed. SkyrimNet remains disabled in this baseline.
+checks passed. The user released Steam for overnight lab work on 20 October.
+The revised harness reached Sven and confirmed correctly typed result booleans.
+An engine-discovered `None` to `String[]` cast in the candidate selector lost
+receipt identity; a typed-array fix now preserves the full identity in an actual
+engine receipt. Completion is still pending: subsequent runs recorded one idle
+refusal and one unsolicited interruption. Capture the precise guard state before
+changing behavior, then prove completion, requested interruption and ambient
+entry. SkyrimNet remains disabled in this baseline. See the
+[overnight evidence and next task](se-lab-overnight-2026-10-21.md).
+
+The separate [disabled SkyrimNet tier](se-lab-skyrimnet.md) now has a read-only
+preparation recipe and first-boot preflight. It pins the archive payload, separate
+portable MO2 instance, empty authentication, disabled services and loopback
+endpoints. An explicit installer now verifies the complete clean MO2 application
+payload, stages a new instance, and publishes without replacing an existing
+target. Interrupted attempts have retained evidence and reviewed recovery; it
+has no launcher or HTTP/MCP dispatcher. Actual native loading and effective
+configuration remain a later runtime checkpoint.
+
+The first real identity-bearing receipt also exposed Papyrus string casing at
+the planner boundary. Derived performance history now resolves unambiguous
+source performer/composition spellings while preserving the original receipt,
+captured identity key and exact save/world scope. Ambiguous same-scope aliases
+block planning; strict recording compatibility is unchanged.
+
+Keep the next controlled actor fixture distinct from normal tavern behavior.
+The production controller does not yet acquire an AI package, so an ordinary
+sandbox can seat a candidate or interfere during performance. Explicit lab
+alias control can prove the animation/audio/receipt lifecycle but cannot close
+that uncontrolled-AI integration check. Measure actual phase timings before
+attributing delays to the native scan or changing its timeout.
+
+The controlled fixture has now held a standing Sven through an actual completed
+performance with a full identity-bearing receipt. Its overall scenario failed
+because preparation exhausted the harness deadline; timeout cleanup then exposed
+a concurrent-stop duplicate receipt. Their fixes passed 95 production and 111
+lab tests. The next engine run correctly failed before selection when vanilla
+`BardSongsBardSpotTravel` preempted the fixture; it wrote no new receipt and did
+not exercise the stop fix. Resolve that controlled handoff before claiming the
+baseline accepted. The [performer lifecycle design](performer-lifecycle-design.md)
+records the separate production AI-ownership contract and upgrade limitations.
 
 ## Current Baseline
 

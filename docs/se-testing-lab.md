@@ -9,7 +9,7 @@ The first tier tests the engine, SKSE, JsonUtil and the dedicated lab harness.
 It refuses a loose `SkyrimNet.dll` winner and requires `paid_generation: false`.
 SkyrimNet/MCP integration belongs in a separately configured later tier.
 
-## Installed state on 20 October 2026
+## Installed state, updated 21 October 2026
 
 The independent physical copy exists at the fixed path above. It was copied
 from the installed **1.6.1170** game; no Steam update was accepted. It is not a
@@ -36,8 +36,8 @@ Installed in the main profile:
 
 - SKSE Scripts 2.2.6 and matching root loader/runtime DLL.
 - MCM Helper SE 1.6.2, with only its Skyrim SE installation branch.
-- Hold Music Candidate from `runtime-identity-build-20261020-02`.
-- Separate harness from `se-lab-harness-20261020-07`.
+- Hold Music Candidate from `se-lab-production-stopfix-20261021-01`.
+- Separate harness from `se-lab-harness-20261021-16`.
 - Hold Music Lab Data: eight seconds of deterministic plucked-tone PCM,
   strict synthetic recording identity, one session slot, and a lab-only world.
 - PapyrusUtil AE SE 4.6, Nexus file 462773, for Steam 1.6.1170/SKSE 2.2.6.
@@ -74,10 +74,59 @@ up at `checkpoints/harness-revision-20261020-07/`. All **56 offline lab tests
 passed with zero skips**, including compiled-PEX regressions. The runner and
 fixture suite passed **33 of 34 cases**, with one expected Windows directory
 symlink capability skip. Post-install preflight again passed all **442 checks**.
-The production Hold Music candidate is unchanged. These corrections still need
-engine confirmation: the user is using Steam, so further game launches are
-deferred. Next run `focused-complete`, inspect the detailed Sven diagnostics if
-it fails, then prove `focused-interrupt` and `ambient-entry` in fresh worlds.
+That revision left the production candidate unchanged. The user released Steam
+for overnight testing on 20 October, and run `20261021T042942Z-71888dbfa3cd`
+confirmed valid boolean results, loaded/eligible Sven, playback start, completion
+and cleanup. It still failed acceptance because the receipt lacked identity.
+Native logs exposed a `None` to `String[]` cast that invalidated reused compiled
+array temporaries. The replacement candidate uses a typed ten-element reset and
+an explicit identity-key gate. Its 80 production tests (including 28 identity
+tests) and compatible harness's 56 tests passed with zero skips; the old candidate
+fails the new regression at the same cast observed in the engine.
+
+The replacement packages and manifest were staged with backups under
+`checkpoints/arrayfix-20261021-01/`. Run `20261021T043545Z-296b66f70a50`
+selected the recording but recorded `idle_failed`; its receipt evidence was
+unchanged. Run `20261021T043703Z-0dbef97ebacd` started playback and produced a
+full identity-bearing receipt, but its unsolicited interrupted outcome failed
+the requested completion scenario. Neither is a full acceptance pass. Investigate
+the immediate idle/interrupt guard state, then prove completion, requested
+interruption and ambient entry in fresh worlds. The
+[overnight checkpoint](se-lab-overnight-2026-10-21.md) records the current work.
+
+The current diagnostic candidate preserves the original eligibility and poll
+guard order. It adds event-only `idle_failed_state` and
+`performance_interrupt_guard` records, including the first failing guard and
+subsequent actor/scene state. The snapshot can change after the triggering check;
+it is diagnostic evidence, not a new eligibility rule. Existing start/stop
+records and harness requirements remain unchanged. Its 86 production tests and
+56 lab tests passed; independent compiled review passed 37 controller/trace
+tests. The preceding package and manifest are retained under
+`checkpoints/diagnostics-20261021-01/`.
+
+Fresh disposable-world setup exposed a separate fixture issue: Sven's intro
+quest is event scoped. Run `20261021T050155Z-933a384bdad1` failed when the engine
+refused to start it directly with its cleanup stage. No inn movement or playback
+occurred. A source-inspected replacement now primes the real Change Location
+event by entering Riverwood, observes quest startup, and only then invokes the
+authored cleanup. Run `20261021T051101Z-1960d1585a9f` verified that setup in the
+engine, including the intended inn package. It then correctly failed because
+Sven had sat down (`sit_state:3`) before selection. The clock and globals were
+restored. The separately opted-in standing fixture is now installed with backups
+under `checkpoints/standing-20261021-01/`. It temporarily fills a lab-owned alias
+with the verified vanilla stay package and observes acquisition/release; it does
+not relax production eligibility or claim normal tavern behavior. The refreshed
+candidate/harness subsequently exposed a preparation-deadline failure and a
+concurrent-stop duplicate receipt. The current pair fixes stop serialization
+and separates bounded preparation from playback evidence, requiring a matching
+`stop_requested` guard for requested interruptions. It passed 95 production
+tests and 111 lab tests without skips; prior packages are backed up under
+`checkpoints/stopfix-20261021-01/`. Its first engine run failed before selection
+when vanilla package `000FB904` preempted the lab stay package. No new receipt
+was written; alias release and globals/hour restoration succeeded. The stop
+fix remains unexercised by that run. Runtime acceptance and the next bounded
+handoff investigation are tracked in the overnight checkpoint.
+MQ102 and normal playthrough saves are untouched.
 
 Installation receipts and the blocked preflight are under
 `checkpoints/candidate-staging-20261020/`. Existing trace and receipt history

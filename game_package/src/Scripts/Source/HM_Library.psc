@@ -230,14 +230,17 @@ Bool Function MatchesIdentity(String path, String contract, String[] keys)
 EndFunction
 
 Int Function ChooseSlot(String performerId, String region, String preferMode)
+    ; The SE engine rejects None -> String[] casts and can invalidate the
+    ; compiler's reused array temporary. Keep this a typed allocation; the
+    ; key, not array truthiness, says whether a strict selection was captured.
+    ActiveIdentity = new String[10]
+    ActiveIdentityKey = ""
     If !Locked
         ResetSession()
     EndIf
     If !JsonUtil.Load(LibraryFile) || !JsonUtil.IsGood(LibraryFile)
         Return 0
     EndIf
-    ActiveIdentity = None
-    ActiveIdentityKey = ""
     String[] keys = IdentityKeys()
     Int contractIndex = SelectionContract(performerId, region, keys)
     If contractIndex == -2 || (contractIndex < 0 && HasVersionedRecording(performerId))
@@ -272,7 +275,6 @@ Int Function ChooseSlot(String performerId, String region, String preferMode)
                         ActiveDuration = duration
                         If contractIndex >= 0
                             ActiveIdentityKey = JsonUtil.GetPathStringValue(LibraryFile, path + ".identity_key", "")
-                            ActiveIdentity = new String[10]
                             Int k = 0
                             While k < keys.Length
                                 ActiveIdentity[k] = JsonUtil.GetPathStringValue(LibraryFile, path + "." + keys[k], "")
@@ -318,7 +320,7 @@ Function AppendReceipt(Int slot, String performerId, String region, Float starte
     JsonUtil.SetPathFloatValue(ReceiptsFile, path + ".at_hours", Utility.GetCurrentGameTime() * 24.0)
     JsonUtil.SetPathFloatValue(ReceiptsFile, path + ".started_real_seconds", started)
     JsonUtil.SetPathStringValue(ReceiptsFile, path + ".outcome", outcome)
-    If ActiveIdentity
+    If ActiveIdentityKey != "" && ActiveIdentity && ActiveIdentity.Length == 10
         String[] keys = IdentityKeys()
         JsonUtil.SetPathIntValue(ReceiptsFile, path + ".runtime_identity.version", 1)
         JsonUtil.SetPathStringValue(ReceiptsFile, path + ".runtime_identity.identity_key", ActiveIdentityKey)

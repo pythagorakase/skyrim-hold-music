@@ -179,9 +179,47 @@ The pinned PapyrusUtil 4.6, SkyUI 5.2SE and Address Library 11 archives are now
 installed and hash-verified in that lab. Preflight passed 442 checks. The first
 Hold Music engine run reached the inn but failed Sven's eligibility check
 before playback; preserve that failure as evidence, not a successful
-performance. Launcher and harness corrections passed their offline checks and
-the revised harness is staged; runtime reruns are deferred while the user uses
-Steam.
+performance. The user subsequently released Steam for overnight lab testing.
+The revised harness confirmed result serialization and reached playback. A real
+engine error in the candidate's identity-array reset was fixed with a typed
+allocation; a subsequent engine receipt now contains the full recording identity.
+Completion/interruption/ambient acceptance remains pending while an idle refusal
+and unsolicited interruption are investigated. Preserve those failed results;
+do not treat partial assertions as a passing scenario. See the
+[overnight checkpoint](se-lab-overnight-2026-10-21.md).
+
+A [separate SkyrimNet lab preparation tool](se-lab-skyrimnet.md) now describes
+the pinned dependency payload and verifies an isolated instance's disabled,
+credential-free first-boot state. A separate reviewed install command can now
+publish that exact payload into a new independent MO2 directory, with retained
+interruption evidence and explicit recovery. It has no game launch or provider
+API action. This prepares the next coexistence milestone while retaining
+the smaller controller baseline and its outstanding runtime checks.
+
+Runtime receipts can inherit Papyrus string casing (`Sven` versus authored
+`sven`). The history adapter resolves only unambiguous source spellings within
+the exact save/world scope, so repeat suppression sees the actual performance.
+Raw receipts and their captured identity keys remain intact; ambiguous history
+blocks planning rather than erasing cooldown evidence. Readable runtime fields
+are not rehashed as canonical source identity.
+
+The SE engine fixture also separates controlled playback from ordinary NPC AI.
+The current controller starts/stops the idle and audio but does not acquire a
+performer AI package; a seated Sven is correctly ineligible. A temporary lab
+alias/package may hold a disposable test actor at the stage to isolate playback,
+interruption and receipts. Any such result must explicitly report injected AI
+control and keep normal actor behavior unverified. Natural tavern performance
+under the actor's ordinary packages remains a separate integration check.
+The controlled fixture has produced a completed, identity-bearing receipt and
+released its actor alias. The overall test failed on its preparation deadline,
+and overlapping timeout/completion cleanup exposed a duplicate-stop receipt
+race. Offline deadline/stop fixes are installed in the isolated lab, but the
+next engine run failed before selection when a vanilla bard travel package
+preempted the fixture. It produced no new receipt; stop-fix runtime acceptance
+is still pending. Resolve the explicit fixture handoff before baseline
+acceptance. The [production performer lifecycle proposal](performer-lifecycle-design.md)
+defines a distinct future AI lease, frozen recording identity, cancellation and
+save/load contract; it is not implemented by the lab fixture.
 
 An affected shared profile can reuse the selected library's content validation only after its own fresh inspection and complete before/after equivalence across all 51 mapped paths, including histories, absences and orphan assets. Different physical winners retain their provenance; different library contents remain blocked. This bounded proof does not validate controller ownership, archives, current saves or runtime behavior.
 

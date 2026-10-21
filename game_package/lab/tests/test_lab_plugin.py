@@ -94,7 +94,23 @@ class LabPluginTests(unittest.TestCase):
         self.assertEqual(self.quest["id"], 0x02000800)
         self.assertEqual(self.quest["values"][b"EDID"], b"HM_LabQuest\0")
         self.assertEqual(struct.unpack_from("<H", self.quest["values"][b"DNAM"])[0], 0x101)
-        self.assertFalse(any(tag in {b"ALST", b"ALLS", b"ALFR"} for tag, _ in self.quest["parts"]))
+        self.assertEqual(self.quest["values"][b"DNAM"][2], 90)
+
+    def test_fixture_alias_is_optional_empty_and_has_only_the_verified_package(self):
+        self.assertEqual(self.quest["values"][b"ANAM"], struct.pack("<I", 1))
+        parts = self.quest["parts"]
+        start = next(i for i, (tag, _) in enumerate(parts) if tag == b"ALST")
+        # Exact alias layout excludes forced/unique/event/condition fill rules,
+        # actor flags, factions, inventory, and all additional package overrides.
+        self.assertEqual(parts[start:], [
+            (b"ALST", struct.pack("<I", 0)),
+            (b"ALID", b"FixtureActor\0"),
+            (b"FNAM", struct.pack("<I", 2)),  # Optional only.
+            (b"ALPC", struct.pack("<I", 0x0010FB3F)),
+            (b"ALED", b""),
+        ])
+        self.assertEqual(sum(tag == b"ALST" for tag, _ in parts), 1)
+        self.assertFalse(any(tag == b"ALLS" for tag, _ in parts))
 
     def test_harness_script_and_exact_cross_plugin_properties(self):
         reader = Reader(self.quest["values"][b"VMAD"])

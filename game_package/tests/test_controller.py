@@ -8,6 +8,7 @@ TRACE_EVENTS = {
     "no_performer", "slot_chosen", "vanilla_stopped", "vanilla_unavailable",
     "vanilla_restarted", "idle_failed", "performance_start", "performance_stop",
     "receipt_failed", "session_cap", "disabled", "trace_rolled",
+    "idle_failed_state", "performance_interrupt_guard",
 }
 
 class ControllerTests(unittest.TestCase):
@@ -286,6 +287,100 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(self.traces(v,'receipt_failed'),['id=mikael slot=1'])
         self.assertIn(('save','HoldMusic/trace.json'),v.effects)
 
+    def test_idle_refusal_records_current_actor_state_without_retry(self):
+        v=VM()
+        original=v.method
+        def refuse_after_actor_changes(obj, name, args):
+            if name=='playidle' and args==['IdleLuteStart']:
+                v.actors['Mikael']['sit']=3
+                v.scene_playing[2]=True
+                v.idle_succeeds=False
+            return original(obj,name,args)
+        v.method=refuse_after_actor_changes
+        v.enter(); v.advance(15)
+        details=self.traces(v,'idle_failed_state')
+        self.assertEqual(len(details),1)
+        for field in ('reason=native_idle_refused','loaded=1','sit=3','sleep=0',
+                      'same_cell=1','vanilla_scenes_playing=1'):
+            self.assertIn(field,details[0])
+        self.assertEqual(v.effects.count(('idle','Mikael','IdleLuteStart')),1)
+        self.assertFalse(v.receipts)
+        self.assertFalse(any(effect[0]=='play' for effect in v.effects))
+        self.assertFalse(any(v.state['hm_library']['locked']))
+
+    def test_poll_interruptions_record_exact_first_guard_and_state(self):
+        cases=[('loaded',False,'actor_unloaded'),('dead',True,'actor_dead'),
+               ('combat',True,'actor_combat'),('dialogue',True,'actor_dialogue'),
+               ('follower',True,'actor_follower'),('sit',3,'actor_sit'),
+               ('sleep',3,'actor_sleep'),('cell','other','cell_changed'),
+               ('disabled',True,'disabled'),('stop',True,'stop_requested'),
+               ('venue',True,'venue_changed')]
+        for key,value,reason in cases:
+            with self.subTest(reason=reason):
+                v=self.start()
+                if key=='disabled': v.settings['HM_Enabled']=0
+                elif key=='stop': v.state['hm_config']['::stoprequested_var']=True
+                elif key=='venue': v.actors['P']['location']='outside'
+                else: v.actors['Mikael'][key]=value
+                v.advance(2)
+                details=self.traces(v,'performance_interrupt_guard')
+                self.assertEqual(len(details),1)
+                self.assertIn('reason='+reason,details[0])
+                self.assertIn('id=mikael slot=1',details[0])
+                self.assertEqual([row['outcome'] for row in v.receipts],['interrupted'])
+                self.assertEqual(self.traces(v,'performance_stop'),['outcome=interrupted id=mikael slot=1'])
+                self.assertEqual(len([effect for effect in v.effects if effect[0]=='play']),1)
+
+    def test_guard_reason_survives_state_change_during_diagnostic_snapshot(self):
+        v=self.start(); original=v.method; reads=0
+        def changing_combat(obj,name,args):
+            nonlocal reads
+            if obj=='Mikael' and name=='isincombat':
+                reads+=1
+                return reads==1
+            return original(obj,name,args)
+        v.method=changing_combat
+        v.advance(2)
+        detail=self.traces(v,'performance_interrupt_guard')[0]
+        self.assertIn('reason=actor_combat',detail)
+        self.assertIn('combat=0',detail)
+        self.assertEqual(v.receipts[0]['outcome'],'interrupted')
+
+    def test_successful_polls_do_not_emit_failure_diagnostics(self):
+        v=self.start(); v.advance(2); v.advance(4)
+        self.assertEqual(v.receipts[0]['outcome'],'completed')
+        self.assertEqual(self.traces(v,'performance_interrupt_guard'),[])
+        self.assertEqual(self.traces(v,'idle_failed_state'),[])
+
+    def test_poll_guard_preserves_original_precedence(self):
+        v=self.start()
+        v.settings['HM_Enabled']=0
+        v.state['hm_config']['::stoprequested_var']=True
+        v.actors['Mikael'].update(loaded=False,dead=True,combat=True,sit=3)
+        v.advance(2)
+        self.assertIn('reason=disabled',self.traces(v,'performance_interrupt_guard')[0])
+
+    def test_guard_short_circuit_avoids_unneeded_actor_native_calls(self):
+        v=VM(); original=v.method
+        def reject_actor_reads(obj,name,args):
+            if obj=='Mikael':
+                raise AssertionError('unexpected actor read: '+name)
+            return original(obj,name,args)
+        v.method=reject_actor_reads
+        self.assertEqual(v.run('hm_controller','EligibilityFailure',None),'actor_missing')
+        v.state['hm_controller']['performer']='Mikael'
+        v.settings['HM_Enabled']=0
+        self.assertEqual(v.run('hm_controller','PollInterruptionReason'),'disabled')
+        v.settings['HM_Enabled']=1
+        v.state['hm_config']['::stoprequested_var']=True
+        self.assertEqual(v.run('hm_controller','PollInterruptionReason'),'stop_requested')
+        v.state['hm_config']['::stoprequested_var']=False
+        def unloaded_actor_only(obj,name,args):
+            if obj=='Mikael' and name=='is3dloaded': return False
+            return reject_actor_reads(obj,name,args)
+        v.method=unloaded_actor_only
+        self.assertEqual(v.run('hm_controller','PollInterruptionReason'),'actor_unloaded')
+
     def test_trace_schema_ring_and_monotonic_sequence(self):
         v=VM()
         for i in range(300): v.run('hm_library','Trace','candidate','id='+str(i))
@@ -312,6 +407,203 @@ class ControllerTests(unittest.TestCase):
         v.run('hm_library','ResetSession'); v.run('hm_library','Trace','disabled','')
         self.assertEqual(len([x for x in v.effects if x[0]=='trace']),2)
         self.traces(v)
+
+
+class StopRaceTests(unittest.TestCase):
+    """Reenter compiled PEX at mocked native/script call boundaries.
+
+    These deterministically reproduce the engine's overlapping stop stacks;
+    they do not claim a general Papyrus scheduler or native AI simulation.
+    """
+
+    @staticmethod
+    def started():
+        v = VM()
+        v.enter()
+        v.advance(15)
+        return v
+
+    def inject_once(self, v, kind, predicate, callback, *, after=False):
+        original = getattr(v, kind)
+        hits = []
+
+        def injected(*args):
+            if not hits and predicate(*args):
+                hits.append(args)
+                if after:
+                    result = original(*args)
+                    callback()
+                    return result
+                callback()
+            return original(*args)
+
+        setattr(v, kind, injected)
+        return hits
+
+    @staticmethod
+    def boundary(name):
+        if name == 'sound':
+            return 'static', lambda owner, method, args: (owner, method) == ('sound', 'stopinstance')
+        if name == 'receipt_save':
+            return 'static', lambda owner, method, args: (owner, method) == ('jsonutil', 'save') and args[0] == 'HoldMusic/receipts.json'
+        return 'method', lambda obj, method, args: (
+            name == 'unregister' and method == 'unregisterforupdate'
+            or name == 'idle' and method == 'playidle' and args == ['IdleStop']
+            or name == 'trace' and method == 'trace' and args[0] == 'performance_stop'
+            or name == 'receipt' and method == 'appendreceipt'
+        )
+
+    def assert_single_stop(self, v, outcome='completed'):
+        self.assertEqual(len(v.receipts), 1)
+        row = v.receipts[0]
+        self.assertEqual((row['slot'], row['performer_id'], row['composition_id'], row['outcome']),
+                         (1, 'mikael', 'c1', outcome))
+        self.assertEqual(v.effects.count(('stop', 1001)), 1)
+        self.assertEqual(v.effects.count(('idle', 'Mikael', 'IdleStop')), 1)
+        self.assertIsNone(v.state['hm_controller']['performer'])
+        self.assertIsNone(v.scheduled)
+
+    def test_first_stop_wins_at_every_cleanup_boundary(self):
+        for boundary in ('unregister', 'sound', 'idle', 'trace', 'receipt', 'receipt_save'):
+            for after in (False, True):
+                with self.subTest(boundary=boundary, after=after):
+                    v = self.started()
+                    kind, predicate = self.boundary(boundary)
+                    hits = self.inject_once(v, kind, predicate,
+                                            lambda: v.run('hm_controller', 'StopPerformance', 'interrupted'),
+                                            after=after)
+                    v.run('hm_controller', 'StopPerformance', 'completed')
+                    self.assertEqual(len(hits), 1)
+                    self.assert_single_stop(v)
+
+    def test_stop_defers_update_before_mutable_library_selection(self):
+        v = self.started()
+        v.candidates = ['Sven']
+        self.assertFalse(v.state['hm_controller']['busy'])
+        kind, predicate = self.boundary('sound')
+        hits = self.inject_once(v, kind, predicate, lambda: v.run('hm_controller', 'OnUpdate'))
+        v.run('hm_controller', 'StopPerformance', 'completed')
+        self.assertEqual(len(hits), 1)
+        self.assert_single_stop(v)
+        self.assertEqual(v.state['hm_library']['activecomposition'], 'c1')
+        self.assertEqual([x for x in v.effects if x[0] == 'play'], [('play', 1, 'Mikael')])
+
+    def test_stop_blocks_direct_start_until_cleanup_has_drained(self):
+        for boundary in ('unregister', 'sound', 'idle', 'trace', 'receipt', 'receipt_save'):
+            with self.subTest(boundary=boundary):
+                v = self.started()
+                kind, predicate = self.boundary(boundary)
+                hits = self.inject_once(v, kind, predicate,
+                                        lambda: v.run('hm_controller', 'StartPerformance', 'Sven', 'sven', 'whiterun', 2))
+                v.run('hm_controller', 'StopPerformance', 'completed')
+                self.assertEqual(len(hits), 1)
+                self.assert_single_stop(v)
+                self.assertEqual(v.effects.count(('stop_vanilla',)), 1)
+                self.assertNotIn(('idle', 'Sven', 'IdleLuteStart'), v.effects)
+                self.assertNotIn(('play', 2, 'Sven'), v.effects)
+                # Admission opens after complete cleanup, with no old tail left
+                # that can reset the new instance or unregister its timer.
+                v.run('hm_library', 'ChooseSlot', 'sven', 'whiterun', 'vocal')
+                v.run('hm_controller', 'StartPerformance', 'Sven', 'sven', 'whiterun', 2)
+                self.assertEqual(v.state['hm_controller']['performer'], 'Sven')
+                self.assertEqual(v.state['hm_controller']['instance'], 1002)
+                self.assertEqual(v.scheduled, 2)
+
+    def test_stop_uses_snapshot_receipt_arguments_across_native_calls(self):
+        v = self.started()
+        v.state['hm_config']['::worldid_var'] = 'original-world'
+        original_start = v.state['hm_controller']['started']
+
+        def mutate_observed_shared_fields():
+            state = v.state['hm_controller']
+            state.update(slot=0, performerid='changed', performanceregion='other', started=999)
+            v.state['hm_config']['::worldid_var'] = 'changed-world'
+
+        kind, predicate = self.boundary('sound')
+        self.inject_once(v, kind, predicate, mutate_observed_shared_fields)
+        v.run('hm_controller', 'StopPerformance', 'completed')
+        self.assert_single_stop(v)
+        row = v.receipts[0]
+        self.assertEqual((row['region'], row['world_id'], row['started_real_seconds']),
+                         ('whiterun', 'original-world', original_start))
+
+    def test_idle_stop_preserves_explicit_cancellation_semantics(self):
+        v = self.started()
+        v.run('hm_controller', 'StopPerformance', 'completed')
+        v.run('hm_controller', 'ScheduleCheck')
+        v.state['hm_config']['::stoprequested_var'] = True
+        before = list(v.effects)
+        v.run('hm_controller', 'StopPerformance', 'interrupted')
+        self.assertIsNone(v.scheduled)
+        self.assertEqual(v.effects, before)
+        self.assertEqual(len(v.receipts), 1)
+        self.assertFalse(v.state['hm_config']['::stoprequested_var'])
+
+    def test_reentrant_noop_stop_does_not_unregister_a_newer_timer(self):
+        v = self.started()
+
+        def concurrent_noop():
+            v.scheduled = 23.0
+            v.run('hm_controller', 'StopPerformance', 'interrupted')
+
+        kind, predicate = self.boundary('receipt')
+        self.inject_once(v, kind, predicate, concurrent_noop, after=True)
+        v.run('hm_controller', 'StopPerformance', 'completed')
+        self.assertEqual(v.scheduled, 23.0)
+        self.assertEqual(len(v.receipts), 1)
+        self.assertEqual(v.receipts[0]['slot'], 1)
+
+    def test_stop_during_idle_start_compensates_without_audio_or_new_start(self):
+        v = VM()
+
+        def cancel_and_try_start():
+            v.run('hm_controller', 'StopPerformance', 'interrupted')
+            v.run('hm_controller', 'StartPerformance', 'Sven', 'sven', 'whiterun', 2)
+            v.run('hm_controller', 'OnUpdate')
+
+        hits = self.inject_once(v, 'method',
+                                lambda obj, name, args: name == 'playidle' and args == ['IdleLuteStart'],
+                                cancel_and_try_start, after=True)
+        v.enter()
+        v.advance(15)
+        self.assertEqual(len(hits), 1)
+        self.assertEqual([x for x in v.effects if x[0] == 'play'], [])
+        self.assertEqual(v.effects.count(('idle', 'Mikael', 'IdleStop')), 1)
+        self.assertEqual(v.receipts, [])
+        self.assertIsNone(v.state['hm_controller']['performer'])
+        self.assertIsNone(v.scheduled)
+
+    def test_stop_during_late_sound_return_stops_exact_returned_instance(self):
+        v = VM()
+
+        def cancel_and_try_start():
+            v.run('hm_controller', 'StopPerformance', 'interrupted')
+            v.run('hm_controller', 'StopPerformance', 'completed')
+            v.run('hm_controller', 'StartPerformance', 'Sven', 'sven', 'whiterun', 2)
+
+        hits = self.inject_once(v, 'method',
+                                lambda obj, name, args: isinstance(obj, tuple) and obj[0] == 'sound' and name == 'play',
+                                cancel_and_try_start, after=True)
+        v.enter()
+        v.advance(15)
+        self.assertEqual(len(hits), 1)
+        self.assert_single_stop(v, 'interrupted')
+        self.assertEqual([x for x in v.effects if x[0] == 'play'], [('play', 1, 'Mikael')])
+        self.assertFalse(v.state['hm_controller'].get('starting', False))
+        self.assertFalse(v.state['hm_controller'].get('stopping', False))
+
+    def test_stop_during_start_trace_or_timer_drains_before_reopening_admission(self):
+        for boundary in ('trace', 'timer'):
+            with self.subTest(boundary=boundary):
+                v = VM()
+                hits = self.inject_once(v, 'method',
+                    lambda obj, name, args: (boundary == 'trace' and name == 'trace' and args[0] == 'performance_start'
+                                            or boundary == 'timer' and name == 'registerforsingleupdate' and args == [2.0]),
+                    lambda: v.run('hm_controller', 'StopPerformance', 'interrupted'), after=True)
+                v.enter()
+                v.advance(15)
+                self.assertEqual(len(hits), 1)
+                self.assert_single_stop(v, 'interrupted')
 
 
 class TraceContractTests(unittest.TestCase):

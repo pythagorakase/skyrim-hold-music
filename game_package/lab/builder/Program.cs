@@ -19,6 +19,8 @@ var vanilla = ModKey.FromFileName("Skyrim.esm");
 var holdMusic = ModKey.FromFileName("HoldMusic.esp");
 var questKey = new FormKey(key, 0x800);
 var holdMusicQuest = new FormKey(holdMusic, 0x800);
+// Verified in the SE lab's Skyrim.esm: Travel NearSelf, radius zero, no own idle.
+var fixturePackage = new FormKey(vanilla, 0x10FB3F);
 var requiredMasters = new[] { vanilla, holdMusic };
 var expectedProperties = new Dictionary<string, FormKey>
 {
@@ -46,9 +48,9 @@ var quest = new Quest(questKey, SkyrimRelease.SkyrimSE)
     EditorID = "HM_LabQuest",
     Name = "Hold Music LAB",
     Flags = Quest.Flag.StartGameEnabled | Quest.Flag.RunOnce,
-    Priority = 0,
+    Priority = 90,
     QuestFormVersion = 65,
-    NextAliasID = 0,
+    NextAliasID = 1,
     VirtualMachineAdapter = new QuestAdapter
     {
         Version = 5,
@@ -56,6 +58,17 @@ var quest = new Quest(questKey, SkyrimRelease.SkyrimSE)
         ExtraBindDataVersion = 2,
     },
 };
+// Empty until the opted-in harness explicitly acquires an actor. Clearing the
+// alias removes this package without changing the actor's base package list.
+var fixtureAlias = new QuestAlias
+{
+    ID = 0,
+    Name = "FixtureActor",
+    Type = QuestAlias.TypeEnum.Reference,
+    Flags = QuestAlias.Flag.Optional,
+};
+fixtureAlias.PackageData.Add(new FormLink<IPackageGetter>(fixturePackage));
+quest.Aliases.Add(fixtureAlias);
 var harness = new ScriptEntry { Name = "HM_LabHarness" };
 foreach (var (name, form) in expectedProperties)
 {
@@ -90,8 +103,17 @@ Require(actualQuest.FormKey == questKey && actualQuest.EditorID == "HM_LabQuest"
     "Lab quest identity changed during serialization");
 Require(actualQuest.Flags == (Quest.Flag.StartGameEnabled | Quest.Flag.RunOnce),
     "Lab quest start/run flags did not round-trip");
-Require(actualQuest.Aliases.Count == 0 && actualQuest.NextAliasID == 0,
-    "Lab quest must not own actor aliases");
+Require(actualQuest.Priority == 90 && actualQuest.Aliases.Count == 1
+    && actualQuest.NextAliasID == 1, "Unexpected fixture alias count or quest priority");
+var actualAlias = actualQuest.Aliases.Single();
+Require(actualAlias.ID == 0 && actualAlias.Name == "FixtureActor"
+    && actualAlias.Type == QuestAlias.TypeEnum.Reference
+    && actualAlias.Flags == QuestAlias.Flag.Optional
+    && actualAlias.ForcedReference.FormKey == FormKey.Null,
+    "Fixture alias must be optional and initially empty");
+Require(actualAlias.PackageData.Count == 1
+    && actualAlias.PackageData.Single().FormKey == fixturePackage,
+    "Fixture alias must reference only DefaultBardStayAtCurrentLocation");
 var adapter = actualQuest.VirtualMachineAdapter
     ?? throw new InvalidDataException("Lab quest VMAD is missing");
 Require(adapter.Version == 5 && adapter.ObjectFormat == 2
@@ -129,6 +151,14 @@ Console.WriteLine(JsonSerializer.Serialize(new
     editorId = actualQuest.EditorID,
     questFileId = $"{questFileId:X8}",
     nextFormId = $"{loaded.ModHeader.Stats.NextFormID:X8}",
+    priority = actualQuest.Priority,
+    fixtureAlias = new
+    {
+        id = actualAlias.ID,
+        name = actualAlias.Name,
+        flags = actualAlias.Flags.ToString(),
+        package = fixturePackage.ToString(),
+    },
     masters = loaded.ModHeader.MasterReferences.Select(x => x.Master.ToString()),
     script = harness.Name,
     properties = expectedProperties.ToDictionary(x => x.Key, x => x.Value.ToString()),

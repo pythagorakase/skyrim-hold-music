@@ -143,6 +143,11 @@ class VM:
             elif op in ('assign','cast'):
                 v=val(a[1]); typ=types.get(a[0].lower(),'')
                 if op=='cast':
+                    # Real SE lab 20261021T042942Z: this cast errors in the
+                    # engine, then reused array temporaries reject return
+                    # assignments and allocations. Do not silently accept it.
+                    if typ.endswith('[]') and v is None:
+                        raise AssertionError(('unsupported None-to-array cast', owner, method, a[0], typ))
                     if typ=='bool': v=bool(v)
                     elif typ=='int': v=int(v or 0)
                     elif typ=='float': v=float(v or 0)

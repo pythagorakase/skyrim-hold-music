@@ -22,10 +22,16 @@ REGIONS = ('haafingar', 'eastmarch', 'whiterun', 'reach', 'falkreath',
            'rift', 'winterhold', 'pale', 'hjaalmarch')
 MODES = ('vocal', 'wordless', 'instrumental')
 SLOTS = 24
+_RUNTIME_ASCII_CASE = str.maketrans('ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz')
 
 
 def _text(value):
     return isinstance(value, str) and bool(value.strip())
+
+
+def _runtime_case_key(value):
+    """Recognize only the ASCII case loss observed at the Papyrus boundary."""
+    return value.translate(_RUNTIME_ASCII_CASE)
 
 
 def _number(value):
@@ -415,21 +421,32 @@ class Library:
         Prepared offline material is baseline knowledge at game hour zero. Optional
         save_id/world_id and created_at_hours preserve executor timeline scope.
         UTC timestamps are never interpreted as in-game hours.
+
+        Papyrus loses string case. Runtime history alone resolves ASCII case
+        variants of performer and composition spellings against unambiguous source
+        names in this exact save/world scope. Non-ASCII characters, raw receipts,
+        and strict recording identities stay intact.
         """
         self.load()
         scope = {'save_id': save_id, 'world_id': world_id}
         result = dict(scope, performer_id=performer_id, now_hours=now_hours,
                       request=deepcopy(request), compositions=[], recordings=[],
                       recent_performances=[], generation_history=[])
+        source_rows = [row for row in self.recordings
+                       if ('save_id' not in row or
+                           (row['save_id'], row['world_id']) == (save_id, world_id))
+                       and row.get('created_at_hours', 0) <= now_hours]
+        performer_spellings = {row['performer_id'] for row in source_rows
+                               if _runtime_case_key(row['performer_id']) == _runtime_case_key(performer_id)}
+        composition_spellings = {}
+        for row in source_rows:
+            if row['performer_id'] == performer_id:
+                composition_spellings.setdefault(_runtime_case_key(row['composition_id']), set()).add(row['composition_id'])
         compositions = {}
-        for row in self.recordings:
+        for row in source_rows:
             if row['performer_id'] != performer_id:
                 continue
-            if 'save_id' in row and (row['save_id'], row['world_id']) != (save_id, world_id):
-                continue
             created = row.get('created_at_hours', 0)
-            if created > now_hours:
-                continue
             mode = 'lyrical' if row['mode'] == 'vocal' else row['mode']
             lyrics = None
             if mode == 'lyrical':
@@ -456,9 +473,25 @@ class Library:
                 playable=row['playable'], created_at=created))
         result['compositions'] = list(compositions.values())
         for receipt in self.performances:
-            result['recent_performances'].append({key: receipt[key] for key in
-                ('id', 'performer_id', 'composition_id', 'save_id', 'world_id')})
-            result['recent_performances'][-1].update(at=receipt['at_hours'], recording_id=f"slot:{receipt['slot']:02d}")
+            performance = {key: receipt[key] for key in
+                           ('id', 'performer_id', 'composition_id', 'save_id', 'world_id')}
+            if ((receipt['save_id'], receipt['world_id']) == (save_id, world_id)
+                    and receipt['at_hours'] <= now_hours
+                    and _runtime_case_key(receipt['performer_id']) == _runtime_case_key(performer_id)):
+                # Never rehash runtime_identity: its readable strings have
+                # passed through BSFixedString, while its captured key has not.
+                # Ambiguity must stop planning, not silently erase a cooldown.
+                if len(performer_spellings) > 1:
+                    raise ValueError('Ambiguous runtime receipt performer alias in source library')
+                if performer_spellings == {performer_id}:
+                    performance['performer_id'] = performer_id
+                    names = composition_spellings.get(_runtime_case_key(receipt['composition_id']), set())
+                    if len(names) > 1:
+                        raise ValueError('Ambiguous runtime receipt composition alias in source library')
+                    if names:
+                        performance['composition_id'] = next(iter(names))
+            performance.update(at=receipt['at_hours'], recording_id=f"slot:{receipt['slot']:02d}")
+            result['recent_performances'].append(performance)
         for receipt in self.generation_receipts:
             result['generation_history'].append({key: receipt[key] for key in
                 ('id', 'performer_id', 'action', 'save_id', 'world_id')})

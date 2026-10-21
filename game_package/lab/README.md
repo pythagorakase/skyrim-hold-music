@@ -64,6 +64,143 @@ The fixture library must contain a compatible playable projected recording
 with a nonempty identity key; legacy unknown identity cannot pass this lab.
 Focused fixture duration must be positive and no longer than 30 seconds.
 
+## Explicit disposable-world baseline
+
+A fresh `QASmoke` world can still run Sven's Riverwood intro scene. In the actual
+lab `Skyrim.esm`, his highest-priority intro patrol applies until intro stage 10
+or MQ102 stage 50; the intro scene also gives him a travel package. Merely
+teleporting him into the inn does not remove those packages. This was a plausible
+cause of the observed moving/absent fixture; it is not a diagnosis of every
+earlier eligibility or idle failure.
+
+For an explicitly disposable autorun world, the operator may add this **boolean**
+to the enabled control file:
+
+```json
+{"version":1,"enabled":true,"world_id":"hold-music-se-lab","allow_disposable_world_setup":true}
+```
+
+This option requires the existing valid world, fresh request, and `auto_run:true`
+guards. Manual commands never use it. The harness resolves only the inspected
+`DialogueRiverwoodIntroScene` quest `000954D9`, scene `000954DA`, GameHour
+global `00000038`, and the read-only MQ102 stage. It temporarily sets GameHour
+to 18:00 before any Story Manager entry. The intro is event-scoped: a real engine
+run rejected an attempt to start it through `SetStage` while it was stopped.
+
+When the intro has not completed and is not running, the harness first requires
+the existing MQ102 stage to be below 50, then teleports the player from outside
+Riverwood to persistent marker `00096595 RiverwoodSoldierSceneMarker`. The
+marker's spatial cell is `00009731 Riverwood04`, location `00013163`; its storage
+parent is Tamriel's persistent cell. The inspected Story Manager `CLOC` chain
+(`0001320E` → `0009002B` → `0009002D` → `00096593`) requires that new location,
+MQ102 below 50, intro stage 10 not done, and hours 08:00–20:00. Active overrides
+preserve these conditions. The harness never calls `Quest.Start`, injects a
+story event, or changes MQ102.
+
+It waits for observed loaded-player arrival **and** actual intro quest startup;
+arrival alone cannot establish Story Manager acceptance. Only a running quest
+receives the authored stage 20 cleanup, whose actual SE fragment calls stage 10
+then stops the quest. If the quest naturally completes between observations,
+stage 10 done with quest/scene stopped is recorded separately and no restart is
+attempted. It verifies stage 10 is done and both quest and scene have stopped.
+
+It then asks Sven to evaluate his normal package, records the package FormID,
+and proceeds with the existing inn teleport and unchanged eligibility checks.
+Sven's inspected `SvenPlayInn10x16` package
+`0001CB1B` covers 10:00–02:00. The recorded package is an observation, not a
+condition the harness forces or a promise that the engine will keep it active.
+
+Setup has a 90-second real-time budget for exterior loading and quest startup,
+with at most eighty 0.25-second story waits and twenty 0.1-second cleanup waits.
+Once verified, a separate 90-second focused preparation or 120-second ambient
+deadline starts afresh. Focused playback receives its own fixed deadline from
+the fresh production start timestamp, plus the selected duration and 20 seconds
+for evidence. Cancellation, a revoked guard, or a changed request
+across a latent move or wait prevents setup from continuing or overwriting the
+terminal result. `world_setup` records baseline/readback fields, both deadlines,
+exterior arrival, observed quest startup versus natural completion, and whether
+the stage 20 request was issued and accepted.
+
+GameHour is restored on completion, failure, timeout, or cleanup, with a
+three-game-minute readback tolerance for natural clock advancement. A failed
+restoration prevents a pass. **Quest stage history is not undone**; evidence
+explicitly keeps `quest_history_restored:false` and
+`normal_quest_playthrough_verified:false`. Discard the test world afterward.
+The source/record inspection artifacts are retained locally under
+`local/se-lab-sven-schedule-inspection-20261021/inspection-summary.json`.
+Story Manager and exterior-anchor evidence is retained separately under
+`local/se-lab-sven-story-inspection-20261021/inspection-summary.json`.
+
+## Optional controlled standing fixture
+
+The live exterior-entry run `20261021T051101Z-1960d1585a9f` verified Story
+Manager startup, accepted stage 20 cleanup, stopped quest/scene, and Sven's
+normal inn package. It then failed correctly because Sven's sit state was 3.
+That package's actual Sandbox inputs allow sitting. This does not establish
+which operation consumed the time before the failed eligibility check.
+
+An additional **boolean** `allow_controlled_actor_ai:true` in the control file
+opts a disposable autorun into a controlled standing fixture. It requires the
+separate `allow_disposable_world_setup:true` baseline above. Manual commands do
+not acquire it. The lab quest has priority 90 and one initially empty Optional
+reference alias, `0: FixtureActor`, with no default actor, extra actor flags,
+factions, or alias scripts. Its sole package is the unoverridden vanilla
+`0010FB3F DefaultBardStayAtCurrentLocation`: a Travel template with Near Self,
+radius zero, and no forced idle or script. Its conditions exclude followers
+and the player. There is no production actor/package override.
+
+The harness first moves Sven to the verified stage marker, then saves ownership
+intent and acquires the empty alias before moving the player into the inn. This
+ordering gives Near Self the stage position. It refuses an already occupied
+alias or an actor already using the hold package. A focused run waits within
+the 90-second preparation deadline for the exact alias actor, expected
+package, loaded actor, and standing/sleep states of zero. The original controller
+eligibility checks still apply, and there is only one performance-start attempt.
+The ambient mode retains the genuine player entry and production scheduler.
+
+Completion, failure, timeout, cancellation, and revoked opt-in release only the
+exact actor this run acquired. A foreign replacement is preserved and reported
+as a failure. Release requires an empty alias and an observed package other than
+the hold package after `EvaluatePackage`, with at most ten 0.1-second readback
+waits. The observed package is reported; the harness does not claim to restore
+the exact former package or posture. An acquisition still inside its native call
+cannot certify release. Cancellation during that window leaves a failed terminal
+result and cleans up any late assignment when the call returns. It never changes
+that result into a pass.
+
+Run/request guards are checked after fixture moves, focused scanning, matching,
+diagnostics and selection, and around the single production start. These checks
+apply to ordinary autorun and manual focused commands as well as controlled AI.
+A suspended preparation or finish blocks a new run. Nested cancellation during
+release takes precedence over an older completion result.
+
+Production start is not atomic: cancellation inside a native idle/audio call
+can return before that start stack does. The cancelled result then records
+`focused_start_cleanup_pending:true`. The harness defers its stop until the
+start returns, compensates once, and leaves the terminal result unchanged.
+That pending result does not certify cleanup or a successful run, even after
+the later compensation; inspect production traces/receipts for what followed.
+
+Evidence includes `controlled_actor_ai`, the `fixture_ai` acquisition/standing/
+release readbacks, and `normal_actor_ai_behavior_verified:false`. A controlled
+pass would establish controller mechanics and, in ambient mode, scheduling with
+an explicitly held actor. **Normal tavern AI integration remains outstanding**:
+the production controller does not acquire this package. Native `PlayIdle`
+compatibility with the lab hold must still be observed in the engine.
+
+Focused runs record in-memory timing boundaries for native scanning, registry
+matching, diagnostics, and selection, publishing them in existing result saves.
+The full before/after interval must not be attributed to scanning alone. The
+controlled build14 run measured a 0.50-second scan phase and 18.03-second matching
+phase (including their continuation guards);
+total post-world-setup preparation exceeded the former 40-second limit.
+Preparation now has a fixed 90-second budget checked after native phases and
+before start. Playback uses the production trace timestamp plus the selected
+duration (at most 30 seconds) and 20 seconds for trace/receipt acceptance. Late
+observation or subsequent polling never extends that deadline. Ambient retains
+its 120-second limit. Evidence also reports collection duration and the previous
+completed result-save duration; those measurements add no extra result writes.
+
 ## Actual entry versus focused calls
 
 Start autorun outside an inn, for example in `QASmoke`. The following persistent
@@ -94,7 +231,7 @@ therefore sets `ambient_scheduling_bypassed` and
 `controller_entry_setup_injected` to true. They do not claim ambient selection
 or a naturally delivered entry event.
 
-Autorun waits within its 40-second focused deadline for the player and Sven to
+Autorun waits within its 90-second focused preparation deadline for the player and Sven to
 be loaded in the same cell after the teleport. It still uses the unchanged
 production eligibility checks. A failed scan records `fixture_diagnostics`:
 ownership, registry identity, loaded/same-cell flags, combat/dialogue/follower
@@ -102,10 +239,21 @@ state, sitting/sleeping state, distance, and scan count. Its diagnostic flags
 are integers so a JSON boolean serialization failure does not erase them.
 
 `focused-complete` awaits the fixture's natural duration. `focused-interrupt`
-sets the normal `HM_Config.StopRequested` flag two seconds after first observing
-the production start, recorded as `performance_start_observed_real_seconds`.
-Loading/setup time does not count toward this interval. It awaits the production
-poller, stop trace, and interrupted receipt. Completion or an unrelated stop
+sets the normal `HM_Config.StopRequested` flag once the observed production start
+timestamp is at least two seconds old. That check precedes expensive evidence
+collection on a subsequent poll. The eight-second synthetic fixture remains
+unchanged. Automatic requests stop at the trace-based duration boundary, and
+`interrupt_window_missed` records an expired window. The matching receipt must
+also prove the request preceded its earlier production-start timestamp plus
+duration. A completed receipt still fails; it is never relabelled.
+
+The result distinguishes `performance_start_trace_real_seconds` from the later
+`performance_start_observed_real_seconds`. Loading/setup time does not count
+toward the interruption interval. The scenario awaits the production
+poller, a fresh matching `performance_interrupt_guard` with
+`reason=stop_requested` at or after the recorded request time, the stop trace,
+and an interrupted receipt. A stop timestamp preceding the request fails.
+Completion or an unrelated stop
 before the harness requests interruption fails this scenario. A direct stop
 call is used only to bound cleanup, never as a substitute for successful
 interruption evidence.
@@ -181,9 +329,26 @@ as documented in [SKSE StringUtil](https://github.com/ianpatt/skse64/blob/master
 An already-interned `True`/`False` is therefore a plausible source of invalid JSON
 from bare lowercase literals. [PapyrusUtil's parser](https://github.com/eeveelo/PapyrusUtil/blob/master/External.cpp)
 replaces the destination even when parsing fails, consistent with the nulls.
-The protected-literal fix, fail-closed serialization checks, and new fixture
-diagnostics have compiled-fixture regression coverage; their engine confirmation
-remains pending. No successful playback or cleanup is claimed from that first run.
+The protected-literal fix subsequently produced real boolean fields with zero
+serialization errors in the isolated SE engine. Later runs reached production
+playback and persisted receipts, including a complete projected identity after
+the production array-initialization fix. An unsolicited interruption and later
+moving/unavailable Sven fixtures still prevented a passing completion scenario.
+The initial evening/intro-cleanup baseline failed on the event-scoped quest
+startup restriction (`20261021T050155Z-933a384bdad1`). The revised natural exterior
+entry subsequently verified the intended Story Manager startup and cleanup,
+then failed the seated actor check.
+
+Controlled build14 run `20261021T054636Z-1fd285da6f0a` subsequently verified alias
+acquisition, the expected standing package, unchanged actor eligibility, and
+alias release. Production started and emitted a completed receipt with the full
+projected identity. The overall run failed: preparation exceeded the old focused
+deadline before playback began, and concurrent stopping exposed a second
+interrupted receipt with slot zero. That historical receipt and the failed run
+are preserved. New attempts take fresh trace/receipt baselines rather than
+deleting or repairing history. The revised phase deadlines and production stop
+guard require a fresh engine run; normal actor AI integration, audibility and
+visual animation remain unverified.
 
 ## Offline build and tests
 

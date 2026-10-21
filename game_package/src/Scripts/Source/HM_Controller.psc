@@ -26,6 +26,10 @@ Float LastRealTime = 0.0
 Float Ends = 0.0
 Int SessionCount = 0
 Bool Busy = False
+Bool Starting = False
+Bool Stopping = False
+Bool StartCancelled = False
+String StartStopOutcome = ""
 String[] RecentPerformers
 Float[] RecentTimes
 Int RecentCount = 0
@@ -87,7 +91,9 @@ Event OnLocationChange(Location akOldLoc, Location akNewLoc)
 EndEvent
 
 Function ScheduleCheck()
-    If HM_Enabled.GetValue() == 0.0
+    If Starting || Stopping
+        Return
+    ElseIf HM_Enabled.GetValue() == 0.0
         Library.Trace("disabled", "")
         Return
     ElseIf SessionCount >= HM_SessionCap.GetValue()
@@ -110,7 +116,71 @@ EndFunction
 Bool Function Eligible(Actor candidate)
     ; Reject all furniture transitions/sitting and sleep states. This is a
     ; conservative cheap check, not a package graph inspection.
-    Return candidate && candidate.Is3DLoaded() && !candidate.IsDead() && !candidate.IsInCombat() && !candidate.IsInDialogueWithPlayer() && !candidate.IsInFaction(CurrentFollowerFaction) && candidate.GetSitState() == 0 && candidate.GetSleepState() == 0
+    Return EligibilityFailure(candidate) == ""
+EndFunction
+
+String Function EligibilityFailure(Actor candidate)
+    ; Preserve the original short-circuit order and acceptance criteria.
+    If !candidate
+        Return "actor_missing"
+    ElseIf !candidate.Is3DLoaded()
+        Return "actor_unloaded"
+    ElseIf candidate.IsDead()
+        Return "actor_dead"
+    ElseIf candidate.IsInCombat()
+        Return "actor_combat"
+    ElseIf candidate.IsInDialogueWithPlayer()
+        Return "actor_dialogue"
+    ElseIf candidate.IsInFaction(CurrentFollowerFaction)
+        Return "actor_follower"
+    ElseIf candidate.GetSitState() != 0
+        Return "actor_sit"
+    ElseIf candidate.GetSleepState() != 0
+        Return "actor_sleep"
+    EndIf
+    Return ""
+EndFunction
+
+String Function PollInterruptionReason()
+    If HM_Enabled.GetValue() == 0.0
+        Return "disabled"
+    ElseIf Config.StopRequested
+        Return "stop_requested"
+    EndIf
+    String failure = EligibilityFailure(Performer)
+    If failure != ""
+        Return failure
+    ElseIf Game.GetPlayer().GetCurrentLocation() != Venue
+        Return "venue_changed"
+    ElseIf Performer.GetParentCell() != Game.GetPlayer().GetParentCell()
+        Return "cell_changed"
+    EndIf
+    Return ""
+EndFunction
+
+String Function FailureState(Actor candidate, String id, Int chosen, String reason)
+    ; Event-only snapshot, not an animation or AI diagnosis. The triggering
+    ; guard reason is captured first; native actor state may change afterward.
+    String detail = "id=" + id + " slot=" + chosen + " reason=" + reason
+    detail += " enabled=" + HM_Enabled.GetValue() + " stop_requested=" + (Config.StopRequested as Int)
+    detail += " venue_match=" + ((Game.GetPlayer().GetCurrentLocation() == Venue) as Int)
+    detail += " actor_present=" + ((candidate != None) as Int)
+    If candidate
+        detail += " loaded=" + (candidate.Is3DLoaded() as Int) + " dead=" + (candidate.IsDead() as Int)
+        detail += " combat=" + (candidate.IsInCombat() as Int) + " dialogue=" + (candidate.IsInDialogueWithPlayer() as Int)
+        detail += " follower=" + (candidate.IsInFaction(CurrentFollowerFaction) as Int)
+        detail += " sit=" + candidate.GetSitState() + " sleep=" + candidate.GetSleepState()
+        detail += " same_cell=" + ((candidate.GetParentCell() == Game.GetPlayer().GetParentCell()) as Int)
+    EndIf
+    Int playing = 0
+    Int i = 0
+    While i < VanillaScenes.Length
+        If VanillaScenes[i] && VanillaScenes[i].IsPlaying()
+            playing += 1
+        EndIf
+        i += 1
+    EndWhile
+    Return detail + " vanilla_scenes_playing=" + playing
 EndFunction
 
 Bool Function CooledDown(String id)
@@ -150,7 +220,9 @@ Function Remember(String id)
 EndFunction
 
 Event OnUpdate()
-    If Busy
+    ; A direct harness/event stop need not own Busy. Do not select another
+    ; recording while cleanup still reads the library's active selection.
+    If Busy || Starting || Stopping
         Return
     EndIf
     Busy = True
@@ -161,7 +233,9 @@ Event OnUpdate()
     EndIf
     If Performer
         CheckVanillaScenes()
-        If HM_Enabled.GetValue() == 0.0 || Config.StopRequested || !Eligible(Performer) || Game.GetPlayer().GetCurrentLocation() != Venue || Performer.GetParentCell() != Game.GetPlayer().GetParentCell()
+        String interruption = PollInterruptionReason()
+        If interruption != ""
+            Library.Trace("performance_interrupt_guard", FailureState(Performer, PerformerId, Slot, interruption))
             StopPerformance("interrupted")
         ElseIf Utility.GetCurrentRealTime() >= Ends
             StopPerformance("completed")
@@ -219,34 +293,93 @@ Event OnUpdate()
 EndEvent
 
 Function StartPerformance(Actor candidate, String id, String region, Int chosen)
+    ; Claim admission before any call can yield. A stop during startup queues
+    ; cancellation; this stack retains ownership until late native calls drain.
+    If Starting || Stopping || Performer
+        Return
+    EndIf
+    Starting = True
+    StartCancelled = False
+    StartStopOutcome = ""
     BardSongsScript vanilla = BardSongsQuest as BardSongsScript
     If vanilla
         vanilla.StopAllSongs()
+        If StartCancelled
+            EndStartWithoutPlayback(candidate, False)
+            Return
+        EndIf
         Library.Trace("vanilla_stopped", "")
     Else
         Library.Trace("vanilla_unavailable", "")
     EndIf
-    If !candidate.PlayIdle(IdleLuteStart)
+    If StartCancelled
+        EndStartWithoutPlayback(candidate, False)
+        Return
+    EndIf
+    Bool idleAccepted = candidate.PlayIdle(IdleLuteStart)
+    If StartCancelled
+        EndStartWithoutPlayback(candidate, idleAccepted)
+        Return
+    EndIf
+    If !idleAccepted
         Library.Trace("idle_failed", "id=" + id + " slot=" + chosen)
+        Library.Trace("idle_failed_state", FailureState(candidate, id, chosen, "native_idle_refused"))
+        EndStartWithoutPlayback(candidate, False)
+        Return
+    EndIf
+    Library.LockSlot(chosen)
+    Float began = Utility.GetCurrentRealTime()
+    Float duration = Library.Duration()
+    If StartCancelled
+        EndStartWithoutPlayback(candidate, True)
+        Return
+    EndIf
+    Remember(id)
+    If StartCancelled
+        EndStartWithoutPlayback(candidate, True)
         Return
     EndIf
     Performer = candidate
     PerformerId = id
     PerformanceRegion = region
     Slot = chosen
-    Library.LockSlot(chosen)
-    Started = Utility.GetCurrentRealTime()
+    Started = began
     LastRealTime = Started
-    Ends = Started + Library.Duration()
+    Ends = Started + duration
     SessionCount += 1
-    Remember(id)
-    Instance = SlotSounds[chosen - 1].Play(candidate)
-    If Instance < 0
-        StopPerformance("interrupted")
-    Else
-        Library.Trace("performance_start", "id=" + id + " slot=" + chosen + " duration=" + Library.Duration())
+    Int startedInstance = SlotSounds[chosen - 1].Play(candidate)
+    Instance = startedInstance
+    If startedInstance < 0 && !StartCancelled
+        StartCancelled = True
+        StartStopOutcome = "interrupted"
+    EndIf
+    If !StartCancelled
+        Library.Trace("performance_start", "id=" + id + " slot=" + chosen + " duration=" + duration)
+    EndIf
+    If !StartCancelled
         Poll()
     EndIf
+    If StartCancelled
+        ; Transfer ownership without opening admission between startup and
+        ; cleanup. Never leave a late Sound.Play result alive after cancellation.
+        Stopping = True
+        Starting = False
+        FinishClaimedStop(StartStopOutcome)
+    Else
+        Starting = False
+    EndIf
+EndFunction
+
+Function EndStartWithoutPlayback(Actor candidate, Bool idleAccepted)
+    ; Starting remains claimed throughout compensation and native callbacks.
+    UnregisterForUpdate()
+    If idleAccepted
+        candidate.PlayIdle(IdleStop)
+    EndIf
+    Config.StopRequested = False
+    StartCancelled = False
+    StartStopOutcome = ""
+    Starting = False
 EndFunction
 
 Function Poll()
@@ -260,19 +393,48 @@ Function Poll()
 EndFunction
 
 Function StopPerformance(String outcome)
-    UnregisterForUpdate()
-    If Performer
-        If Instance >= 0
-            Sound.StopInstance(Instance)
-        EndIf
-        Performer.PlayIdle(IdleStop)
-        Library.Trace("performance_stop", "outcome=" + outcome + " id=" + PerformerId + " slot=" + Slot)
-        Library.AppendReceipt(Slot, PerformerId, PerformanceRegion, Started, outcome, Config.WorldId)
+    ; First stop wins, before even UnregisterForUpdate can yield. Reentrant
+    ; stops must not touch sound, idle, receipts or another operation's timer.
+    If Stopping
+        Return
     EndIf
+    If Starting
+        If !StartCancelled
+            StartStopOutcome = outcome
+            StartCancelled = True
+        EndIf
+        Return
+    EndIf
+    Stopping = True
+    FinishClaimedStop(outcome)
+EndFunction
+
+Function FinishClaimedStop(String outcome)
+    ; Called only after admission is claimed, including the startup handoff.
+    ; Freeze arguments and detach active fields before native/script calls.
+    Actor stoppedPerformer = Performer
+    Int stoppedInstance = Instance
+    Int stoppedSlot = Slot
+    String stoppedId = PerformerId
+    String stoppedRegion = PerformanceRegion
+    Float stoppedStarted = Started
+    String stoppedWorld = Config.WorldId
     Performer = None
     Instance = -1
     Slot = 0
+    UnregisterForUpdate()
+    If stoppedPerformer
+        If stoppedInstance >= 0
+            Sound.StopInstance(stoppedInstance)
+        EndIf
+        stoppedPerformer.PlayIdle(IdleStop)
+        Library.Trace("performance_stop", "outcome=" + outcome + " id=" + stoppedId + " slot=" + stoppedSlot)
+        Library.AppendReceipt(stoppedSlot, stoppedId, stoppedRegion, stoppedStarted, outcome, stoppedWorld)
+    EndIf
     Config.StopRequested = False
+    StartCancelled = False
+    StartStopOutcome = ""
+    Stopping = False
 EndFunction
 
 String Function BoolText(Bool value)

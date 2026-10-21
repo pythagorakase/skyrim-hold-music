@@ -2,6 +2,7 @@
 from copy import deepcopy
 import hashlib
 import json
+import re
 import unittest
 
 from pex_vm import VM
@@ -300,6 +301,54 @@ class RuntimeSelectionTests(unittest.TestCase):
         self.assertEqual(len(vm.receipts), 2)
         self.assertIn("runtime_identity", vm.receipts[0])
         self.assertNotIn("runtime_identity", vm.receipts[1])
+
+    def test_failed_selection_clears_previous_receipt_identity(self):
+        for failure in ("missing_library", "malformed_contract", "no_matching_recording"):
+            with self.subTest(failure=failure):
+                vm, manifest, _ = self.strict()
+                self.assertEqual(self.choose(vm), 1)
+                self.assertTrue(vm.state["hm_library"]["activeidentitykey"])
+                if failure == "missing_library":
+                    del vm.files["HoldMusic/library.json"]
+                elif failure == "malformed_contract":
+                    manifest["runtime_selection"] = None
+                else:
+                    manifest["recordings"] = []
+                self.assertEqual(self.choose(vm), 0)
+                self.assertEqual(vm.state["hm_library"]["activeidentitykey"], "")
+                vm.run("hm_library", "AppendReceipt", 1, "mikael", "whiterun", vm.now,
+                       "interrupted", "fixture-world")
+                self.assertNotIn("runtime_identity", vm.receipts[-1])
+
+    def test_incomplete_captured_array_cannot_emit_strict_receipt_identity(self):
+        for captured in (None, [], ["partial"]):
+            with self.subTest(captured=captured):
+                vm, _, _ = self.strict()
+                self.assertEqual(self.choose(vm), 1)
+                vm.state["hm_library"]["activeidentity"] = captured
+                vm.run("hm_library", "AppendReceipt", 1, "mikael", "whiterun", vm.now,
+                       "interrupted", "fixture-world")
+                self.assertNotIn("runtime_identity", vm.receipts[-1])
+
+    def test_compiled_selection_has_no_none_to_array_cast(self):
+        # Regression for the exact native errors observed in the SE engine:
+        # None cast -> reused temporary type mismatch -> failed array_create.
+        vm = VM()
+        for name, block in vm.scripts["hm_library"].items():
+            array_locals = {name.lower() for name, typ in
+                            re.findall(r"\.(?:param|local) (\S+) (\S+)", block)
+                            if typ.endswith("[]")}
+            for target in re.findall(r"^\s*cast (\S+) None\s*$", block, re.M):
+                self.assertNotIn(target.lower(), array_locals, name)
+
+    def test_vm_does_not_silently_accept_engine_rejected_array_cast(self):
+        vm, _, _ = self.strict()
+        block = vm.scripts["hm_library"]["chooseslot"]
+        target = re.search(r"\.local (\S+) String\[\]", block).group(1)
+        vm.scripts["hm_library"]["chooseslot"] = block.replace(
+            ".code", ".code\ncast " + target + " None", 1)
+        with self.assertRaisesRegex(AssertionError, "unsupported None-to-array cast"):
+            self.choose(vm)
 
     def test_missing_receipt_and_trace_arrays_are_initialized_at_zero(self):
         vm, _, expected = self.strict()
