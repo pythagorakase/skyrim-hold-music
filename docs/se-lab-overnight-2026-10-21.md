@@ -5,7 +5,52 @@ Continue until 08:00 America/Chicago on 21 October, then summarize and pause the
 `hold-music-offline-overnight-development` heartbeat. The old Echo watcher stays
 paused. The former Steam-use deferral is lifted for the isolated lab only.
 
-## Current checkpoint (06:35 CDT)
+## QASmoke preparation checkpoint
+
+The working MCP checkpoint is synchronized at `0f5bdc6` on Halcyon, GitHub and
+clean Echo. Echo's six-suite run passed 242 tests with six expected platform
+skips (248 total, 46.553 seconds). Its log is
+`local/se-lab-echo-mcp-checkpoint-0f5bdc6-20261021.log`, SHA256
+`d774b2a0535c90b9ea17db543e98d01126ff74174ae5781c4ffc6d0cc8a8516a`.
+This supersedes the earlier portable tar-fixture failure without rewriting it.
+
+The next separate tier, `skyrimnet-beta26-rc4-qasmoke-disabled-v2`, binds a literal
+QASmoke startup intent into preparation, installation and launch review. It uses
+the unchanged vendor Skyrim.ini plus a fixed SkyrimCustom.ini; a highest-priority
+MCM seed disables production Hold Music playback, and the harness stays disabled
+with no armed request/result. The lower copied baseline files remain unchanged.
+Its three public startup models are exact catalog matches recovered from the
+previous retained run; no old verification sidecars are installed.
+
+The explicit provider seed includes all five native built-ins plus the lab row,
+with loopback endpoints, empty keys/key loans and a disabled decisions slot.
+This prevents the known missing-ID/default insertion case, but it needs fresh
+effective readback. The revised four-GET audit inventories every configured
+layer, including disabled slots, and only admits explicit null/empty passthrough
+after full coverage. Actor/group overrides and native fallback remain unverified;
+no provider diagnostic or inference request is authorized by that audit.
+
+A separate fixed `get_player_info` collector is ready for review. Its pinned
+native handler may create and persist lab UUID/identity-alias bookkeeping. It
+requests no game-state mutation or provider action. The redacted reply can
+confirm the canonical player object and typed fields, but cannot establish a cell
+or fresh world: the native tool returns no cell identifier. Visual scene
+observation is a separate evidence source. Relevant tests and independent review
+have now passed before the next installation and launch.
+
+Root's combined smoke/routing/MCP/storage suite passed 183 tests with one expected
+platform skip (184 total, 48.996 seconds). The unchanged owned-process cleanup
+helper passed all 22 tests under the new tier in 6.629 seconds. Independent
+review separately cleared all 40 routing and 24 player cases without live probes
+or sockets. The new installation plan has 5,577 files and no blockers; it remains
+unapplied. The full tier suite then passed 108 tests with one expected Windows
+symlink skip (109 total, 646.941 seconds), including real Qt parser checks and
+harmless native observer children. Both original Steam manifests remain
+read-only and retain their original hashes. All functional sources stayed frozen
+through these tests; the next step is publication, absent-only installation and
+one fresh world-readiness launch.
+
+## Retained main-menu checkpoint (06:35 CDT)
 
 Fifth run `20261021T105157Z-a7f1bce383bc` is positively attributed with
 `native-filetime-v2`. Its fresh installation transaction is

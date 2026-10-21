@@ -256,6 +256,16 @@ live discovery and the combined 68-case fake suite. The [startup model audit](se
 separately explains why disabled AI does not suppress every model check.
 These findings do not change musical recipes or require listening validation.
 
+The next isolated world-readiness tier uses a fixed QASmoke startup, disables
+production playback and harness autorun, and seeds three catalog-matching public
+models from retained files without old verification sidecars. Its explicit native
+provider defaults need fresh effective readback. The revised routing audit passes
+40 synthetic cases while keeping diagnostics, actor/group overrides, native
+fallback and egress unverified. A [fixed player snapshot](se-lab-mcp-player.md)
+passes 24 independently reviewed cases and permits one literal query after
+same-run smoke/discovery. It may persist lab identity bookkeeping; its response
+contains no cell identifier. A real world-startup result is still pending.
+
 Runtime receipts can inherit Papyrus string casing (`Sven` versus authored
 `sven`). The history adapter resolves only unambiguous source spellings within
 the exact save/world scope, so repeat suppression sees the actual performance.

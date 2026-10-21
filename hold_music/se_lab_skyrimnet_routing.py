@@ -26,7 +26,9 @@ FAILURES = discovery.FAILURES
 EXPECTED_MODEL = "hold-music-lab-disabled"
 SOURCE_BASIS = {
     "archive_sha256": "6b1646d52d10f71b938d09b55bb766b57af517ece11ea174b646d0a1a51fbcef",
+    "dll_sha256": "2cbb5ae8fa5aac0ff98f64d5728d1938f58c991473dbfbc39b9c88094c08e35a",
     "dashboard_contract": "beta26-rc4-web-new-main.c12d8cff",
+    "native_contract": "configured-routing-empty-passthrough-v1",
     "config_envelope": "data",
     "schema_envelope": "direct_fields",
     "slot_binding": "comma_split_index",
@@ -36,6 +38,8 @@ SOURCE_BASIS = {
 
 def _context(run_id, smoke_capture, process_probe, module_probe, connection_probe):
     base, run, launched = smoke._context(run_id, process_probe, module_probe, connection_probe)
+    if base.get("modules", {}).get("skyrimnet.dll", {}).get("sha256") != SOURCE_BASIS["dll_sha256"]:
+        raise ValueError("Routing interpretation requires the pinned native build")
     snapshot = tier._Snapshot()
     capture = discovery._capture(smoke_capture, base, snapshot)
     files = (Path(__file__), tier.REPO / "tools/se_lab_skyrimnet_routing.py", Path(discovery.__file__))
@@ -52,6 +56,7 @@ def routing_plan(run_id, smoke_capture, *, process_probe=None, module_probe=None
     return dict(version=VERSION, operation="skyrimnet_routing_plan", status="ready_for_bounded_get",
         binding=binding, review_token="skyrimnet-routing-v1:" + tier._digest(binding),
         network_requests_performed=False, writes_performed=False, diagnostic_ready=False,
+        actor_group_overrides_verified=False, diagnostic_selection_performed=False,
         runtime_verified=False, native_fallback_verified=False, egress_verified=False, paid_generation=False)
 
 
@@ -64,6 +69,8 @@ def _typed(value, kind):
     if kind == "int": return type(value) is int and abs(value) <= 2**53
     if kind == "float": return type(value) in (int, float) and abs(value) <= 2**53 and math.isfinite(value)
     if kind in ("string", "select"): return _text(value)
+    if kind == "strings": return (isinstance(value, list) and len(value) <= 256
+                                  and all(_text(item) for item in value))
     return False
 
 
@@ -73,7 +80,10 @@ class _Audit:
         self.issues = set()
         self.counts = {key: 0 for key in ("providers", "providers_returned", "providers_skipped", "rotations", "variants", "slots", "disabled_slots",
             "backup_slots", "borrowed_key_references", "unknown_fields", "schema_fields",
-            "schema_defaults_used", "schema_type_checks", "inherited_controls", "passthrough_objects")}
+            "schema_defaults_used", "schema_type_checks", "schema_container_descriptors", "inherited_controls",
+            "passthrough_objects", "passthrough_nulls", "passthrough_fields", "non_chat_providers",
+            "non_chat_slots", "decisions_slots", "base_enabled_chat_slots", "active_variant_labels")}
+        self.passthrough_complete = True
 
     def bad(self, code): self.issues.add(code)
 
@@ -85,7 +95,7 @@ class _Audit:
             self.counts["unknown_fields"] += len(unknown); self.bad("unsupported_fields")
         return value
 
-    def schema(self, value):
+    def schema(self, value, containers):
         if (not isinstance(value, dict) or "error" in value or not isinstance(value.get("fields"), list)
                 or len(value["fields"]) > 4096):
             self.bad("schema_unavailable"); return {}
@@ -93,10 +103,15 @@ class _Audit:
         for field in value["fields"]:
             if (not isinstance(field, dict) or not _text(field.get("path")) or not field["path"]
                     or any(not p for p in field["path"].split(".")) or field["path"] in fields
-                    or field.get("type") not in ("bool", "int", "float", "string", "select", "hotkey")):
+                    or type(field.get("type")) is not str
+                    or (field["path"] in containers and field["type"] != containers[field["path"]])
+                    or (field["type"] not in ("bool", "int", "float", "string", "select", "hotkey")
+                        and containers.get(field["path"]) != field["type"])):
                 self.bad("schema_ambiguous"); continue
             fields[field["path"]] = field
             self.counts["schema_fields"] += 1
+            if field["type"] in ("providers_list", "model_params"):
+                self.counts["schema_container_descriptors"] += 1
         return fields
 
     def scalar(self, obj, key, kind, schema, path, *, default=False):
@@ -118,25 +133,39 @@ class _Audit:
         return value
 
     def body(self, obj, key):
+        self.counts["passthrough_fields"] += 1
         if key not in obj:
+            self.passthrough_complete = False
             self.bad("missing_passthrough_state")
+        elif obj[key] is None:
+            # This narrow interpretation requires ALL configured layers to be
+            # explicitly null/empty. Null slots can inherit; it is not a reset.
+            self.counts["passthrough_nulls"] += 1
         elif not isinstance(obj[key], dict) or obj[key]:
+            self.passthrough_complete = False
             self.bad("request_body_passthrough_unresolved")
         else:
             self.counts["passthrough_objects"] += 1
 
 
-PARAMS = {"temperature": "float", "top_p": "float", "top_k": "int", "min_p": "float",
+PARAMS = {"temperature": "float", "top_p": "float", "top_k": "int",
     "max_tokens": "int", "frequency_penalty": "float", "presence_penalty": "float",
-    "repetition_penalty": "float", "seed": "int"}
+    "stop_sequences": "strings"}
 CONTROLS = {"request_timeout": "float", "connect_timeout": "float", "max_retries": "int"}
+FLAGS = {"use_sse", "use_structured_outputs", "reasoning"}
+ROTATION_FLAGS = FLAGS | {"use_caching", "support_dynamic_event_caching"}
+API_STYLES = {"chat", "decisions", "systemone"}
+TTFT = {"ttft_abort_multiplier": "float", "ttft_abort_floor_ms": "int"}
 PROVIDER_FIELDS = {"id", "name", "endpoint", "api_key", "api_key_from", "api_style", "use_sse",
-    "use_structured_outputs", "reasoning", "provider_settings", "provider_sorting", "builtin"}
-SLOT_FIELDS = set(PARAMS) | set(CONTROLS) | {"provider_id", "provider_settings", "use_sse", "enabled",
+    "use_structured_outputs", "reasoning", "provider_settings", "provider_sorting", "builtin", "upstream_order_mode"}
+SLOT_FIELDS = set(PARAMS) | set(CONTROLS) | set(TTFT) | {"provider_id", "provider_settings", "use_sse", "enabled",
     "routing_role", "rotation_weight", "use_structured_outputs", "reasoning"}
-ROOT_FIELDS = {"endpoint", "api_key", "model_name", "model_params", "default_params", "variants",
-    "rotation_mode", "timeout", "connect_timeout", "max_retries"}
-VARIANT_FIELDS = {"model_name", "model_params", "default_params", "rotation_mode", "timeout", "connect_timeout"}
+VARIANT_FIELDS = {"endpoint", "api_key", "model_name", "model_params", "default_params", "rotation_mode",
+    "timeout", "connect_timeout", "max_retries", "provider_settings"} | ROTATION_FLAGS
+ROOT_FIELDS = VARIANT_FIELDS | {"variants", "provider_sorting", "event_history_count_dialogue"}
+ROUTING_FIELDS = {"mode": "string", "profile": "string", "quantization_floor": "string",
+    "ttft_early_abort": "bool", "ttft_abort_multiplier": "float", "ttft_abort_ceiling_ms": "int",
+    "ttft_abort_floor_ms": "int", "local_slow_demote": "bool", "ttft_race_first_token": "bool"}
 
 
 def _audit_graph(payloads):
@@ -154,9 +183,25 @@ def _audit_graph(payloads):
         if not isinstance(values[i], dict) or "error" in values[i] or not isinstance(values[i].get("data"), dict):
             raise ValueError("Invalid config envelope")
         values[i] = values[i]["data"]
-    schemas = [audit.schema(values[2]), audit.schema(values[3])]
-    root_doc = audit.shape(values[0], {"openrouter", "active_preset_id"})
-    if "active_preset_id" in root_doc and not _text(root_doc["active_preset_id"]): audit.bad("invalid_typed_value")
+    schemas = [audit.schema(values[2], {"openrouter.model_params": "model_params"}),
+               audit.schema(values[3], {"providers": "providers_list"})]
+    root_doc = audit.shape(values[0], {"openrouter", "active_preset_id", "pending_first_run_preset_id",
+                                      "routing", "active_variants"})
+    for key in ("active_preset_id", "pending_first_run_preset_id"):
+        # Labels are metadata only; never resolve a preset or infer its routes.
+        if key in root_doc and not _text(root_doc[key]): audit.bad("invalid_typed_value")
+    if "active_variants" in root_doc:
+        labels = root_doc["active_variants"]
+        if not _typed(labels, "strings") or any(not label for label in labels) or len(set(labels)) != len(labels):
+            audit.bad("invalid_active_variant_metadata")
+        else: audit.counts["active_variant_labels"] = len(labels)
+    routing = audit.shape(root_doc.get("routing"), ROUTING_FIELDS)
+    for key, kind in ROUTING_FIELDS.items():
+        value = audit.scalar(routing, key, kind, schemas[0], "routing." + key)
+        if key == "mode" and value != "legacy": audit.bad("unsupported_routing_policy")
+        if key in ("profile", "quantization_floor") and value != "": audit.bad("unsupported_routing_policy")
+        if kind == "bool" and value is not False: audit.bad("unsupported_routing_policy")
+        if kind in ("float", "int") and (value is None or value < 0): audit.bad("invalid_retry_or_timeout")
     root = audit.shape(root_doc.get("openrouter"), ROOT_FIELDS)
     provider_doc = audit.shape(values[1], {"providers"})
     records = provider_doc.get("providers")
@@ -168,6 +213,7 @@ def _audit_graph(payloads):
         audit.bad("malformed_providers"); records = []
     providers = {}
     for index, value in enumerate(records):
+        if not isinstance(value, dict): provider_coverage = False
         record = audit.shape(value, PROVIDER_FIELDS)
         audit.counts["providers"] += 1
         prefix = "providers." + str(index) + "."
@@ -179,14 +225,20 @@ def _audit_graph(payloads):
             audit.bad("non_fake_endpoint")
         if audit.scalar(record, "api_key", "string", schemas[1], prefix+"api_key") != "":
             audit.bad("nonempty_or_unknown_credential")
-        if audit.scalar(record, "api_style", "string", schemas[1], prefix+"api_style") != "chat":
+        style = audit.scalar(record, "api_style", "string", schemas[1], prefix+"api_style")
+        if style not in API_STYLES:
             audit.bad("unsupported_request_style")
-        if audit.scalar(record, "use_sse", "bool", schemas[1], prefix+"use_sse") is not False:
-            audit.bad("streaming_not_disabled")
+        elif style != "chat": audit.counts["non_chat_providers"] += 1
+        for key in FLAGS:
+            if audit.scalar(record, key, "bool", schemas[1], prefix+key) is not False:
+                audit.bad("streaming_not_disabled" if key == "use_sse" else "unsupported_generation_feature")
         for key in ("name", "provider_sorting"):
             if key in record and not _text(record[key]): audit.bad("invalid_typed_value")
-        for key in ("builtin", "use_structured_outputs", "reasoning"):
-            if key in record and type(record[key]) is not bool: audit.bad("invalid_typed_value")
+        if "builtin" in record and type(record["builtin"]) is not bool: audit.bad("invalid_typed_value")
+        if "upstream_order_mode" in record:
+            if audit.scalar(record, "upstream_order_mode", "string", schemas[1], prefix+"upstream_order_mode") != "fleet":
+                audit.bad("unsupported_provider_order")
+        audit.scalar(record, "api_key_from", "string", schemas[1], prefix+"api_key_from")
         audit.body(record, "provider_settings")
     for record in records:
         if not isinstance(record, dict) or "api_key_from" not in record: continue
@@ -194,9 +246,8 @@ def _audit_graph(payloads):
         if not _text(borrowed): audit.bad("invalid_typed_value")
         elif borrowed:
             audit.counts["borrowed_key_references"] += 1
-            # Only the shipped openrouter_decisions loan is source-backed; its
-            # remote endpoint cannot meet this fake-only policy. Never invent
-            # generic recursive borrowing semantics for custom records.
+            # No credential borrowing is accepted by this all-empty policy,
+            # including dormant rows and the source-backed built-in loan.
             audit.bad("key_borrowing_unresolved")
             if borrowed not in providers: audit.bad("missing_borrowed_provider")
             elif providers[borrowed].get("api_key") != "": audit.bad("nonempty_or_unknown_credential")
@@ -206,6 +257,11 @@ def _audit_graph(payloads):
         audit.bad("non_fake_legacy_endpoint")
     if audit.scalar(root, "api_key", "string", schemas[0], "openrouter.api_key") != "":
         audit.bad("nonempty_or_unknown_legacy_credential")
+    for key in ("provider_sorting",):
+        if key in root and not _text(root[key]): audit.bad("invalid_typed_value")
+    if "event_history_count_dialogue" in root:
+        value = root["event_history_count_dialogue"]
+        if not _typed(value, "int") or value < 0: audit.bad("invalid_typed_value")
     base_controls = {}
     for key, kind in CONTROLS.items():
         source = "timeout" if key == "request_timeout" else key
@@ -223,13 +279,22 @@ def _audit_graph(payloads):
     for key, value in variants.items():
         audit.counts["variants"] += 1
         if not _text(key) or not key or "." in key: audit.bad("ambiguous_variant_identity")
+        if not isinstance(value, dict): slot_coverage = False
         rotations.append((key, audit.shape(value, VARIANT_FIELDS), "openrouter.variants."+key))
     for variant, rotation, path in rotations:
         audit.counts["rotations"] += 1
+        audit.body(rotation, "provider_settings")
+        for key in ROTATION_FLAGS:
+            if audit.scalar(rotation, key, "bool", schemas[0], path+"."+key) is not False:
+                audit.bad("streaming_not_disabled" if key == "use_sse" else "unsupported_generation_feature")
         if variant is not None:
-            for key in ("timeout", "connect_timeout"):
+            if audit.scalar(rotation, "endpoint", "string", schemas[0], path+".endpoint") != tier.LOOPBACK:
+                audit.bad("non_fake_variant_endpoint")
+            if audit.scalar(rotation, "api_key", "string", schemas[0], path+".api_key") != "":
+                audit.bad("nonempty_or_unknown_variant_credential")
+            for key in ("timeout", "connect_timeout", "max_retries"):
                 if key in rotation:
-                    control = audit.scalar(rotation, key, "float", schemas[0], path+"."+key)
+                    control = audit.scalar(rotation, key, "int" if key == "max_retries" else "float", schemas[0], path+"."+key)
                     valid_control(key, control)
         names = audit.scalar(rotation, "model_name", "string", schemas[0], path+".model_name")
         names = [name.strip() for name in names.split(",")] if names is not None else []
@@ -249,20 +314,28 @@ def _audit_graph(payloads):
             mode = audit.scalar(root, "rotation_mode", "string", schemas[0], "openrouter.rotation_mode", default=True)
         if mode not in ("sequential", "random"): audit.bad("unresolved_rotation_mode")
         for index, value in enumerate(params):
+            if not isinstance(value, dict): slot_coverage = False
             slot = audit.shape(value, SLOT_FIELDS); audit.counts["slots"] += 1
             prefix = path + ".model_params."+str(index)+"."
             identifier = audit.scalar(slot, "provider_id", "string", schemas[0], prefix+"provider_id")
             if identifier not in providers: audit.bad("missing_slot_provider")
-            if variant == "decisions": audit.bad("unsupported_request_style")
+            provider = providers.get(identifier, {})
+            if provider.get("api_style") in ("decisions", "systemone"): audit.counts["non_chat_slots"] += 1
+            if variant == "decisions": audit.counts["decisions_slots"] += 1
             enabled = audit.scalar(slot, "enabled", "bool", schemas[0], prefix+"enabled", default=True)
             if enabled is False: audit.counts["disabled_slots"] += 1
+            if variant is None and enabled is True and provider.get("api_style") == "chat":
+                audit.counts["base_enabled_chat_slots"] += 1
             role = audit.scalar(slot, "routing_role", "string", schemas[0], prefix+"routing_role", default=True)
             if role == "backup": audit.counts["backup_slots"] += 1
             elif role != "primary": audit.bad("unresolved_slot_role")
             audit.body(slot, "provider_settings")
-            for key in ("use_sse", "use_structured_outputs", "reasoning"):
-                if key in slot and type(slot[key]) is not bool: audit.bad("invalid_typed_value")
-            if slot.get("use_sse") is True: audit.bad("streaming_not_disabled")
+            for key in FLAGS:
+                if key in slot and (type(slot[key]) is not bool or slot[key] is not False):
+                    audit.bad("streaming_not_disabled" if key == "use_sse" else "unsupported_generation_feature")
+            for key, kind in TTFT.items():
+                if key in slot and (not _typed(slot[key], kind) or slot[key] < 0):
+                    audit.bad("invalid_retry_or_timeout")
             for key, kind in PARAMS.items():
                 if key in slot and not _typed(slot[key], kind): audit.bad("invalid_typed_value")
             if "rotation_weight" in slot and (not _typed(slot["rotation_weight"], "float") or slot["rotation_weight"] <= 0):
@@ -282,6 +355,10 @@ def _audit_graph(payloads):
                     else: control = base_controls[key]
                 valid_control(key, control)
     return dict(configured_graph_fake_only=not audit.issues, counts=audit.counts,
+        configured_endpoint_inventory_complete=not audit.issues,
+        configured_passthrough_empty=audit.passthrough_complete and provider_coverage and slot_coverage,
+        interpretation_scope="returned_configured_graph_only", diagnostic_selection_performed=False,
+        diagnostic_ready=False, actor_group_overrides_verified=False, egress_verified=False,
         issues=sorted(audit.issues), responses=hashes, preset_label_used_as_evidence=False,
         disabled_and_backup_slots_audited=slot_coverage, all_returned_providers_audited=provider_coverage,
         native_fallback_verified=False, native_inheritance_verified=False)
@@ -327,12 +404,16 @@ def collect_routing(run_id, smoke_capture, review_token, *, process_probe=None, 
             binding=binding, binding_sha256=tier._digest(binding), audit=audit, observation_failure=failure,
             identity_stable=stable, live_snapshot_complete=complete, configured_graph_fake_only_observed=passed,
             request_attempt_count=attempted, diagnostic_ready=False, native_fallback_verified=False,
+            diagnostic_selection_performed=False, actor_group_overrides_verified=False,
             native_inheritance_verified=False, egress_verified=False, runtime_verified=False,
             credentials_verified=False, paid_generation=False, provider_requests_performed=False,
             network_requests_attempted=bool(attempted), writes_performed=True,
             limitations=["Only four fixed config/schema GETs; no diagnostic or provider request was sent.",
+                "Inventory includes non-chat catalog entries and disabled decisions slots without selecting or invoking them.",
+                "Actor, faction and explicit-group overrides are outside these four responses and remain unverified.",
                 "Returned configuration is not proof of native fallback behavior, zero egress or billing-credential absence.",
-                "Unknown fields, key borrowing, nonempty request-body passthrough and unresolved defaults remain incomplete.",
+                "Passthrough must be explicit null or an empty object at every configured layer; null does not disable inheritance.",
+                "Unknown fields, missing passthrough, key borrowing, nonempty passthrough and unresolved defaults remain incomplete.",
                 "No raw configuration, schema defaults, response errors, model names or provider identifiers are retained."])
         directory = tier._no_alias(root / tier.RUNTIME_CONTROL / "routing")
         directory.mkdir(exist_ok=True)

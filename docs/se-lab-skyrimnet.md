@@ -1,5 +1,12 @@
 # Disabled SkyrimNet SE lab preparation
 
+The current fixed tier is `skyrimnet-beta26-rc4-qasmoke-disabled-v2`. It prepares
+a fresh disposable QASmoke world with production Hold Music and its lab harness
+disabled. This replaces the earlier main-menu seed for the next installation;
+it does not upgrade the retained first-boot results or count as another accepted
+Hold Music scenario. The startup intent is explicit in preparation, installation,
+and launch inputs. There is no arbitrary starting-cell or profile option.
+
 `tools/se_lab_skyrimnet.py` reviews a concrete preparation recipe, checks a
 first-boot installation, explicitly installs a separate disabled tier, and offers
 a separately reviewed one-shot launch plus local metadata collection. It never
@@ -47,6 +54,7 @@ adds these pinned archives:
 | Media Keys Fix 1.0.1 7z | Complete Data-relative package |
 | Papyrus Extender 6.4.3 7z | FOMOD `Required/` plus `AE/` (1.6.1170+) |
 | po3 Tweaks 1.15.1 7z | FOMOD `Required/` plus `AE/` (1.6.629+) |
+| Reviewed startup-model cache ZIP | Exactly three catalog-pinned model files; no sidecars |
 
 Archive paths and release SHA256 pins are constants in
 `hold_music/se_lab_skyrimnet.py`. ZIP members are read in memory; 7z members are
@@ -60,6 +68,27 @@ The seven approved immediate SKSE plugin DLL names are PapyrusUtil, MCMHelper,
 po3_PapyrusExtender, po3_Tweaks, PrismaUI, MediaKeysFix and SkyrimNet. Bundled
 private libraries remain part of the pinned archive payload. This inventory
 does not establish successful native loading.
+
+The model component is `Hold Music SkyrimNet Startup Models`, supplied by
+`local/se-lab-startup-model-cache-20261021/startup-models.zip`: 93,485,572 bytes,
+SHA256 `1979b976999bab8b3e66acb290786b978f0ae9e2964611e92f9288e4f0fa62fc`.
+It maps only these files below `SKSE/Plugins/SkyrimNet/models/`:
+
+| File | Bytes | SHA256 |
+|---|---:|---|
+| all-MiniLM-L6-v2.onnx | 90,445,823 | `994a58868f7abacacbf2192aa0aae8f56da8c4505dbde2740c861b24426ede6b` |
+| all-MiniLM-L6-v2-tokenizer.json | 711,661 | `da0e79933b9ed51798a3ae27893d3c5fa4a201126cef75586296df9b4d2c62a0` |
+| silero_vad.onnx | 2,327,524 | `2623a2953f6ff3d2c1e61740c6cdb7168133479b267dfef114a4a3cc5bdd788f` |
+
+The archive and every member have independent byte-size/hash checks, and
+preflight verifies their loose-file winners. Missing, changed, additional, or
+case-aliased members—including fabricated `.verified` sidecars—are rejected.
+The pinned native catalog and existing-file branch are documented in the ignored
+`local/se-lab-model-download-audit-20261021/` evidence. Native embedding and VAD
+verification still runs unconditionally. A matching local digest bypasses their
+transfer branch but may write `.verified` sidecars; no sidecar is preseeded.
+Actual VFS reads and write locations need new runtime evidence. This component
+does not disable initialization, establish Whisper behavior, or prove no egress.
 
 ## Concrete disabled configuration
 
@@ -77,12 +106,31 @@ dashboard and native field strings:
 - NPC/player reactions, background memory processing, DynamicBio,
   UniversalTranslator, OmniSight and Agents disabled.
 - Web/MCP listeners explicitly use `127.0.0.1` and the tier ports.
-- Providers and the legacy/default chat route point to the unused loopback fake
-  endpoint, with an empty key. No fake server is started.
+- All five native built-in provider IDs and `hold_music_lab` explicitly point to
+  the unused loopback fake endpoint, with empty `api_key` and `api_key_from`.
+  Built-in IDs/styles remain intact. The legacy base route binds the custom
+  provider; its decisions variant is explicitly disabled and also binds that
+  custom provider. Retries, streaming, structured outputs and reasoning are off;
+  preset selections are empty. No fake server or provider request is started.
 - `po3_Tweaks.ini` explicitly enables `[Fixes] Load EditorIDs`, as read by
   [the tagged v1.15.1 source](https://github.com/powerof3/po3-Tweaks/blob/v1.15.1/src/Settings.cpp#L67).
 - The existing Papyrus lab control is disabled so native inspection does not
   automatically run a performance scenario.
+- The same highest-priority configuration mod shadows
+  `MCM/Settings/HoldMusic.ini` with `bEnabled=0`, preserving the lab world ID and
+  other fixture settings. The original baseline mod remains byte-identical.
+  Harness request/result files are forbidden in the recipe; unknown overwrite
+  payloads also block preflight.
+
+Providers/OpenRouter seeds embed the reviewed literal candidate from
+`local/se-lab-routing-candidate-20261021/candidate-seeds.json`, without reading
+that file or any user configuration at seed-generation time. Two source-backed
+slot fields extend that candidate: both the base and disabled decisions slots
+set `ttft_abort_multiplier=2.0` and `ttft_abort_floor_ms=2500`, matching native
+serialization at VA `0x1808961c2` and `0x18089623c`. This makes routing inputs
+explicit; native effective routing still requires a fresh read-only capture.
+An enabled base routing slot is inert configuration for a possible future fake
+diagnostic, not authorization to enable AI or request inference.
 
 The dialogue distance is required by the pinned beta26-rc4 native loader:
 the DLL with SHA256 `2cbb5ae8fa5aac0ff98f64d5728d1938f58c991473dbfbc39b9c88094c08e35a`
@@ -116,7 +164,8 @@ ordered mod/plugin/loadorder lists, local saves/settings, fixed game/profile
 and directory configuration, and disabled config winners. Extra mod/overwrite
 files, auth files, databases, old saves, altered hashes, aliases and redirects
 block it. Profiles contain their own SkyrimPrefs.ini, the exact vendor
-Skyrim.ini seed and a required empty SkyrimCustom.ini. The first-boot contract intentionally rejects
+Skyrim.ini seed and an exact generated SkyrimCustom.ini containing only
+`[General]` and `sStartingCell=QASmoke`. The first-boot contract intentionally rejects
 generated/changed configs and runtime data after a launch; a later runtime
 collector must interpret those changes rather than weakening this check.
 
@@ -232,9 +281,12 @@ not native/VFS/runtime/config-acceptance verification.
 
 ## Next runtime milestone
 
-The current launch/collection checkpoint is tested with synthetic installations
-and fake process observations. Those tests are not a real SkyrimNet first-boot
-result. Do not use the failed requested-interruption baseline as acceptance.
+The QASmoke seed is a new world-readiness checkpoint. Synthetic installations
+and fake process observations do not prove that a player entered QASmoke or that
+MCM applied the disabled setting. The retained v1 native-load, disabled-control,
+MCP discovery and plugin-inventory results remain evidence for their original
+main-menu run. Do not use them, or a failed requested-interruption baseline, as
+new world/scenario acceptance.
 
 ## Explicit first boot and bounded local collection
 
@@ -283,6 +335,9 @@ strings are accepted without recomputing or normalizing the source digest.
 Every baseline mod file copied into the second tier must match that accepted
 run's original preflight hash. Controlled AI evidence does not establish natural
 tavern behavior or general vanilla-scene quiescence.
+The QASmoke profile and disabled MCM shadow are separate generated tier inputs;
+they do not alter these copied artifacts. The three accepted captures remain
+prerequisites, not evidence that a new SkyrimNet world or performance passed.
 
 ```powershell
 & '<bundled Python 3.12 path>\python.exe' -B -X utf8 tools/se_lab_skyrimnet.py launch-plan --baseline-evidence '<references.json>'
@@ -320,13 +375,14 @@ immutable copy of the clean lab game's public `Skyrim_Default.ini`: 1,859 bytes,
 SHA-256 `61c151bc60d5d737dad3d65a99a48d9bb8b50812b6b9f1f993323f0337813fa8`,
 including its original CRLF endings, archive lists and DLC entries. Generation
 reads no existing user profile. The separate windowed `SkyrimPrefs.ini` stays
-minimal, and `SkyrimCustom.ini` is empty. First-boot preflight requires exact
-vendor/default and empty-custom seed bytes; it never repairs mismatches.
+minimal, and `SkyrimCustom.ini` contains the fixed QASmoke startup setting.
+First-boot preflight requires exact vendor/default and QASmoke custom seed bytes;
+it never repairs mismatches.
 The [SE plugin's INI list](https://github.com/ModOrganizer2/modorganizer-game_skyrimSE/blob/82ac42f83f717b4884c8c551cb67b545e15177bc/src/gameskyrimse.cpp#L281)
 includes `SkyrimCustom.ini`, and
 [MO2's profile check](https://github.com/ModOrganizer2/modorganizer/blob/v2.5.2/src/profile.cpp#L884)
 copies configuration and shows a warning when a listed file is absent, including
-on the direct CLI setup path. Empty custom-file presence avoids that branch.
+on the direct CLI setup path. The generated custom file avoids that branch.
 Default-file parity and source inspection establish the preparation contract;
 they do not establish successful game startup or effective runtime settings.
 Only fixed `MO2-SkyrimNet/ModOrganizer.exe`, the disabled profile and fixed lab

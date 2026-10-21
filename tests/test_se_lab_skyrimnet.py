@@ -44,6 +44,8 @@ class SkyrimNetTierTests(unittest.TestCase):
         self.write("MO2/ModOrganizer.exe", b"synthetic-mo2")
         self.write("MO2/mods/PapyrusUtil SE 4.6/SKSE/Plugins/PapyrusUtil.dll", b"synthetic-pu")
         self.write("MO2/mods/MCM Helper SE 1.6.2/SKSE/Plugins/MCMHelper.dll", b"synthetic-mcm")
+        self.write("MO2/mods/Hold Music Lab Data/MCM/Settings/HoldMusic.ini",
+                   b"[General]\nbEnabled=1\niInstrumentalPercent=100\niSessionCap=1\nsWorldId=hold-music-se-lab\n")
         for mod in tier.BASE_MODS:
             self.write("MO2/mods/" + mod + "/source.txt", mod.encode())
         for mod, plugin in zip(tier.BASE_MODS, tier.BASE_PLUGINS):
@@ -72,6 +74,17 @@ class SkyrimNetTierTests(unittest.TestCase):
                 archive.writestr("ignored/foreign.dll", b"not-selected")
             self.archives.append(dict(mod=mod, path=path, sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
                                       kind="zip", prefixes=("selected/",)))
+        self.model_files = {name: ("synthetic-model-" + Path(name).name).encode()
+                            for name in tier.STARTUP_MODEL_FILES}
+        self.model_catalog = {name: dict(size=len(raw), sha256=hashlib.sha256(raw).hexdigest())
+                              for name, raw in self.model_files.items()}
+        model_archive = self.root / "startup-models.zip"
+        with zipfile.ZipFile(model_archive, "w") as archive:
+            for name, raw in self.model_files.items(): archive.writestr(name, raw)
+        self.archives.append(dict(mod=tier.STARTUP_MODEL_MOD, path=model_archive,
+            sha256=hashlib.sha256(model_archive.read_bytes()).hexdigest(), size=model_archive.stat().st_size,
+            kind="zip", prefixes=("",), expected_files=self.model_catalog))
+        patch.object(tier, "STARTUP_MODEL_FILES", self.model_catalog).start()
         patch.object(tier, "ARCHIVES", tuple(self.archives)).start()
         application = self.root / "clean-mo2.zip"
         with zipfile.ZipFile(application, "w") as archive:
@@ -116,7 +129,7 @@ class SkyrimNetTierTests(unittest.TestCase):
         self.ini()
         self.write(prefix + "settings.ini", b"[General]\nLocalSaves=true\nLocalSettings=true\n")
         self.write(prefix + "Skyrim.ini", tier.SKYRIM_INI_SEED.encode("utf-8"))
-        self.write(prefix + "SkyrimCustom.ini", b"")
+        self.write(prefix + "SkyrimCustom.ini", tier.SKYRIM_CUSTOM_SEED.encode("utf-8"))
         self.write(prefix + "SkyrimPrefs.ini", b"[Display]\nbFull Screen=0\n")
         self.write(prefix + "modlist.txt", "".join("+" + name + "\n" for name in report["active_mods"]).encode())
         self.write(prefix + "plugins.txt", "".join("*" + name + "\n" for name in report["enabled_plugins"]).encode())
@@ -147,7 +160,8 @@ class SkyrimNetTierTests(unittest.TestCase):
         self.assertFalse(report["egress_verified"])
         self.assertFalse(report["runtime_verified"])
         self.assertFalse(report["writes_performed"])
-        self.assertEqual(report["tier"], "skyrimnet-beta26-rc4-disabled-v1")
+        self.assertEqual(report["tier"], "skyrimnet-beta26-rc4-qasmoke-disabled-v2")
+        self.assertEqual(report["startup_intent"], tier.STARTUP_INTENT)
         self.assertFalse(any("ignored" in row["path"] for row in report["files"]))
         seeds = {row["virtual_path"]: json.loads(row["text"]) for row in report["configuration_seeds"]
                  if row["virtual_path"].endswith((".yaml", ".json"))}
@@ -220,16 +234,16 @@ class SkyrimNetTierTests(unittest.TestCase):
                 self.assertIn("mo2_ini_seed", self.codes(report))
                 self.assertEqual((self.root / relative).read_bytes(), raw)
 
-    def test_preflight_requires_exact_vendor_default_and_empty_custom_profile_seeds(self):
+    def test_preflight_requires_exact_vendor_default_and_qasmoke_custom_profile_seeds(self):
         seeds = tier._instance_seeds(self.root, dict(active_mods=[], enabled_plugins=[]))
         prefix = "profiles/" + tier.PROFILE + "/"
         vendor = seeds[prefix + "Skyrim.ini"].encode("utf-8")
         self.assertEqual(len(vendor), 1859)
         self.assertEqual(hashlib.sha256(vendor).hexdigest(),
                          "61c151bc60d5d737dad3d65a99a48d9bb8b50812b6b9f1f993323f0337813fa8")
-        self.assertEqual(seeds[prefix + "SkyrimCustom.ini"], "")
+        self.assertEqual(seeds[prefix + "SkyrimCustom.ini"], "[General]\nsStartingCell=QASmoke\n")
         self.prepare_fixture()
-        for name, expected in (("Skyrim.ini", vendor), ("SkyrimCustom.ini", b"")):
+        for name, expected in (("Skyrim.ini", vendor), ("SkyrimCustom.ini", tier.SKYRIM_CUSTOM_SEED.encode())):
             path = self.root / tier.INSTANCE / prefix / name
             for raw in (None, b"[General]\nsLanguage=ENGLISH\n", b"\xef\xbb\xbf" + expected):
                 with self.subTest(name=name, missing=raw is None):
@@ -246,6 +260,159 @@ class SkyrimNetTierTests(unittest.TestCase):
         self.archives[0]["path"].write_bytes(b"replaced")
         with self.assertRaisesRegex(ValueError, "Pinned archive"):
             tier.preparation_plan()
+
+    def test_world_seed_is_pure_and_shadow_preserves_copied_baseline(self):
+        with patch.object(Path, "read_bytes", side_effect=AssertionError("seed imported installed state")), \
+                patch.object(Path, "read_text", side_effect=AssertionError("seed imported profile")):
+            generated = tier.configuration_seeds()
+            profile = tier._instance_seeds(self.root, dict(active_mods=[], enabled_plugins=[]))
+        self.assertEqual(profile["profiles/" + tier.PROFILE + "/SkyrimCustom.ini"],
+                         "[General]\nsStartingCell=QASmoke\n")
+        self.assertEqual(json.loads(generated[tier.baseline.CONTROL]),
+                         dict(version=1, enabled=False, world_id="hold-music-se-lab"))
+        self.assertNotIn(tier.baseline.STORAGE + "/request.json", generated)
+        source = self.root / "MO2/mods/Hold Music Lab Data/MCM/Settings/HoldMusic.ini"
+        original = source.read_bytes()
+        self.prepare_fixture()
+        report = tier.preflight()
+        self.assertEqual(report["status"], "prepared_files_verified")
+        self.assertEqual(source.read_bytes(), original)
+        copied = self.root / tier.INSTANCE / "mods/Hold Music Lab Data/MCM/Settings/HoldMusic.ini"
+        self.assertEqual(copied.read_bytes(), original)
+        winner = report["config_winners"]["MCM/Settings/HoldMusic.ini"]
+        self.assertIn(tier.CONFIG_MOD, winner["path"])
+        parser = configparser.ConfigParser(); parser.read_string(Path(winner["path"]).read_text())
+        self.assertFalse(parser.getboolean("General", "bEnabled"))
+        self.assertEqual(parser.get("General", "sWorldId"), "hold-music-se-lab")
+
+    def test_world_control_and_mcm_override_cannot_be_reenabled_or_shadowed(self):
+        self.prepare_fixture()
+        target = self.root / tier.INSTANCE
+        relative = "MCM/Settings/HoldMusic.ini"
+        config = target / "mods" / tier.CONFIG_MOD / relative
+        canonical = config.read_bytes()
+        config.write_bytes(canonical.replace(b"bEnabled=0", b"bEnabled=1"))
+        self.assertIn("file_hash", self.codes(tier.preflight()))
+        config.write_bytes(canonical)
+        shadow = target / "overwrite" / relative
+        self.write(str(shadow.relative_to(self.root)), canonical)
+        self.assertIn("config_winner", self.codes(tier.preflight()))
+        shadow.unlink()
+        control = target / "mods" / tier.CONFIG_MOD / tier.baseline.CONTROL
+        document = json.loads(control.read_bytes()); document["enabled"] = True
+        control.write_text(json.dumps(document))
+        self.assertIn("file_hash", self.codes(tier.preflight()))
+
+    def test_world_recipe_refuses_queued_harness_request_even_when_baseline_pinned(self):
+        source = "MO2/mods/Hold Music Lab Data/" + tier.baseline.STORAGE + "/request.json"
+        self.write(source, b'{"version":1,"auto_run":true,"scenario":"focused-complete"}')
+        self.manifest["files"].append(dict(path=source, sha256=self.sha(source)))
+        self.save_manifest()
+        with self.assertRaisesRegex(ValueError, "harness request or result"):
+            tier.preparation_plan()
+        self.assertFalse((self.root / tier.INSTANCE).exists())
+
+    def test_world_preflight_refuses_stale_request_and_alternate_starting_cells(self):
+        self.prepare_fixture()
+        path = self.root / tier.INSTANCE / "profiles" / tier.PROFILE / "SkyrimCustom.ini"
+        original = path.read_bytes()
+        for raw in (b"", original.replace(b"QASmoke", b"Riverwood"),
+                    original + b"[general]\nsStartingCell=Riverwood\n", original.decode().encode("utf-16")):
+            with self.subTest(raw=raw):
+                path.write_bytes(raw)
+                self.assertIn("profile_ini_seed", self.codes(tier.preflight()))
+                self.assertEqual(path.read_bytes(), raw)
+        path.write_bytes(original)
+        self.write(tier.INSTANCE + "/overwrite/" + tier.baseline.STORAGE + "/request.json", b'{"auto_run":true}')
+        self.assertIn("unapproved_payload", self.codes(tier.preflight()))
+
+    def test_reviewed_provider_candidate_is_loopback_with_explicit_disabled_decisions(self):
+        seeds = tier.configuration_seeds()
+        providers = json.loads(seeds[tier.CONFIG + "Providers.yaml"])["providers"]
+        self.assertEqual([row["id"] for row in providers],
+                         ["openrouter", "nanogpt", "nvidia", "chutes", "openrouter_decisions", "hold_music_lab"])
+        for row in providers:
+            self.assertEqual(row["endpoint"], tier.LOOPBACK)
+            self.assertEqual((row["api_key"], row["api_key_from"]), ("", ""))
+            self.assertFalse(row["use_sse"])
+        router = json.loads(seeds[tier.CONFIG + "OpenRouter.yaml"])
+        self.assertEqual(router["routing"]["mode"], "legacy")
+        self.assertEqual(router["active_preset_id"], "")
+        base = router["openrouter"]
+        for context, enabled in ((base, True), (base["variants"]["decisions"], False)):
+            self.assertEqual(context["endpoint"], tier.LOOPBACK)
+            self.assertEqual(context["max_retries"], 0)
+            slot, = context["model_params"]
+            self.assertIs(slot["enabled"], enabled)
+            self.assertEqual(slot["provider_id"], "hold_music_lab")
+            self.assertEqual((slot["ttft_abort_multiplier"], slot["ttft_abort_floor_ms"]), (2.0, 2500))
+        game = json.loads(seeds[tier.CONFIG + "SkyrimNet.yaml"])
+        self.assertFalse(game["general"]["globalAIEnabled"])
+        self.assertEqual(game["dialogue"]["decisions"],
+                         dict(useForMood=False, useForSpeakerSelection=False, useForPlayerTarget=False))
+        self.assertFalse(tier.STARTUP_INTENT["provider_requests_authorized"])
+        self.prepare_fixture()
+        for name in ("Providers.yaml", "OpenRouter.yaml"):
+            path = self.root / tier.INSTANCE / "mods" / tier.CONFIG_MOD / tier.CONFIG / name
+            original = path.read_bytes()
+            for raw in (original.replace(tier.LOOPBACK.encode(), b"https://api.example.invalid/chat"),
+                        original.replace(b'"api_key": ""', b'"api_key": "synthetic-unwanted-key"')):
+                with self.subTest(name=name):
+                    path.write_bytes(raw)
+                    self.assertIn("file_hash", self.codes(tier.preflight()))
+                    self.assertEqual(path.read_bytes(), raw)
+            path.write_bytes(original)
+
+    def test_startup_models_require_exact_catalog_no_sidecars_and_correct_winners(self):
+        self.prepare_fixture()
+        report = tier.preflight()
+        self.assertEqual(set(report["model_winners"]), set(self.model_files))
+        for relative, winner in report["model_winners"].items():
+            self.assertEqual(winner["sha256"], self.model_catalog[relative]["sha256"])
+            self.assertIn(tier.STARTUP_MODEL_MOD, winner["path"])
+        relative = next(iter(self.model_files))
+        shadow = tier.INSTANCE + "/mods/" + tier.CONFIG_MOD + "/" + relative
+        self.write(shadow, self.model_files[relative])
+        self.assertIn("model_winner", self.codes(tier.preflight()))
+        (self.root / shadow).unlink()
+        path = self.root / tier.INSTANCE / "mods" / tier.STARTUP_MODEL_MOD / relative
+        path.write_bytes(b"altered-model")
+        self.assertIn("file_hash", self.codes(tier.preflight()))
+        self.assertIn("model_winner", self.codes(tier.preflight()))
+
+    def test_model_archive_rejects_wrong_missing_extra_and_verified_sidecar_members(self):
+        spec = self.archives[-1]
+        for case in ("wrong", "missing", "extra", "verified", "case_alias"):
+            members = dict(self.model_files)
+            first = next(iter(members))
+            if case == "wrong": members[first] = b"wrong bytes"
+            elif case == "missing": members.pop(first)
+            elif case == "extra": members["SKSE/Plugins/SkyrimNet/models/foreign.onnx"] = b"foreign"
+            elif case == "verified": members[first + ".verified"] = b"fabricated-sidecar"
+            else: members[first.upper()] = members.pop(first)
+            with self.subTest(case=case):
+                with zipfile.ZipFile(spec["path"], "w") as archive:
+                    for name, raw in members.items(): archive.writestr(name, raw)
+                spec.update(sha256=hashlib.sha256(spec["path"].read_bytes()).hexdigest(),
+                            size=spec["path"].stat().st_size)
+                before = self.files()
+                with self.assertRaisesRegex(ValueError, "(catalog|Fixed archive)"):
+                    tier.preparation_plan()
+                self.assertEqual(before, self.files())
+
+    def test_world_start_intent_binds_install_and_launch_without_new_scenario_acceptance(self):
+        references = self.runtime_fixture()
+        plan = tier.launch_plan(references)
+        self.assertEqual(plan["inputs"]["startup_intent"], tier.STARTUP_INTENT)
+        self.assertEqual(set(plan["inputs"]["acceptance"]),
+                         {"focused_complete", "focused_interrupt", "ambient_entry"})
+        self.assertFalse(plan["runtime_verified"])
+        self.assertFalse((self.root / tier.RUNTIME_CONTROL).exists())
+        with patch.dict(tier.STARTUP_INTENT, checkpoint="changed-intent"), \
+                patch.object(tier.baseline, "_require_windows"), \
+                patch.object(tier.subprocess, "Popen", side_effect=AssertionError("stale review dispatched")):
+            with self.assertRaisesRegex(ValueError, "(stale|preflight)"):
+                tier.launch(references, plan["review_token"], process_probe=self.closed)
 
     def test_archive_path_escape_and_duplicate_case_rejected(self):
         for members in (("../escape",), ("selected/Same", "selected/same")):
@@ -745,13 +912,15 @@ class SkyrimNetTierTests(unittest.TestCase):
                     tier.recover_installation("acknowledge_published")
 
     def test_real_process_death_after_publish_releases_lock_for_reviewed_recovery(self):
-        arguments = dict(root=str(self.root), application={**self.application, "path": str(self.application["path"])},
+        arguments = dict(root=str(self.root), models=self.model_catalog,
+            application={**self.application, "path": str(self.application["path"])},
             archives=[{**row, "path": str(row["path"])} for row in self.archives])
         script = '''
 import json, os, sys
 from pathlib import Path
 from hold_music import se_lab_skyrimnet as tier
 args=json.loads(sys.argv[1]); tier.LAB_ROOT=Path(args['root'])
+tier.STARTUP_MODEL_FILES=args['models']
 tier.MO2_ARCHIVE=args['application']; tier.MO2_ARCHIVE['path']=Path(tier.MO2_ARCHIVE['path'])
 tier.ARCHIVES=args['archives']
 for row in tier.ARCHIVES: row['path']=Path(row['path'])

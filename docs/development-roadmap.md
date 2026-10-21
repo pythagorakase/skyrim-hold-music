@@ -85,6 +85,15 @@ fix; one guarded `get_plugins` call confirms all five expected profile plugins.
 Keep generation disabled while routing is diagnosed. These observations do not
 establish a world-loaded or playback result with SkyrimNet.
 
+The next isolated checkpoint explicitly starts QASmoke with production playback
+and harness autorun disabled. It seeds three exact-hash public startup models
+from the retained run and supplies all native provider defaults as loopback,
+empty-key entries. Fresh typed readback must validate the resulting graph; the
+seed is not evidence that native overrides or egress are controlled. A separate
+[fixed player snapshot](se-lab-mcp-player.md) is ready for one reviewed call after
+smoke and discovery, with UUID/alias bookkeeping disclosed and no claim of cell
+identity from its reply. Visual scene observation remains separate.
+
 The [pinned native routing findings](se-lab-native-routing-findings.md) explain
 why a custom-only provider catalog expands and an omitted decisions variant
 returns. They preserve the explicit loopback seed proposal and unresolved

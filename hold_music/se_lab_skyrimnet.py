@@ -39,7 +39,14 @@ LAB_ROOT = Path(r"C:\MGO\HoldMusic-SE-Lab")
 REPO = Path(__file__).resolve().parents[1]
 INSTANCE = "MO2-SkyrimNet"
 PROFILE = "Hold Music SE Lab - SkyrimNet Disabled"
-TIER = "skyrimnet-beta26-rc4-disabled-v1"
+TIER = "skyrimnet-beta26-rc4-qasmoke-disabled-v2"
+STARTUP_INTENT = {"version": 1, "checkpoint": "disabled_qasmoke_world_readiness",
+                  "starting_cell": "QASmoke", "hold_music_enabled": False,
+                  "harness_enabled": False, "scenario_armed": False,
+                  "provider_requests_authorized": False}
+SKYRIM_CUSTOM_SEED = "[General]\nsStartingCell=QASmoke\n"
+HOLD_MUSIC_DISABLED_SEED = ("[General]\nbEnabled=0\niInstrumentalPercent=100\n"
+                            "iSessionCap=1\nsWorldId=hold-music-se-lab\n")
 CONFIG_MOD = "Hold Music SkyrimNet Disabled Config"
 CONFIG = "SKSE/Plugins/SkyrimNet/config/"
 PORTS = {"web": 18880, "mcp": 18889, "fake_provider": 18881}
@@ -125,6 +132,15 @@ SKYRIM_INI_SEED = (
     'bEnableTrace=0\r\n'
     'bLoadDebugInformation=0\r\n'
 )
+STARTUP_MODEL_FILES = {
+    "SKSE/Plugins/SkyrimNet/models/all-MiniLM-L6-v2.onnx": {
+        "size": 90445823, "sha256": "994a58868f7abacacbf2192aa0aae8f56da8c4505dbde2740c861b24426ede6b"},
+    "SKSE/Plugins/SkyrimNet/models/all-MiniLM-L6-v2-tokenizer.json": {
+        "size": 711661, "sha256": "da0e79933b9ed51798a3ae27893d3c5fa4a201126cef75586296df9b4d2c62a0"},
+    "SKSE/Plugins/SkyrimNet/models/silero_vad.onnx": {
+        "size": 2327524, "sha256": "2623a2953f6ff3d2c1e61740c6cdb7168133479b267dfef114a4a3cc5bdd788f"},
+}
+STARTUP_MODEL_MOD = "Hold Music SkyrimNet Startup Models"
 ARCHIVES = (
     dict(mod="SkyrimNet beta26-rc4 Clean", path=REPO / "local/se-lab-downloads/skyrimnet-beta26-rc4.zip",
          sha256="6b1646d52d10f71b938d09b55bb766b57af517ece11ea174b646d0a1a51fbcef", kind="zip", prefixes=("",)),
@@ -140,6 +156,9 @@ ARCHIVES = (
          sha256="d20b6ffc7369de040b914e55e3ce6b6bde1f56b59d5151ae0d9b82d8d014e0ed", kind="tar",
          prefixes=("powerofthree's Tweaks FOMOD Installer/Required/",
                    "powerofthree's Tweaks FOMOD Installer/AE/")),
+    dict(mod=STARTUP_MODEL_MOD, path=REPO / "local/se-lab-startup-model-cache-20261021/startup-models.zip",
+         sha256="1979b976999bab8b3e66acb290786b978f0ae9e2964611e92f9288e4f0fa62fc",
+         size=93485572, kind="zip", prefixes=("",), expected_files=STARTUP_MODEL_FILES),
 )
 
 
@@ -174,6 +193,181 @@ def clean_launch_environment(environment=None):
     return result
 
 
+def _routing_seeds():
+    """Fixed reviewed loopback candidate; never load user/provider configuration."""
+    return {'Providers.yaml': {'providers': [{'id': 'openrouter',
+                                       'name': 'OpenRouter',
+                                       'endpoint': 'http://127.0.0.1:18881/v1/chat/completions',
+                                       'api_key': '',
+                                       'api_key_from': '',
+                                       'api_style': 'chat',
+                                       'use_sse': False,
+                                       'use_structured_outputs': False,
+                                       'reasoning': False,
+                                       'provider_settings': {},
+                                       'provider_sorting': 'default',
+                                       'upstream_order_mode': 'fleet',
+                                       'builtin': True},
+                                      {'id': 'nanogpt',
+                                       'name': 'NanoGPT',
+                                       'endpoint': 'http://127.0.0.1:18881/v1/chat/completions',
+                                       'api_key': '',
+                                       'api_key_from': '',
+                                       'api_style': 'chat',
+                                       'use_sse': False,
+                                       'use_structured_outputs': False,
+                                       'reasoning': False,
+                                       'provider_settings': {},
+                                       'provider_sorting': 'default',
+                                       'upstream_order_mode': 'fleet',
+                                       'builtin': True},
+                                      {'id': 'nvidia',
+                                       'name': 'Nvidia NIM',
+                                       'endpoint': 'http://127.0.0.1:18881/v1/chat/completions',
+                                       'api_key': '',
+                                       'api_key_from': '',
+                                       'api_style': 'chat',
+                                       'use_sse': False,
+                                       'use_structured_outputs': False,
+                                       'reasoning': False,
+                                       'provider_settings': {},
+                                       'provider_sorting': 'default',
+                                       'upstream_order_mode': 'fleet',
+                                       'builtin': True},
+                                      {'id': 'chutes',
+                                       'name': 'Chutes',
+                                       'endpoint': 'http://127.0.0.1:18881/v1/chat/completions',
+                                       'api_key': '',
+                                       'api_key_from': '',
+                                       'api_style': 'chat',
+                                       'use_sse': False,
+                                       'use_structured_outputs': False,
+                                       'reasoning': False,
+                                       'provider_settings': {},
+                                       'provider_sorting': 'default',
+                                       'upstream_order_mode': 'fleet',
+                                       'builtin': True},
+                                      {'id': 'openrouter_decisions',
+                                       'name': 'OpenRouter (Decisions)',
+                                       'endpoint': 'http://127.0.0.1:18881/v1/chat/completions',
+                                       'api_key': '',
+                                       'api_key_from': '',
+                                       'api_style': 'decisions',
+                                       'use_sse': False,
+                                       'use_structured_outputs': False,
+                                       'reasoning': False,
+                                       'provider_settings': {},
+                                       'provider_sorting': 'default',
+                                       'upstream_order_mode': 'fleet',
+                                       'builtin': True},
+                                      {'id': 'hold_music_lab',
+                                       'name': 'Hold Music Lab',
+                                       'endpoint': 'http://127.0.0.1:18881/v1/chat/completions',
+                                       'api_key': '',
+                                       'api_key_from': '',
+                                       'api_style': 'chat',
+                                       'use_sse': False,
+                                       'use_structured_outputs': False,
+                                       'reasoning': False,
+                                       'provider_settings': {},
+                                       'provider_sorting': 'default',
+                                       'upstream_order_mode': 'fleet',
+                                       'builtin': False}]},
+     'OpenRouter.yaml': {'openrouter': {'model_name': 'hold-music-lab-disabled',
+                                        'endpoint': 'http://127.0.0.1:18881/v1/chat/completions',
+                                        'api_key': '',
+                                        'timeout': 30,
+                                        'connect_timeout': 5,
+                                        'max_retries': 0,
+                                        'use_caching': False,
+                                        'support_dynamic_event_caching': False,
+                                        'use_structured_outputs': False,
+                                        'reasoning': False,
+                                        'use_sse': False,
+                                        'provider_settings': {},
+                                        'default_params': {'temperature': 0.0,
+                                                           'max_tokens': 64,
+                                                           'top_p': 1.0,
+                                                           'top_k': 0,
+                                                           'frequency_penalty': 0.0,
+                                                           'presence_penalty': 0.0,
+                                                           'stop_sequences': []},
+                                        'model_params': [{'provider_id': 'hold_music_lab',
+                                                          'enabled': True,
+                                                          'routing_role': 'primary',
+                                                          'rotation_weight': 1.0,
+                                                          'use_sse': False,
+                                                          'use_structured_outputs': False,
+                                                          'reasoning': False,
+                                                          'provider_settings': {},
+                                                          'request_timeout': 30,
+                                                          'connect_timeout': 5,
+                                                          'max_retries': 0,
+                                                          'temperature': 0.0,
+                                                          'max_tokens': 64,
+                                                          'top_p': 1.0,
+                                                          'top_k': 0,
+                                                          'frequency_penalty': 0.0,
+                                                          'presence_penalty': 0.0,
+                                                          'stop_sequences': [],
+                                                          'ttft_abort_multiplier': 2.0,
+                                                          'ttft_abort_floor_ms': 2500}],
+                                        'rotation_mode': 'sequential',
+                                        'provider_sorting': 'default',
+                                        'event_history_count_dialogue': 0,
+                                        'variants': {'decisions': {'model_name': 'hold-music-lab-disabled',
+                                                                   'endpoint': 'http://127.0.0.1:18881/v1/chat/completions',
+                                                                   'api_key': '',
+                                                                   'timeout': 30,
+                                                                   'connect_timeout': 5,
+                                                                   'max_retries': 0,
+                                                                   'use_caching': False,
+                                                                   'support_dynamic_event_caching': False,
+                                                                   'use_structured_outputs': False,
+                                                                   'reasoning': False,
+                                                                   'use_sse': False,
+                                                                   'provider_settings': {},
+                                                                   'default_params': {'temperature': 0.0,
+                                                                                      'max_tokens': 64,
+                                                                                      'top_p': 1.0,
+                                                                                      'top_k': 0,
+                                                                                      'frequency_penalty': 0.0,
+                                                                                      'presence_penalty': 0.0,
+                                                                                      'stop_sequences': []},
+                                                                   'model_params': [{'provider_id': 'hold_music_lab',
+                                                                                     'enabled': False,
+                                                                                     'routing_role': 'primary',
+                                                                                     'rotation_weight': 1.0,
+                                                                                     'use_sse': False,
+                                                                                     'use_structured_outputs': False,
+                                                                                     'reasoning': False,
+                                                                                     'provider_settings': {},
+                                                                                     'request_timeout': 30,
+                                                                                     'connect_timeout': 5,
+                                                                                     'max_retries': 0,
+                                                                                     'temperature': 0.0,
+                                                                                     'max_tokens': 64,
+                                                                                     'top_p': 1.0,
+                                                                                     'top_k': 0,
+                                                                                     'frequency_penalty': 0.0,
+                                                                                     'presence_penalty': 0.0,
+                                                                                     'stop_sequences': [],
+                                                                                     'ttft_abort_multiplier': 2.0,
+                                                                                     'ttft_abort_floor_ms': 2500}],
+                                                                   'rotation_mode': 'sequential'}}},
+                         'active_preset_id': '',
+                         'pending_first_run_preset_id': '',
+                         'routing': {'mode': 'legacy',
+                                     'profile': '',
+                                     'quantization_floor': '',
+                                     'ttft_early_abort': False,
+                                     'ttft_abort_multiplier': 2.0,
+                                     'ttft_abort_ceiling_ms': 0,
+                                     'ttft_abort_floor_ms': 2500,
+                                     'local_slow_demote': False,
+                                     'ttft_race_first_token': False}}}
+
+
 def configuration_seeds():
     """JSON is valid YAML; exact seed bytes are reviewed, never installed here."""
     data = {
@@ -184,11 +378,6 @@ def configuration_seeds():
             "dialogue": {"distanceToDetectBackgroundDialogue": 1000,
                          "decisions": {"useForMood": False, "useForSpeakerSelection": False,
                                        "useForPlayerTarget": False}}},
-        "Providers.yaml": {"providers": [{"id": "hold_music_lab", "name": "Hold Music Lab",
-            "endpoint": LOOPBACK, "api_key": "", "api_style": "chat", "use_sse": False, "builtin": False}]},
-        "OpenRouter.yaml": {"openrouter": {"endpoint": LOOPBACK, "api_key": "",
-            "model_name": "hold-music-lab-disabled", "model_params": [{"provider_id": "hold_music_lab", "use_sse": False}],
-            "variants": {}}},
         "STT.yaml": {"backend": "none", "external_whisper": {"api_key": "",
             "api_endpoint": "http://127.0.0.1:18881/v1/audio/transcriptions"}},
         "BardSinging.yaml": {"bard_singing": {"enabled": False, "provider": "acestep_local",
@@ -204,10 +393,12 @@ def configuration_seeds():
         "WebServer.yaml": {"enabled": True, "host": "127.0.0.1", "port": PORTS["web"]},
         "MCP.yaml": {"mcp": {"enabled": True, "host": "127.0.0.1", "port": PORTS["mcp"]}},
     }
+    data.update(_routing_seeds())
     result = {CONFIG + name: json.dumps(value, indent=2, ensure_ascii=False) + "\n" for name, value in data.items()}
     # Do not automatically run the Papyrus fixture while inspecting native load.
     result[baseline.CONTROL] = json.dumps({"version": 1, "enabled": False,
                                          "world_id": "hold-music-se-lab"}, indent=2) + "\n"
+    result["MCM/Settings/HoldMusic.ini"] = HOLD_MUSIC_DISABLED_SEED
     # Tagged po3-Tweaks v1.15.1 Settings.cpp reads this under [Fixes].
     result["SKSE/Plugins/po3_Tweaks.ini"] = "[Fixes]\nLoad EditorIDs = true\n"
     return result
@@ -274,6 +465,8 @@ def _archive_payloads(spec, snapshot):
     state = snapshot.read(path)
     if state.get("sha256") != spec["sha256"]:
         raise ValueError("Pinned archive missing or changed: " + path.name)
+    if "size" in spec and state.get("size") != spec["size"]:
+        raise ValueError("Pinned archive size changed")
     seen, selected = set(), set()
     if spec["kind"] == "zip":
         archive = zipfile.ZipFile(path)
@@ -335,10 +528,17 @@ def _archive_payloads(spec, snapshot):
                     if relative.casefold() in selected:
                         raise ValueError("Archive mappings overlap")
                     selected.add(relative.casefold())
+                    expected = spec.get("expected_files")
+                    if expected is not None and (relative not in expected
+                            or expected[relative].get("size") != len(payload)
+                            or expected[relative].get("sha256") != hashlib.sha256(payload).hexdigest()):
+                        raise ValueError("Fixed archive member differs from its reviewed catalog")
                     yield relative, payload, dict(archive=str(path), member=member)
                     break
         if not selected:
             raise ValueError("Archive mapping selects no files")
+        if "expected_files" in spec and selected != {name.casefold() for name in spec["expected_files"]}:
+            raise ValueError("Fixed archive is missing reviewed catalog members")
         snapshot.read(path)
     finally:
         if archive is not None:
@@ -404,6 +604,10 @@ def _recipe(snapshot, root):
     for relative, text in seeds.items():
         files[INSTANCE + "/mods/" + CONFIG_MOD + "/" + relative] = dict(
             sha256=hashlib.sha256(text.encode()).hexdigest(), source=dict(kind="observed-disabled-seed"))
+    forbidden = tuple("/" + baseline.STORAGE.casefold() + "/" + name
+                      for name in ("request.json", "result.json"))
+    if any(path.casefold().endswith(forbidden) for path in files):
+        raise ValueError("World-readiness recipe cannot contain a harness request or result")
     return files, shared, seeds
 
 
@@ -430,6 +634,7 @@ def _inspect(prepared):
     target = root / INSTANCE
     observed_winners = {}
     native_winners = {}
+    model_winners = {}
     if prepared:
         instance_seeds = _instance_seeds(root, dict(active_mods=active, enabled_plugins=expected_plugins))
         target_tree = _tree(snapshot, target)
@@ -527,6 +732,19 @@ def _inspect(prepared):
             if (winner is None or Path(winner["path"]) != root / physical
                     or winner.get("sha256") != files[physical]["sha256"]):
                 block("native_winner", "Native plugin is not its reviewed loose winner: " + relative)
+        for relative, expected_model in STARTUP_MODEL_FILES.items():
+            winner = None
+            for layer in [target / "overwrite", *(target / "mods" / mod for mod in active), root / "Game/Data"]:
+                path, exists = snapshot.resolve(layer, relative)
+                state = snapshot.read(path) if exists else dict(path=str(path), exists=False)
+                if winner is None and state["exists"]:
+                    winner = state
+            model_winners[relative] = winner
+            expected_path = target / "mods" / STARTUP_MODEL_MOD / relative
+            if (winner is None or Path(winner["path"]) != expected_path
+                    or winner.get("sha256") != expected_model["sha256"]
+                    or winner.get("size") != expected_model["size"]):
+                block("model_winner", "Startup model is not its reviewed loose winner: " + relative)
     ports_available = _ports_available() if prepared else None
     if ports_available is False:
         block("ports_busy", "At least one fixed loopback port is already bound")
@@ -536,19 +754,22 @@ def _inspect(prepared):
     if game_inventory != _tree(snapshot, root / "Game"):
         raise ValueError("Shared Game changed during inspection")
     report = dict(version=1, operation="skyrimnet_se_lab_preflight" if prepared else "skyrimnet_se_lab_plan",
-        tier=TIER, lab_root=str(root), instance=str(target), profile=PROFILE,
+        tier=TIER, startup_intent=dict(STARTUP_INTENT), lab_root=str(root), instance=str(target), profile=PROFILE,
         status="blocked" if blockers else ("prepared_files_verified" if prepared else "preparation_plan"),
         blockers=blockers, active_mods=active, enabled_plugins=expected_plugins,
         files=[dict(path=path, **row) for path, row in sorted(files.items())],
         configuration_seeds=[dict(virtual_path=path, text=text) for path, text in seeds.items()],
-        config_winners=observed_winners, native_winners=native_winners, shared_native_hashes=shared,
+        config_winners=observed_winners, native_winners=native_winners, model_winners=model_winners,
+        shared_native_hashes=shared,
         shared_game_inventory=game_inventory, snapshot=final, ports=PORTS,
         ports_available=ports_available,
         environment=dict(policy="allowlist-v1", retained_names=sorted(clean_launch_environment()),
                          values_disclosed=False),
         writes_performed=False, can_apply=False, can_launch=False, paid_generation=False,
         native_verified=False, runtime_verified=False, egress_verified=False, vfs_verified=False,
-        limitations=["Read-only first-boot preparation; no installation, game launch, HTTP or MCP action is implemented.",
+        limitations=["This report is read-only; installation and launch require separate reviewed commands.",
+            "QASmoke startup intent is not observed world readiness or a new accepted performance scenario.",
+            "Matching local startup models may avoid their transfers; native verification and sidecar writes still occur.",
             "File controls and absent credentials do not independently prove zero network egress.",
             "Native config acceptance, startup migrations and actual writes require separate runtime evidence.",
             "Future HTTP/MCP access must bind listener PID, executable path and start time to the launched tier.",
@@ -614,7 +835,7 @@ def _instance_seeds(root, recipe):
                 ("cache_directory", "webcache"))) + "\n",
         profile + "settings.ini": "[General]\nLocalSaves=true\nLocalSettings=true\n",
         profile + "Skyrim.ini": SKYRIM_INI_SEED,
-        profile + "SkyrimCustom.ini": "",
+        profile + "SkyrimCustom.ini": SKYRIM_CUSTOM_SEED,
         profile + "SkyrimPrefs.ini": "[Display]\nbFull Screen=0\nbBorderless=0\niSize W=1280\niSize H=720\n",
         profile + "modlist.txt": "".join("+" + value + "\n" for value in recipe["active_mods"]),
         profile + "plugins.txt": "".join("*" + value + "\n" for value in recipe["enabled_plugins"]),
@@ -705,7 +926,8 @@ def _install_inputs():
     if {name.casefold() for name in files} & {name.casefold() for name in directories}:
         raise ValueError("Payload file overlaps a directory")
     protected = _protected(root)
-    result = dict(version=INSTALL_VERSION, tier=TIER, root=str(root), instance=str(root / INSTANCE),
+    result = dict(version=INSTALL_VERSION, tier=TIER, startup_intent=dict(STARTUP_INTENT),
+        root=str(root), instance=str(root / INSTANCE),
         recipe_token=recipe["review_token"], files=files, directories=sorted(directories),
         instance_seeds=seeds, config_seeds=configuration_seeds(), blockers=recipe["blockers"],
         implementation=_implementation(snapshot), application_archive=dict(
@@ -1337,7 +1559,7 @@ def _launch_inputs(references):
     environment = clean_launch_environment()
     protected = _protected(root)
     storage_contract = prepare_runtime_storage(root, protected)
-    return dict(tier=TIER, operation="skyrimnet_disabled_first_boot", acceptance=accepted,
+    return dict(tier=TIER, operation="skyrimnet_disabled_first_boot", startup_intent=dict(STARTUP_INTENT), acceptance=accepted,
                 acceptance_snapshot=observed, preflight_token=prepared["review_token"],
                 installation_transaction=status["transaction_id"], installation_journal_hash=status["journal_hash"],
                 implementation=status["implementation"], protected=protected, runtime_storage=storage_contract,
