@@ -62,8 +62,21 @@ stopped at a bundled Python plugin error before Skyrim: the restricted
 environment also omitted `ProgramW6432`. An audit of 270 bundled Python files
 and MO2/uibase core sources supports adding that variable and requiring
 nonempty, unambiguous `USERNAME`, `PATH` and `ProgramW6432` before launch.
-The third attempt's source, files and dialog evidence are retained; native
-SkyrimNet acceptance remains pending until a new launch.
+The third attempt's source, files and dialog evidence are retained. The fourth
+launch reached Skyrim and its fresh SKSE log reports all seven expected native
+plugins loaded. It also exposed three separate integration issues: process
+observation failed around the short-lived loader, PrismaUI created its persistent
+session cache under Game/default, and SkyrimNet rejected a missing mandatory
+dialogue-distance config field. The game and MO2 were closed through exact owned
+handles. Retained logs also show automatic model downloads and telemetry; disabled
+seed files were not proof of effective configuration or zero network egress.
+
+The next checkpoint retains process handles throughout launch, records bounded
+runtime cache metadata under an explicit fresh-run contract, and supplies the
+native-required dialogue distance with telemetry explicitly disabled. Original
+asset checks remain strict; old failed observations remain failed. The next
+runtime task is successful config registration and typed disabled-control
+readback before MCP discovery or provider-routing inspection.
 
 A separate [read-only native/config smoke collector](se-lab-skyrimnet-smoke.md)
 has passed 24 synthetic tests and independent review. It requires the exact

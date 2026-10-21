@@ -5,7 +5,93 @@ Continue until 08:00 America/Chicago on 21 October, then summarize and pause the
 `hold-music-offline-overnight-development` heartbeat. The old Echo watcher stays
 paused. The former Steam-use deferral is lifted for the isolated lab only.
 
-## Current checkpoint (05:00 CDT)
+## Current checkpoint (05:41 CDT)
+
+- Fourth-run cleanup is complete: exact owned game handle terminated with exit
+  18509, MO2 exited naturally with code 0, and an independent snapshot confirms
+  all relevant lab processes closed. No late identity upgraded launch authority.
+  Whole-tier retention completed `retained_verified` at 05:37 CDT: 5,806
+  instance files, two install files and four runtime files, plus the original
+  source archive, are intact under
+  `checkpoints/skyrimnet-observer-failed-attempt-20261021`. Protected state stayed
+  unchanged relative to the retention review; original-run equality remains
+  explicitly false. The separate opaque cache archive is under review. Both
+  helpers passed 24/24 independent fixture tests.
+- The archived SkyrimNet log explains a separate startup failure:
+  `GameConfig.h:2555` rejects missing
+  `dialogue.distanceToDetectBackgroundDialogue`, then MainWorker fails game
+  configuration registration. The log contains 65,197 `Configuration game not
+  found` messages. Read-only disassembly of the pinned clean DLL confirms the
+  loader begins with an unconditional floating-point conversion of that field;
+  the shipped dashboard supplies default 1000. The frozen correction supplies
+  that value. Independent inspection found no further required-field blocker
+  in the examined OpenRouter/model-slot, Providers, STT, Bard, VastAI and Memory
+  parsers; this bounded static review does not prove complete native acceptance.
+- The same native log records embedding-model downloads and a telemetry response.
+  Earlier statements below about no HTTP requests mean requests made by our
+  observation tooling only. They do **not** establish native zero egress. The
+  next seed explicitly disables telemetry, metrics, both GameMaster switches
+  and local Kokoro narration as well as AI. Acceptance requires fresh runtime
+  readback. No paid model/audio generation was requested.
+- The observer/storage/config candidate is frozen at tier hash
+  `6d4bb6dc13e1e920fc1dd07fd54c22eb1f905119dd27c4d0afd2b8be95d77f73`,
+  smoke hash `47bd7b72d6615a4092e19eee72f300fddd157bebc839158c41751e910d9cb073`,
+  and storage helper hash
+  `9a33e0bb6e87884ec7c4333499e6d75790d66b0beb93b0d2809875fd24613d71`.
+  The final tier suite passed 100 plus one expected Windows symlink skip in
+  597.403 seconds; observation/storage passed 107 plus one expected skip in
+  12.327 seconds. All 209 cases completed (207 passed, two expected skips),
+  including actual Qt, bundled EA and native Python-child checks. Tier log
+  SHA256 `19c8d79c83842503b992f28664c45622d79bab4ac2b9933b7e869294825fc5c7`;
+  observation/storage log
+  `5f590b12542e889fc08fd05290d91885b0978082af0e0e70d69093c5dc8d71f5`.
+  Earlier partial suite logs are retained
+  as superseded by the additional source-confirmed disable controls.
+- Positive-attribution cleanup v2 passed 22/22 independent fixture tests. It
+  keeps the original process handles, permits only the launch-bound storage
+  contract, and records natural MO2 exit separately. It has not been applied.
+
+### Previous fourth-run checkpoint (05:13 CDT)
+
+- Checkpoint `0737580` is synchronized on Halcyon, GitHub and clean Echo;
+  identical-tree local `9695daa` remains on
+  `checkpoint/se-lab-profile-ready-20261021-0501`. Echo's Python3.13.5 passed
+  90 portable tests plus one explicit Windows-native skip, including the 80
+  observation regressions; no service was restarted.
+- Fourth run `20261021T100330Z-49533a3d026a` started Skyrim. The fresh shared
+  SKSE log reports all seven expected native plugins loaded, including
+  SkyrimNet. However, the launcher reported `launch_observation_incomplete`
+  after 48 samples, retaining the exact MO2 and SKSE parent identities but not
+  the game. A later read-only game identity links to that retained loader.
+  This supports exact owned-process cleanup only; it does not upgrade the
+  failed launch or authorize the guarded endpoint checks.
+- Capture `a5c1895b609d46cca7461d9e2b6d3ff1` reports
+  `protected_state_changed`, 239 instance changes and no attributed game.
+  The only new protected Game files are `default/cookie.jar.db` and its
+  `-shm`/`-wal` sidecars. All existing Game file rows, the baseline MO2 and
+  manifest remain unchanged. These private database contents have not been
+  read or exported. The ten frozen sources and original launch evidence are
+  preserved under `checkpoints/skyrimnet-observer-failure-20261021/`.
+- Native observation currently reopens each PID every frame and permanently
+  fails on one missing identity. A mocked API reproduction proves that a
+  previously verified loader exiting between enumeration and reopen causes
+  this failure. The live report lacks the diagnostic category needed to prove
+  the exact branch. The correction will retain query/synchronize handles for
+  verified identities and add sanitized failure categories; unknown identities
+  and reused PIDs still fail closed.
+- Pinned PrismaUI1.5.1 source uses Ultralight's persistent default session and
+  supplies no cache-root setting. The public API/archive exposes no cache
+  configuration. This explains the observed storage location at source level,
+  without claiming a process-write trace. The next runtime contract will account
+  for precisely those three files while preserving strict original asset checks
+  and reporting the cache change separately. Cleanup and design review are in
+  progress. Our tooling made no HTTP/MCP/provider request.
+- Windows UI tooling lists the game window but fails to attach to its returned
+  identity twice (`window ... was not found`). No UI input was sent, and UI
+  automation stopped after the documented retry. This is separate from native
+  process liveness and is not evidence of a CTD.
+
+### Tested profile-ready installation (05:00 CDT)
 
 - The final tier suite passed 86 cases: 85 passed and one expected Windows
   symlink-permission skip, in 481.318 seconds. Both actual Qt checks and the

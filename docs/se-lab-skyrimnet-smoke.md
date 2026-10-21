@@ -25,7 +25,10 @@ does not connect to a port or write files. It requires:
 - The same currently live `SkyrimSE.exe` PID, full creation ticks, path and
   recorded MO2 → SKSE loader → game lineage. An unattributed or stopped launch
   cannot be upgraded by finding a process with the same executable name.
-- Unchanged protected baseline MO2 and shared Game observations.
+- Unchanged original protected assets and the explicitly bound
+  [runtime storage contract](se-lab-runtime-storage.md). Only its three named
+  session files may appear; their contents are not read. The report still marks
+  full protected-path equality false when those files appear.
 - All seven approved native module names, each observed at its **exact pinned
   physical mod path**, with current bytes matching the original launch inventory.
   A virtual `Game/Data/...` path is not silently mapped to a guessed physical
@@ -37,8 +40,9 @@ does not connect to a port or write files. It requires:
   fail. The MCP port is inspected only; no connection or protocol message is sent.
 
 The review token binds the run and launch document hashes, game identity,
-module paths/hashes, listeners, fixed route list and the new smoke module/tool
-hashes. Installation or launch tokens do not authorize collection.
+module paths/hashes, listeners, fixed route list, smoke module/tool hashes and
+the immutable runtime-storage binding. Volatile session-file metadata is kept
+outside that token. Installation or launch tokens do not authorize collection.
 
 The pinned archive's Windows structural components (`mods`, `SKSE`, `plugins`)
 are recognized case-insensitively, including PrismaUI's shipped lowercase
@@ -81,10 +85,11 @@ Each GET response must contain an object at `.data`. The collector reads only
 fixed nested paths and requires exact types and values; it does not use dashboard
 defaults when a field is missing. The observed contract covers:
 
-- Disabled master AI, Game Master, narration, Decisions, content auto-update,
+- Disabled master AI, both Game Master switches, narration, Decisions, content auto-update,
   bard generation and fallback, VastAI, NPC/player reactions, memory background
   processing, dynamic biographies, translation, OmniSight and agents.
-- TTS `noop` and STT `none`.
+- TTS `noop`, local Kokoro narration disabled, and STT `none`.
+- Both telemetry and metrics sharing disabled.
 - The intended enabled loopback web/MCP hosts and exact ports.
 
 Unexpected values are **not exported**. Reports contain fixed path names,

@@ -2,6 +2,7 @@
 from contextlib import redirect_stdout, redirect_stderr
 import hashlib
 import configparser
+import ctypes
 import io
 import json
 import os
@@ -10,6 +11,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import threading
 import time
 import unittest
 from types import SimpleNamespace
@@ -167,6 +169,33 @@ class SkyrimNetTierTests(unittest.TestCase):
         self.assertTrue(report["ports_available"])
         self.assertEqual(len(report["config_winners"]), len(report["configuration_seeds"]))
         self.assertEqual(len(report["native_winners"]), 7)
+
+    def test_native_required_dialogue_scalar_and_disabled_telemetry_are_exact_seed_inputs(self):
+        self.prepare_fixture()
+        relative = tier.INSTANCE + "/mods/" + tier.CONFIG_MOD + "/" + tier.CONFIG + "SkyrimNet.yaml"
+        path = self.root / relative
+        original = json.loads(path.read_bytes())
+        self.assertEqual(original["dialogue"]["distanceToDetectBackgroundDialogue"], 1000)
+        self.assertIs(type(original["dialogue"]["distanceToDetectBackgroundDialogue"]), int)
+        self.assertIs(original["telemetry"]["enabled"], False)
+        self.assertIs(original["telemetry"]["metrics_enabled"], False)
+        self.assertIs(original["gamemaster"]["enabled"], False)
+        self.assertIs(original["tts"]["useKokoroForNarrator"], False)
+        for section, field, value in (("dialogue", "distanceToDetectBackgroundDialogue", None),
+                ("dialogue", "distanceToDetectBackgroundDialogue", "1000"),
+                ("telemetry", "enabled", None), ("telemetry", "enabled", True),
+                ("telemetry", "metrics_enabled", None), ("telemetry", "metrics_enabled", "false"),
+                ("gamemaster", "enabled", None), ("gamemaster", "enabled", True),
+                ("tts", "useKokoroForNarrator", None), ("tts", "useKokoroForNarrator", True)):
+            with self.subTest(section=section, field=field, value=value):
+                changed = json.loads(json.dumps(original))
+                parent = changed[section]
+                if value is None: parent.pop(field)
+                else: parent[field] = value
+                raw = json.dumps(changed).encode(); path.write_bytes(raw)
+                report = tier.preflight()
+                self.assertEqual(report["status"], "blocked")
+                self.assertEqual(path.read_bytes(), raw)
 
     def test_preflight_missing_instance_blocks_without_creating_it(self):
         before = self.files()
@@ -1122,7 +1151,7 @@ tier.install(tier.installation_plan()['review_token'],process_probe=lambda:dict(
             with patch.object(tier, "_ProcessObserver", Observer):
                 result = tier.launch(references, token, process_probe=self.closed)
         self.assertEqual(result["status"], "launch_observation_incomplete")
-        self.assertEqual(result["process_observer"], "native-filetime-v1")
+        self.assertEqual(result["process_observer"], "native-filetime-v2")
         self.assertTrue(result["process_started"])
         self.assertFalse(result["launch_attributed"])
         self.assertIsNone(result["game"])
@@ -1203,6 +1232,57 @@ tier.install(tier.installation_plan()['review_token'],process_probe=lambda:dict(
         self.assertFalse(report["network_requests_performed"])
         self.assertNotIn("SECRET_SENTINEL", json.dumps(report))
         self.assertTrue(report["protected_paths_unchanged"])
+
+    def test_launch_and_collection_accept_only_prebound_three_file_runtime_storage(self):
+        references = self.runtime_fixture()
+        plan = tier.launch_plan(references)
+        self.assertIn("hold_music/se_lab_runtime_storage.py", plan["inputs"]["implementation"])
+        self.assertEqual(plan["inputs"]["runtime_storage"]["policy"]["fresh_directory_absent"], True)
+        def spawn(*args, **kwargs):
+            for name in ("cookie.jar.db", "cookie.jar.db-shm", "cookie.jar.db-wal"):
+                self.write("Game/default/" + name, b"PRIVATE_STORAGE_SENTINEL")
+            return SimpleNamespace(pid=100)
+        result = self.fake_launch(references, popen=spawn)
+        self.assertEqual(result["status"], "launched_attributed")
+        self.assertFalse(result["protected_paths_unchanged"])
+        self.assertTrue(result["original_assets_unchanged"])
+        self.assertTrue(result["storage_within_contract"])
+        self.write("Game/default/cookie.jar.db-wal", b"PRIVATE_STORAGE_SENTINEL changed")
+        with patch.object(tier, "_runtime_process_snapshot", side_effect=self.process_rows):
+            report = tier.collect(result["run_id"])
+        self.assertEqual(report["status"], "local_evidence_collected")
+        self.assertFalse(report["protected_paths_unchanged"])
+        self.assertTrue(report["original_assets_unchanged"])
+        self.assertTrue(report["storage_within_contract"])
+        self.assertNotIn("PRIVATE_STORAGE_SENTINEL", json.dumps(report))
+        self.assertTrue(tier.installation_status()["protected_changed_since_install"])
+        self.write("Game/default/extra.db", b"PRIVATE_STORAGE_SENTINEL")
+        with patch.object(tier, "_runtime_process_snapshot", side_effect=self.process_rows):
+            blocked = tier.collect(result["run_id"])
+        self.assertEqual(blocked["status"], "protected_state_changed")
+        self.assertFalse(blocked["storage_within_contract"])
+
+    def test_collector_never_grants_storage_policy_to_legacy_or_altered_intent(self):
+        references = self.runtime_fixture()
+        result = self.fake_launch(references)
+        path = self.root / tier.RUNTIME_CONTROL / "run.json"
+        original = json.loads(path.read_bytes())
+        for value in (None, dict(original["inputs"]["runtime_storage"], version=99)):
+            with self.subTest(value=value):
+                run = json.loads(json.dumps(original))
+                run["inputs"]["runtime_storage"] = value
+                run["inputs_sha256"] = tier._digest(run["inputs"])
+                path.write_text(json.dumps(run))
+                with patch.object(tier, "_runtime_process_snapshot", side_effect=self.process_rows), \
+                        self.assertRaisesRegex(ValueError, "pre-launch runtime-storage"):
+                    tier.collect(result["run_id"])
+
+    def test_fresh_launch_review_refuses_preexisting_runtime_storage(self):
+        references = self.runtime_fixture()
+        self.write("Game/default/cookie.jar.db", b"retained previous session")
+        with patch.object(tier.subprocess, "Popen") as spawn, self.assertRaises(ValueError):
+            tier.launch_plan(references)
+        spawn.assert_not_called()
 
     def test_collector_rejects_process_reuse_and_reports_protected_drift(self):
         references = self.runtime_fixture()
@@ -1381,6 +1461,59 @@ print(json.dumps(dict(version=qVersion(),rows=rows)))
             self.assertEqual([path.read_bytes() for path in paths], cases)
 
 
+class FakeNativeProcessAPI:
+    """Exercise actual sampler/open/wait/close code without Windows or processes."""
+    def __init__(self):
+        class FileTime(ctypes.Structure):
+            _fields_ = [("dwLowDateTime", ctypes.c_uint32), ("dwHighDateTime", ctypes.c_uint32)]
+        self.native = tier._NativeProcesses.__new__(tier._NativeProcesses)
+        self.native.w = SimpleNamespace(DWORD=ctypes.c_uint32, FILETIME=FileTime)
+        self.native.api = self
+        self.native.entries = self.entries
+        self.frame, self.opened, self.closed, self.waited = {}, [], [], []
+        self.live, self.errors, self.last_error = {}, {}, 0
+        self.tick = tier.FILETIME_TO_DOTNET_TICKS + 123456789
+
+    def add(self, pid=101, parent=100):
+        self.frame[pid] = dict(pid=pid, parent_pid=parent, name="skse64_loader.exe")
+        self.live[pid] = True
+
+    def entries(self):
+        return self.tick + 100, {key: dict(value) for key, value in self.frame.items()}
+
+    def fail(self, stage):
+        if stage in self.errors:
+            self.last_error = self.errors[stage]
+            return True
+        return False
+
+    def OpenProcess(self, rights, inherit, pid):
+        self.opened.append((rights, inherit, pid))
+        return 0 if self.fail("open") else pid
+
+    def QueryFullProcessImageNameW(self, handle, flags, buffer, size):
+        if self.fail("image"): return False
+        buffer.value = "C:/lab/Game/skse64_loader.exe"
+        return True
+
+    def GetProcessTimes(self, handle, created, exited, kernel, user):
+        if self.fail("times"): return False
+        raw = self.tick - tier.FILETIME_TO_DOTNET_TICKS
+        created._obj.dwLowDateTime, created._obj.dwHighDateTime = raw & 0xffffffff, raw >> 32
+        return True
+
+    def WaitForSingleObject(self, handle, timeout):
+        self.waited.append((handle, timeout))
+        if self.fail("wait"): return 0xffffffff
+        return 258 if self.live[handle] else 0
+
+    def CloseHandle(self, handle):
+        self.closed.append(handle)
+        if self.fail("close"): return False
+        self.last_error = 999  # cleanup must not overwrite the captured error
+        return True
+
+
 class NativeProcessObserverTests(unittest.TestCase):
     def wait_for(self, predicate, timeout=2):
         deadline = time.monotonic() + timeout
@@ -1452,6 +1585,177 @@ class NativeProcessObserverTests(unittest.TestCase):
             self.wait_for(lambda: observer.expired)
             with self.assertRaisesRegex(ValueError, "incomplete"): observer.capture()
         finally: self.assertTrue(observer.stop())
+
+    def fake_native(self):
+        api = FakeNativeProcessAPI()
+        last_error = patch.object(tier.ctypes, "get_last_error", lambda: api.last_error, create=True)
+        last_error.start(); self.addCleanup(last_error.stop)
+        return api
+
+    def test_verified_exit_keeps_parent_history_without_reopening_handle(self):
+        api = self.fake_native(); api.add()
+        sampler = tier._NativeProcessSampler(api.native)
+        try:
+            first = sampler.sample()
+            api.live[101] = False
+            # A stale Toolhelp entry can coexist with a signaled exact handle.
+            second = sampler.sample()
+            api.frame.clear()
+            third = sampler.sample()
+            self.assertEqual(first["history"], second["history"])
+            self.assertEqual(second, third)
+            self.assertEqual(second["current"], [])
+            self.assertEqual(api.opened, [(0x101000, False, 101)])
+            self.assertEqual(api.closed, [])
+            self.assertTrue(all(timeout == 0 for _, timeout in api.waited))
+        finally: sampler.close()
+        self.assertEqual(api.closed, [101])
+
+    def test_exit_after_identity_before_first_emission_is_history_only(self):
+        api = self.fake_native(); api.add(); api.live[101] = False
+        sampler = tier._NativeProcessSampler(api.native)
+        try:
+            frame = sampler.sample()
+            self.assertEqual(len(frame["history"]), 1)
+            self.assertEqual(frame["current"], [])
+        finally: sampler.close()
+
+    def test_unknown_open_failure_is_never_treated_as_verified_exit(self):
+        for code in (5, 87):
+            with self.subTest(code=code):
+                api = self.fake_native(); api.add(); api.errors["open"] = code
+                sampler = tier._NativeProcessSampler(api.native)
+                with self.assertRaises(tier._NativeObservationError) as caught: sampler.sample()
+                self.assertEqual(caught.exception.report, dict(stage="process_open", category="win32_error", win32_error=code))
+                self.assertEqual(sampler.retained, {})
+                sampler.close(); self.assertEqual(api.closed, [])
+
+    def test_identity_read_failures_close_handle_preserve_immediate_error(self):
+        for stage in ("image", "times"):
+            with self.subTest(stage=stage):
+                api = self.fake_native(); api.add(); api.errors[stage] = 5
+                sampler = tier._NativeProcessSampler(api.native)
+                with self.assertRaises(tier._NativeObservationError) as caught: sampler.sample()
+                self.assertEqual(caught.exception.report["stage"], "process_" + stage)
+                self.assertEqual(caught.exception.report["win32_error"], 5)
+                self.assertEqual(api.last_error, 999)
+                sampler.close(); self.assertEqual(api.closed, [101])
+
+    def test_known_identity_conflict_missing_live_and_wait_error_fail_closed(self):
+        for failure in ("parent", "missing", "wait", "unexpected_wait"):
+            with self.subTest(failure=failure):
+                api = self.fake_native(); api.add()
+                sampler = tier._NativeProcessSampler(api.native); sampler.sample()
+                if failure == "parent":
+                    api.live[101] = False
+                    api.frame[101]["parent_pid"] = 999
+                elif failure == "missing": api.frame.clear()
+                elif failure == "wait": api.errors["wait"] = 6
+                else: api.WaitForSingleObject = lambda *_: 123
+                try:
+                    with self.assertRaises(tier._NativeObservationError): sampler.sample()
+                    self.assertEqual(len(api.opened), 1)
+                finally: sampler.close()
+                self.assertEqual(api.closed, [101])
+
+    def test_close_failure_attempts_all_handles_and_worker_reports_failure(self):
+        api = self.fake_native(); api.add(); api.add(102)
+        with patch.object(tier, "_NativeProcesses", return_value=api.native):
+            observer = tier._ProcessObserver(timeout_seconds=2, interval=0.001)
+            observer.start()
+            api.errors["close"] = 6
+            self.assertTrue(observer.stop())
+            self.assertEqual(sorted(api.closed), [101, 102])
+            with self.assertRaises(ValueError): observer.capture()
+            self.assertEqual(observer.failure_report(), dict(stage="handle_close", category="win32_error", win32_error=6))
+
+    def test_worker_error_and_deadline_close_every_retained_handle(self):
+        for failure in ("wait", "deadline"):
+            with self.subTest(failure=failure):
+                api = self.fake_native(); api.add(); api.add(102)
+                with patch.object(tier, "_NativeProcesses", return_value=api.native):
+                    observer = tier._ProcessObserver(timeout_seconds=0.05 if failure == "deadline" else 2, interval=0.001)
+                    try:
+                        observer.start()
+                        if failure == "wait": api.errors["wait"] = 6
+                        self.wait_for(lambda: observer.failed or observer.expired)
+                    finally: self.assertTrue(observer.stop())
+                self.assertEqual(sorted(api.closed), [101, 102])
+
+    def test_stop_timeout_does_not_close_worker_handles_during_native_call(self):
+        api = self.fake_native(); api.add()
+        entered, release = threading.Event(), threading.Event()
+        original = api.entries
+        calls = 0
+        def entries():
+            nonlocal calls
+            calls += 1
+            if calls > 1:
+                entered.set(); release.wait(3)
+            return original()
+        api.native.entries = entries
+        with patch.object(tier, "_NativeProcesses", return_value=api.native):
+            observer = tier._ProcessObserver(timeout_seconds=4, interval=0.001)
+            try:
+                observer.start(); self.assertTrue(entered.wait(1))
+                self.assertFalse(observer.stop())
+                self.assertEqual(api.closed, [])
+                self.assertEqual(observer.failure_report()["category"], "join_timeout")
+            finally:
+                release.set(); self.assertTrue(observer.stop())
+        self.assertEqual(api.closed, [101])
+
+    def test_one_shot_snapshot_stays_strict_after_verified_sampler_exit(self):
+        api = self.fake_native(); api.add()
+        sampler = tier._NativeProcessSampler(api.native); sampler.sample()
+        try:
+            api.live[101] = False; api.errors["open"] = 87
+            self.assertEqual(sampler.sample()["current"], [])
+            with patch.object(tier, "_NativeProcesses", return_value=api.native), self.assertRaises(ValueError):
+                tier._runtime_process_snapshot()
+        finally: sampler.close()
+
+    def test_observer_never_exports_private_exception_text(self):
+        def failed(): raise OSError("PRIVATE_NATIVE_SENTINEL")
+        observer = tier._ProcessObserver(timeout_seconds=2, snapshot=failed)
+        try:
+            with self.assertRaises(ValueError): observer.start()
+            self.assertEqual(observer.failure_report(), dict(stage="observer", category="invalid_observation", win32_error=None))
+            self.assertNotIn("PRIVATE_NATIVE_SENTINEL", json.dumps(observer.failure_report()))
+        finally: observer.stop()
+
+    @unittest.skipUnless(os.name == "nt", "Native Windows query and synchronization handle check")
+    def test_harmless_native_child_uses_one_retained_readonly_synchronization_handle(self):
+        child = subprocess.Popen([sys.executable, "-B", "-c", "import time; time.sleep(0.5)"],
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW)
+        native = tier._NativeProcesses()
+        raw_entries = native.entries
+        def child_entries():
+            began, entries = raw_entries()
+            return began, {pid: entry for pid, entry in entries.items() if pid == child.pid}
+        sampler = tier._NativeProcessSampler(native)
+        with patch.object(tier, "PROCESS_NAMES", {Path(sys.executable).name.lower()}), \
+                patch.object(native, "entries", side_effect=child_entries), \
+                patch.object(native.api, "OpenProcess", wraps=native.api.OpenProcess) as opened, \
+                patch.object(native.api, "CloseHandle", wraps=native.api.CloseHandle) as closed:
+            try:
+                first = sampler.sample()
+                self.assertEqual(len(first["current"]), 1)
+                handle = sampler.retained[child.pid]["handle"]
+                self.assertTrue(native.alive(handle))
+                child.wait(timeout=3)
+                self.assertFalse(native.alive(handle))
+                second = sampler.sample()
+                self.assertEqual(second["history"], first["history"])
+                self.assertEqual(second["current"], [])
+                opened.assert_called_once_with(0x101000, False, child.pid)
+            finally:
+                # Toolhelp snapshot handles can recycle the same numeric value
+                # before the retained process handle is acquired.
+                previous_closes = sum(call.args == (handle,) for call in closed.call_args_list)
+                sampler.close(); child.wait(timeout=3)
+            self.assertEqual(sum(call.args == (handle,) for call in closed.call_args_list), previous_closes + 1)
 
     @unittest.skipUnless(os.name == "nt", "Native Windows process identity check")
     def test_harmless_native_python_child_is_retained_after_exit_with_exact_filetime(self):

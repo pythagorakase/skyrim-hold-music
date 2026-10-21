@@ -25,8 +25,10 @@ MAX_HEADERS = 16 * 1024
 TOTAL_SECONDS = 60.0
 # Exactly these scalar values may reach an output. Never inherit UI defaults.
 CHECKS = {
-    "game": {"general.globalAIEnabled": False, "gamemaster.agentEnabled": False,
-        "narration.enabled": False, "tts.engine": "noop", "content.autoUpdateBase": False,
+    "game": {"general.globalAIEnabled": False, "gamemaster.enabled": False, "gamemaster.agentEnabled": False,
+        "narration.enabled": False, "tts.engine": "noop", "tts.useKokoroForNarrator": False,
+        "content.autoUpdateBase": False,
+        "telemetry.enabled": False, "telemetry.metrics_enabled": False,
         "dialogue.decisions.useForMood": False, "dialogue.decisions.useForSpeakerSelection": False,
         "dialogue.decisions.useForPlayerTarget": False},
     "STT": {"backend": "none"},
@@ -121,7 +123,7 @@ def _live(run, launched, process_probe):
     return game
 
 
-def _context(run_id, process_probe, module_probe, connection_probe):
+def _context(run_id, process_probe, module_probe, connection_probe, *, storage_observation=None):
     if not isinstance(run_id, str) or not tier.baseline.RUN_ID.fullmatch(run_id):
         raise ValueError("Invalid first-boot run ID")
     root = tier._root()
@@ -139,9 +141,9 @@ def _context(run_id, process_probe, module_probe, connection_probe):
         raise ValueError("Invalid retained attributed launch")
     if tier._implementation(snapshot) != run["inputs"].get("implementation"):
         raise ValueError("Frozen launch implementation changed")
-    protected = tier._protected(root)
-    if protected != run["inputs"].get("protected"):
-        raise ValueError("Protected baseline or Game changed")
+    storage = tier._runtime_storage(root, run["inputs"])
+    if not tier._runtime_storage_allowed(storage):
+        raise ValueError("Original protected assets or bounded runtime storage changed")
     game = _live(run, launched, process_probe)
     files = run["inputs"].get("instance", {}).get("files")
     if not isinstance(files, dict):
@@ -181,20 +183,28 @@ def _context(run_id, process_probe, module_probe, connection_probe):
     listeners = _listeners(connection_probe(), game["pid"])
     if _live(run, launched, process_probe) != game:
         raise ValueError("Game process changed during observation")
+    storage_after = tier._runtime_storage(root, run["inputs"])
+    if not tier._runtime_storage_allowed(storage_after) or storage_after["binding"] != storage["binding"]:
+        raise ValueError("Original protected assets or bounded runtime storage changed")
     snapshot.finish()
+    if storage_observation is not None:
+        storage_observation.update(before=storage, after=storage_after)
     implementation = {str(path.relative_to(tier.REPO)): hashlib.sha256(path.read_bytes()).hexdigest()
         for path in (Path(__file__), tier.REPO / "tools/se_lab_skyrimnet_smoke.py")}
     binding = dict(version=VERSION, tier=tier.TIER, run_id=run_id, game=game,
         run_sha256=run_state["sha256"], launch_sha256=launched_state["sha256"],
-        modules=expected, listeners=listeners, routes=list(ROUTES), implementation=implementation)
+        modules=expected, listeners=listeners, routes=list(ROUTES), implementation=implementation,
+        runtime_storage=storage["binding"])
     return binding, run, launched
 
 
 def smoke_plan(run_id, *, process_probe=None, module_probe=None, connection_probe=None):
+    storage = {}
     binding, _, _ = _context(run_id, process_probe or tier._runtime_process_snapshot,
-                             module_probe or _modules, connection_probe or _connections)
+                             module_probe or _modules, connection_probe or _connections,
+                             storage_observation=storage)
     return dict(version=VERSION, operation="skyrimnet_smoke_plan", status="ready_for_bounded_get",
-        binding=binding, review_token="skyrimnet-smoke-v1:" + tier._digest(binding),
+        binding=binding, runtime_storage_observation=storage, review_token="skyrimnet-smoke-v1:" + tier._digest(binding),
         network_requests_performed=False, writes_performed=False, runtime_verified=False,
         egress_verified=False, paid_generation=False)
 
@@ -295,7 +305,9 @@ def collect_smoke(run_id, review_token, *, process_probe=None, module_probe=None
     transport = transport or _http_get
     root = tier._root()
     with tier._writer_lock(tier._no_alias(root / ".se-lab-writer.lock")), tier._writer_lock(tier._no_alias(root / tier.CONTROL / "writer.lock")):
-        binding, run, launched = _context(run_id, process_probe, module_probe, connection_probe)
+        storage_before, storage_after = {}, {}
+        binding, run, launched = _context(run_id, process_probe, module_probe, connection_probe,
+                                          storage_observation=storage_before)
         token = "skyrimnet-smoke-v1:" + tier._digest(binding)
         if not tier._matches(review_token, token):
             raise ValueError("Smoke review is stale or belongs to another operation")
@@ -315,7 +327,8 @@ def collect_smoke(run_id, review_token, *, process_probe=None, module_probe=None
                 failure = "bounded_observation_failed"
                 break
         try:
-            after, _, _ = _context(run_id, process_probe, module_probe, connection_probe)
+            after, _, _ = _context(run_id, process_probe, module_probe, connection_probe,
+                                    storage_observation=storage_after)
             stable = after == binding
         except (OSError, ValueError, TypeError, KeyError, subprocess.SubprocessError):
             stable = False
@@ -326,6 +339,7 @@ def collect_smoke(run_id, review_token, *, process_probe=None, module_probe=None
         report = dict(version=VERSION, tier=tier.TIER, operation="skyrimnet_smoke_capture", run_id=run_id,
             capture_id=uuid.uuid4().hex, status="disabled_controls_observed" if passed else "incomplete_or_mismatched",
             binding=binding, binding_sha256=tier._digest(binding), observations=observations,
+            runtime_storage_observations=dict(before=storage_before, after=storage_after),
             observation_failure=failure, live_snapshot_complete=complete, identity_stable=stable,
             native_module_paths_and_hashes_observed=stable, config_get_service_observed=bool(observations),
             disabled_controls_observed=passed, all_native_initialization_verified=False,

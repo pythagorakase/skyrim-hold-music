@@ -68,7 +68,9 @@ are valid YAML. The controls were read from the actual beta26-rc4 shipped
 dashboard and native field strings:
 
 - `SkyrimNet.yaml`: global AI, GameMaster, narration and all three decision
-  selectors off; TTS `noop`; automatic base-content updates off.
+  selectors off; both GameMaster `enabled` and `agentEnabled` are explicit.
+  TTS is `noop` with `useKokoroForNarrator=false`; automatic base-content updates and both telemetry
+  controls off. `dialogue.distanceToDetectBackgroundDialogue` is explicitly 1000.
 - `STT.yaml`: backend `none`; no external key.
 - `BardSinging.yaml`: disabled; backup provider `none`; cloud keys empty.
 - `VastAI.yaml`: disabled, key empty.
@@ -81,6 +83,19 @@ dashboard and native field strings:
   [the tagged v1.15.1 source](https://github.com/powerof3/po3-Tweaks/blob/v1.15.1/src/Settings.cpp#L67).
 - The existing Papyrus lab control is disabled so native inspection does not
   automatically run a performance scenario.
+
+The dialogue distance is required by the pinned beta26-rc4 native loader:
+the DLL with SHA256 `2cbb5ae8fa5aac0ff98f64d5728d1938f58c991473dbfbc39b9c88094c08e35a`
+reads that scalar unconditionally in `LoadFromNode` at RVA `0x2430f0`.
+The release's `ConversationsSection.jsx` uses 1000 as its UI default. Retained
+read-only disassembly is in `local/game-config-native-1802430f0-20261021.txt`.
+The same release's `GeneralSection.jsx` establishes `telemetry.enabled` and
+`telemetry.metrics_enabled`; the separate smoke projection requires both to be
+present as boolean false. This repairs explicit seed inputs, but native config
+acceptance and absence of telemetry traffic still require runtime evidence.
+The shipped `GameMasterSection.jsx` distinguishes its master and agent switches;
+`VoiceSection.jsx` defines the separate narrator Kokoro option. Their explicit
+false settings also have required typed smoke readbacks.
 
 These seeds are an initial contract, not an assertion that the native plugin
 has accepted them. Read back generated schema/effective values in a separate
@@ -322,9 +337,20 @@ unknown spawn outcome, prevents automatic retry or reset.
 Process evidence uses executable path, PID, parent PID and exact Windows creation
 ticks. A bounded native observer is ready before dispatch and polls at a requested
 20 ms interval, retaining short-lived parent identities. It uses process-only
-Toolhelp snapshots, limited-query process handles, `QueryFullProcessImageNameW`
-and `GetProcessTimes`. Run and result metadata name this backend
-`native-filetime-v1` and report sample count and maximum observed sampling gap.
+Toolhelp snapshots, `QueryFullProcessImageNameW` and `GetProcessTimes`. The
+worker retains only limited-query plus synchronization handles (`0x101000`),
+with no termination or write access. A zero-time wait on that same handle
+distinguishes an exited process from a live one. Verified exited parents remain
+ancestry evidence and are not reopened or reported as live. Windows keeps a
+process identifier reserved while a handle retains its process object; see
+[the Windows process identity contract](https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/ns-processthreadsapi-process_information).
+Unknown inaccessible identities and conflicting observations still fail closed.
+Run and result metadata name this backend `native-filetime-v2` and report sample
+count and maximum observed sampling gap. Failures retain only fixed stages,
+categories and immediately captured numeric Win32 errors, never exception text.
+The worker closes its handles on exit; a join timeout is a failed observation,
+and the caller does not close handles under an active native call. The final
+joined frame can invalidate attribution and never upgrades a failed launch.
 Launch and collection use the same full-precision ticks: FILETIME plus
 504911232000000000, expressed as 100 ns intervals since year 1. Do not compare
 these identities to rounded CIM creation timestamps.
@@ -342,6 +368,22 @@ path and `created_ticks` exactly. The call reads process metadata only; it does
 not stop anything. A missing row or mismatched identity provides no authority
 to stop a replacement process. Neither this launcher nor collector provides a
 kill command.
+
+Fresh launch review also binds a separate versioned runtime-storage contract
+while `Game/default` is absent. Installation and first-boot preflight remain
+strict. At runtime, only the three ordinary files `default/cookie.jar.db`,
+`default/cookie.jar.db-shm` and `default/cookie.jar.db-wal` may appear beneath
+Game. Their contents are not read. Aliases, hard links, extra descendants and
+changes to original assets block observation. The original directory identities
+and non-cache metadata remain checked.
+
+Permitted cache activity still reports `protected_paths_unchanged=false`.
+Runtime admission separately requires `original_assets_unchanged=true` and
+`storage_within_contract=true`, with no blockers. Endpoint review tokens bind
+the pre-launch policy and immutable baseline projection; volatile cache presence,
+size and timestamps appear only in diagnostic observations. No older attempt
+acquires this exception after launch, and these checks do not attribute the
+cache writer or establish zero egress.
 
 The collector is separate from strict first-boot preflight: generated config,
 Auth or database files need not match pristine seeds after boot. It hashes local

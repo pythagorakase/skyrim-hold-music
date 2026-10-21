@@ -220,8 +220,15 @@ native crash and stopped before Skyrim at a bundled plugin's missing
 The next seed also supplies the profile's required empty `SkyrimCustom.ini`
 and the pinned shipped Skyrim INI defaults; these avoid a source-confirmed MO2
 repair dialog and preserve the known baseline's vendor startup settings.
-Native SkyrimNet compatibility remains unverified until the next isolated
-launch and observations. No musical recipes or listening decisions change.
+The fourth isolated launch reached Skyrim, with all seven expected native plugins
+reported loaded in the fresh SKSE log. Effective SkyrimNet configuration remains
+unverified: its loader rejected the omitted mandatory dialogue-distance field,
+preventing later config registration. Native automatic model downloads and
+telemetry were observed, despite no requests from our inspection tooling. The
+next seed supplies the required field and disables both telemetry switches;
+fresh native readback is required. Launch observation and exact PrismaUI cache
+accounting are also being corrected. Failed evidence remains retained, and no
+musical recipes or listening decisions change.
 
 The separate [native/config smoke collector](se-lab-skyrimnet-smoke.md) adds
 bounded, read-only GET checks after exact process, module and listener

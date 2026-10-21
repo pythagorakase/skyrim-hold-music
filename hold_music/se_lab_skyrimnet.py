@@ -32,6 +32,7 @@ from hold_music.job_store import _writer_lock
 from hold_music.promotion_transaction import _atomic_write, _closed, _sync_directory
 from hold_music.runtime_contract import (RUNTIME_CONTRACT_FIELDS, manifest_runtime_selection_errors,
                                         recording_contract_errors)
+from hold_music.se_lab_runtime_storage import prepare_runtime_storage, observe_runtime_storage
 from tools import se_lab as baseline
 
 LAB_ROOT = Path(r"C:\MGO\HoldMusic-SE-Lab")
@@ -177,9 +178,11 @@ def configuration_seeds():
     """JSON is valid YAML; exact seed bytes are reviewed, never installed here."""
     data = {
         "SkyrimNet.yaml": {"general": {"globalAIEnabled": False},
-            "gamemaster": {"agentEnabled": False}, "narration": {"enabled": False},
-            "tts": {"engine": "noop"}, "content": {"autoUpdateBase": False},
-            "dialogue": {"decisions": {"useForMood": False, "useForSpeakerSelection": False,
+            "gamemaster": {"enabled": False, "agentEnabled": False}, "narration": {"enabled": False},
+            "tts": {"engine": "noop", "useKokoroForNarrator": False}, "content": {"autoUpdateBase": False},
+            "telemetry": {"enabled": False, "metrics_enabled": False},
+            "dialogue": {"distanceToDetectBackgroundDialogue": 1000,
+                         "decisions": {"useForMood": False, "useForSpeakerSelection": False,
                                        "useForPlayerTarget": False}}},
         "Providers.yaml": {"providers": [{"id": "hold_music_lab", "name": "Hold Music Lab",
             "endpoint": LOOPBACK, "api_key": "", "api_style": "chat", "use_sse": False, "builtin": False}]},
@@ -659,7 +662,8 @@ def _implementation(snapshot):
     paths = ("hold_music/se_lab_skyrimnet.py", "tools/se_lab_skyrimnet.py", "tools/se_lab.py",
              "hold_music/promotion.py", "hold_music/promotion_transaction.py", "hold_music/job_store.py",
              "hold_music/installed_library.py", "hold_music/library_merge.py",
-             "hold_music/runtime_contract.py", "hold_music/recording_identity.py")
+             "hold_music/runtime_contract.py", "hold_music/recording_identity.py",
+             "hold_music/se_lab_runtime_storage.py")
     return {path: snapshot.read(REPO / path)["sha256"] for path in paths}
 
 
@@ -1331,10 +1335,12 @@ def _launch_inputs(references):
     accepted = _accept_baseline(root, references, prepared, snapshot)
     observed = snapshot.finish()
     environment = clean_launch_environment()
+    protected = _protected(root)
+    storage_contract = prepare_runtime_storage(root, protected)
     return dict(tier=TIER, operation="skyrimnet_disabled_first_boot", acceptance=accepted,
                 acceptance_snapshot=observed, preflight_token=prepared["review_token"],
                 installation_transaction=status["transaction_id"], installation_journal_hash=status["journal_hash"],
-                implementation=status["implementation"], protected=_protected(root),
+                implementation=status["implementation"], protected=protected, runtime_storage=storage_contract,
                 instance=_inventory(root / INSTANCE),
                 environment=dict(policy="allowlist-v1", names=sorted(environment), sha256=_digest(environment)))
 
@@ -1358,11 +1364,31 @@ def _runtime_command(root):
             str(root / "Game"), str(root / "Game/skse64_loader.exe")]
 
 
-PROCESS_OBSERVER = "native-filetime-v1"
+def _runtime_storage(root, inputs):
+    return observe_runtime_storage(root, inputs.get("protected"), inputs.get("runtime_storage"))
+
+
+def _runtime_storage_allowed(observed):
+    return (observed.get("status") == "within_contract" and observed.get("original_assets_unchanged") is True
+            and observed.get("storage_within_contract") is True and observed.get("blockers") == [])
+
+
+PROCESS_OBSERVER = "native-filetime-v2"
 PROCESS_NAMES = {"modorganizer.exe", "skse64_loader.exe", "skyrimse.exe", "skyrimvr.exe",
                  "sksevr_loader.exe", "usvfs_proxy_x64.exe", "usvfs_proxy_x86.exe"}
 FILETIME_TO_DOTNET_TICKS = 504911232000000000
 UNIX_TO_DOTNET_TICKS = 621355968000000000
+
+
+class _NativeObservationError(ValueError):
+    """Only fixed categories and immediately captured Win32 codes may escape."""
+    def __init__(self, stage, category, win32_error=None):
+        self.report = dict(stage=stage, category=category, win32_error=win32_error)
+        super().__init__("Native process observation is incomplete")
+
+
+def _native_error(stage):
+    return _NativeObservationError(stage, "win32_error", ctypes.get_last_error())
 
 
 class _NativeProcesses:
@@ -1384,6 +1410,7 @@ class _NativeProcesses:
             "OpenProcess": ([w.DWORD, w.BOOL, w.DWORD], w.HANDLE),
             "QueryFullProcessImageNameW": ([w.HANDLE, w.DWORD, w.LPWSTR, ctypes.POINTER(w.DWORD)], w.BOOL),
             "GetProcessTimes": ([w.HANDLE, *([ctypes.POINTER(w.FILETIME)] * 4)], w.BOOL),
+            "WaitForSingleObject": ([w.HANDLE, w.DWORD], w.DWORD),
             "CloseHandle": ([w.HANDLE], w.BOOL),
         }
         for name, (arguments, result) in signatures.items():
@@ -1394,7 +1421,7 @@ class _NativeProcesses:
         began = time.time_ns() // 100 + UNIX_TO_DOTNET_TICKS
         handle = self.api.CreateToolhelp32Snapshot(2, 0)  # TH32CS_SNAPPROCESS only
         if handle == ctypes.c_void_p(-1).value:
-            raise ValueError("Native process snapshot is unavailable")
+            raise _native_error("snapshot_create")
         try:
             entry = self.Entry()
             entry.dwSize = ctypes.sizeof(entry)
@@ -1403,69 +1430,141 @@ class _NativeProcesses:
             while found:
                 if entry.name.lower() in PROCESS_NAMES:
                     if entry.pid in rows:
-                        raise ValueError("Native process snapshot has duplicate identities")
+                        raise _NativeObservationError("snapshot_enumerate", "duplicate_identity")
                     rows[entry.pid] = dict(pid=entry.pid, parent_pid=entry.parent_pid, name=entry.name.lower())
                 found = self.api.Process32NextW(handle, ctypes.byref(entry))
             if ctypes.get_last_error() != 18:  # ERROR_NO_MORE_FILES
-                raise ValueError("Native process enumeration is incomplete")
+                raise _native_error("snapshot_enumerate")
             return began, rows
         finally:
-            self.api.CloseHandle(handle)
+            self.close(handle)
 
-    def identity(self, entry, snapshot_started):
-        process = self.api.OpenProcess(0x1000, False, entry["pid"])  # PROCESS_QUERY_LIMITED_INFORMATION
+    def close(self, handle):
+        if not self.api.CloseHandle(handle):
+            raise _native_error("handle_close")
+
+    def alive(self, handle):
+        result = self.api.WaitForSingleObject(handle, 0)
+        if result == 0:  # WAIT_OBJECT_0: this exact process exited
+            return False
+        if result == 258:  # WAIT_TIMEOUT
+            return True
+        if result == 0xffffffff:
+            raise _native_error("process_wait")
+        raise _NativeObservationError("process_wait", "unexpected_wait_result")
+
+    def open_identity(self, entry, snapshot_started, *, synchronizable=False):
+        rights = 0x1000 | (0x100000 if synchronizable else 0)
+        process = self.api.OpenProcess(rights, False, entry["pid"])
         if not process:
-            raise ValueError("Native process identity disappeared or is inaccessible")
+            raise _native_error("process_open")
         try:
             name = ctypes.create_unicode_buffer(32768)
             size = self.w.DWORD(len(name))
             times = [self.w.FILETIME() for _ in range(4)]
-            if (not self.api.QueryFullProcessImageNameW(process, 0, name, ctypes.byref(size))
-                    or not self.api.GetProcessTimes(process, *[ctypes.byref(value) for value in times])):
-                raise ValueError("Native process identity is incomplete")
+            if not self.api.QueryFullProcessImageNameW(process, 0, name, ctypes.byref(size)):
+                raise _native_error("process_image")
+            if not self.api.GetProcessTimes(process, *[ctypes.byref(value) for value in times]):
+                raise _native_error("process_times")
             created = ((times[0].dwHighDateTime << 32) | times[0].dwLowDateTime) + FILETIME_TO_DOTNET_TICKS
             if created > snapshot_started:
                 # PID may have been reused after the first snapshot. Keep this
                 # exact handle open and confirm its parent in a fresh snapshot.
                 confirmed_at, current = self.entries()
                 if created > confirmed_at or current.get(entry["pid"]) != entry:
-                    raise ValueError("Native process identity changed during observation")
-            return dict(pid=entry["pid"], parent_pid=entry["parent_pid"], path=name.value, created_ticks=created)
+                    raise _NativeObservationError("process_identity", "identity_changed")
+            return process, dict(pid=entry["pid"], parent_pid=entry["parent_pid"], path=name.value, created_ticks=created)
+        except BaseException:
+            # Capture the original error before cleanup can change last-error.
+            try: self.close(process)
+            except _NativeObservationError: pass
+            raise
+
+    def identity(self, entry, snapshot_started):
+        process, row = self.open_identity(entry, snapshot_started)
+        try:
+            return row
         finally:
-            self.api.CloseHandle(process)
+            self.close(process)
 
 
 def _runtime_process_snapshot():
-    """Exact native creation ticks; shared by launch and collector, never CIM."""
+    """Strict one-shot exact native ticks, for collectors; never CIM."""
     native = _NativeProcesses()
     began, entries = native.entries()
     return [native.identity(entry, began) for entry in entries.values()]
 
 
+class _NativeProcessSampler:
+    """Worker-owned read-only handles pin verified identities until close."""
+    def __init__(self, native=None, *, maximum=128):
+        self.native = native if native is not None else _NativeProcesses()
+        self.maximum, self.retained = maximum, {}
+
+    def sample(self):
+        began, entries = self.native.entries()
+        for pid, entry in entries.items():
+            prior = self.retained.get(pid)
+            if prior is not None:
+                if prior["entry"] != entry:
+                    raise _NativeObservationError("process_identity", "identity_changed")
+            else:
+                if len(self.retained) >= self.maximum:
+                    raise _NativeObservationError("process_identity", "identity_bound_exceeded")
+                handle, row = self.native.open_identity(entry, began, synchronizable=True)
+                self.retained[pid] = dict(handle=handle, row=row, entry=dict(entry))
+        current = []
+        for pid, item in self.retained.items():
+            if self.native.alive(item["handle"]):
+                if pid not in entries:
+                    raise _NativeObservationError("process_identity", "live_identity_missing")
+                current.append(dict(item["row"]))
+        # Even a process that exits immediately after successful identification
+        # remains valid ancestry, but is never reported as currently alive.
+        return dict(history=[dict(item["row"]) for item in self.retained.values()], current=current)
+
+    def close(self):
+        first_error = None
+        for item in self.retained.values():
+            try: self.native.close(item["handle"])
+            except Exception as error:
+                if first_error is None: first_error = error
+        self.retained.clear()
+        if first_error is not None: raise first_error
+
+
 class _ProcessObserver:
     """Bounded pre-armed sampler retaining verified short-lived parent rows."""
     def __init__(self, *, timeout_seconds, snapshot=None, interval=0.02, max_identities=128):
-        self.snapshot = snapshot or _runtime_process_snapshot
+        self.snapshot = snapshot
         self.timeout, self.interval, self.maximum = timeout_seconds, interval, max_identities
         self.ready, self.stopped, self.lock = threading.Event(), threading.Event(), threading.Lock()
         self.history, self.current, self.initial = {}, [], []
         self.failed, self.expired = False, False
+        self.failure = None
         self.samples, self.max_gap, self.last_sample = 0, 0.0, None
         self.thread = threading.Thread(target=self._run, name="hold-music-native-observer", daemon=True)
 
     def _run(self):
         deadline = time.monotonic() + self.timeout
+        sampler = None
         try:
+            if self.snapshot is None:
+                sampler = _NativeProcessSampler(maximum=self.maximum)
             while not self.stopped.is_set():
                 if time.monotonic() >= deadline:
-                    with self.lock: self.expired = True
+                    with self.lock:
+                        self.expired = True
+                        self.failure = dict(stage="observer", category="deadline_expired", win32_error=None)
                     return
-                rows = self.snapshot()
-                if not isinstance(rows, list):
+                frame = sampler.sample() if sampler is not None else None
+                rows = frame["current"] if frame is not None else self.snapshot()
+                history = frame["history"] if frame is not None else rows
+                if not isinstance(rows, list) or not isinstance(history, list):
                     raise ValueError("Invalid process observation")
                 with self.lock:
                     seen = set()
-                    for row in rows:
+                    for row in history:
                         if (not isinstance(row, dict) or set(row) != {"pid", "parent_pid", "path", "created_ticks"}
                                 or any(type(row.get(key)) is not int for key in ("pid", "parent_pid", "created_ticks"))
                                 or row["pid"] <= 0 or row["parent_pid"] < 0 or row["created_ticks"] <= 0
@@ -1476,6 +1575,12 @@ class _ProcessObserver:
                         if prior is not None and prior != row:
                             raise ValueError("Observed process identity was reused")
                         self.history[row["pid"]] = dict(row)
+                    current_seen = set()
+                    for row in rows:
+                        if (not isinstance(row, dict) or row.get("pid") in current_seen
+                                or self.history.get(row.get("pid")) != row):
+                            raise ValueError("Invalid current process observation")
+                        current_seen.add(row["pid"])
                     if len(self.history) > self.maximum:
                         raise ValueError("Process observation exceeded its bound")
                     observed = time.monotonic()
@@ -1488,11 +1593,24 @@ class _ProcessObserver:
                     self.samples += 1
                 self.ready.set()
                 self.stopped.wait(self.interval)
-        except Exception:
-            # Preserve only a failure flag, never native exception text.
-            with self.lock: self.failed = True
+        except Exception as error:
+            self._failed(error)
         finally:
+            if sampler is not None:
+                try: sampler.close()
+                except Exception as error: self._failed(error)
             self.ready.set()
+
+    def _failed(self, error):
+        with self.lock:
+            self.failed = True
+            if self.failure is None:
+                self.failure = (dict(error.report) if isinstance(error, _NativeObservationError) else
+                    dict(stage="observer", category="invalid_observation", win32_error=None))
+
+    def failure_report(self):
+        with self.lock:
+            return dict(self.failure) if self.failure is not None else None
 
     def start(self):
         self.thread.start()
@@ -1514,6 +1632,8 @@ class _ProcessObserver:
         self.stopped.set()
         if self.thread.ident is not None:
             self.thread.join(timeout=1)
+        if self.thread.is_alive():
+            self._failed(_NativeObservationError("observer", "join_timeout"))
         return not self.thread.is_alive()
 
 
@@ -1645,8 +1765,12 @@ def launch(baseline_evidence, review_token, *, timeout_seconds=30, process_probe
                 if time.monotonic() >= deadline:
                     break
                 time.sleep(0.02)
-            result["protected_paths_unchanged"] = _protected(root) == run["inputs"]["protected"]
-            if not result["protected_paths_unchanged"]:
+            storage = _runtime_storage(root, run["inputs"])
+            result.update(runtime_storage=storage,
+                          protected_paths_unchanged=storage["protected_paths_unchanged"],
+                          original_assets_unchanged=storage["original_assets_unchanged"],
+                          storage_within_contract=storage["storage_within_contract"])
+            if not _runtime_storage_allowed(storage):
                 result["status"] = "protected_state_changed"
             last = observer.capture()
             history, last_game = _process_history(last["current"], last["history"], root, started_ns, process.pid)
@@ -1677,6 +1801,8 @@ def launch(baseline_evidence, review_token, *, timeout_seconds=30, process_probe
                 except ValueError:
                     result.update(status="launch_observation_incomplete" if result["process_started"] else "launch_failed_or_unknown",
                                   game=None, launch_attributed=False)
+            if observer is not None and hasattr(observer, "failure_report"):
+                result["observer_failure"] = observer.failure_report()
         _runtime_json(runtime / "launch-result.json", result, expected=result_state)
         return result
 
@@ -1722,10 +1848,11 @@ def _collect(run_id):
     if not isinstance(before, dict) or not isinstance(before.get("files"), dict):
         raise ValueError("Retained tier inventory is malformed")
     current = _inventory(root / INSTANCE)
-    protected = _protected(root)
+    storage_before = _runtime_storage(root, run["inputs"])
     history, after_game = _process_history(_runtime_process_snapshot(), history, root,
                                           run["started_ns"], launched["launcher_pid"])
-    if current != _inventory(root / INSTANCE) or protected != _protected(root):
+    storage = _runtime_storage(root, run["inputs"])
+    if current != _inventory(root / INSTANCE) or storage_before["binding"] != storage["binding"]:
         raise ValueError("Runtime evidence changed during collection")
     snapshot.finish()
     attributed = game is not None and game == after_game and game == launched.get("game")
@@ -1736,7 +1863,10 @@ def _collect(run_id):
                   process_observer=PROCESS_OBSERVER,
                   status="local_evidence_collected" if attributed else "incomplete_process_evidence",
                   launch_attributed=attributed, game=game if attributed else None,
-                  protected_paths_unchanged=protected == run["inputs"].get("protected"),
+                  runtime_storage=storage,
+                  protected_paths_unchanged=storage_before["protected_paths_unchanged"] and storage["protected_paths_unchanged"],
+                  original_assets_unchanged=storage_before["original_assets_unchanged"] and storage["original_assets_unchanged"],
+                  storage_within_contract=storage_before["storage_within_contract"] and storage["storage_within_contract"],
                   changed_file_count=len(changed), instance_inventory_sha256=_digest(current),
                   changed_inventory_sha256=_digest(changed),
                   private_runtime_file_count=sum(_private_path(name) for name in current["files"]),
@@ -1746,7 +1876,7 @@ def _collect(run_id):
                   limitations=["Local file hashes and exact process lineage only; no native initialization or effective config smoke proof.",
                       "No HTTP, MCP, provider, raw log, Auth.yaml, database or environment body is collected.",
                       "First-boot changes are retained, never reset or promoted into the installation contract."])
-    if not report["protected_paths_unchanged"]:
+    if not (_runtime_storage_allowed(storage_before) and _runtime_storage_allowed(storage)):
         report["status"] = "protected_state_changed"
     captures = _no_alias(runtime / "captures")
     captures.mkdir(exist_ok=True)

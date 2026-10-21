@@ -300,14 +300,20 @@ class ContextTests(unittest.TestCase):
             path.write_bytes(name.encode())
             files[relative] = {"sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
             self.modules.append(dict(name=name, path=str(path)))
-        inputs = dict(implementation={"frozen": "hash"}, protected={"baseline": "unchanged"}, instance={"files": files})
+        for relative in ("Game/SkyrimSE.exe", "Game/skse64_loader.exe", "MO2/ModOrganizer.exe", "lab-manifest.json"):
+            path = self.root / relative; path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"synthetic protected asset")
+        protected = mcp.tier._protected(self.root)
+        contract = mcp.tier.prepare_runtime_storage(self.root, protected)
+        inputs = dict(implementation={"frozen": "hash"}, protected=protected,
+                      runtime_storage=contract, instance={"files": files})
         run = dict(version=1,tier=mcp.tier.TIER,run_id=RUN,operation="skyrimnet_disabled_first_boot",inputs=inputs,
                    inputs_sha256=mcp.tier._digest(inputs),launch_command=mcp.tier._runtime_command(self.root),started_ns=self.started)
         launch = dict(tier=mcp.tier.TIER,run_id=RUN,process_started=True,launcher_pid=10,
                       processes=copy.deepcopy(self.processes),game=copy.deepcopy(self.processes[-1]),launch_attributed=True)
         for name,value in (("run.json",run),("launch-result.json",launch)):
             (self.runtime / name).write_text(json.dumps(value))
-        for name,value in (("_root",self.root),("_implementation",inputs["implementation"]),("_protected",inputs["protected"])):
+        for name,value in (("_root",self.root),("_implementation",inputs["implementation"])):
             mock=patch.object(mcp.tier,name,return_value=value);mock.start();self.addCleanup(mock.stop)
         self.kw = dict(process_probe=lambda:copy.deepcopy(self.processes), module_probe=lambda pid:copy.deepcopy(self.modules), connection_probe=tcp)
         base,_,_ = mcp.smoke._context(RUN,**self.kw)

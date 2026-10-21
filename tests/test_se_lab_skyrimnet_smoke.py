@@ -53,16 +53,21 @@ class SmokeTests(unittest.TestCase):
             path.write_bytes(name.encode())
             files[relative] = dict(sha256=hashlib.sha256(path.read_bytes()).hexdigest())
             self.modules.append(dict(name=name, path=str(path)))
-        self.inputs = dict(implementation={"frozen": "hash"}, protected={"baseline": "unchanged"},
-                           instance={"files": files})
+        for relative in ("Game/SkyrimSE.exe", "Game/skse64_loader.exe", "MO2/ModOrganizer.exe", "lab-manifest.json"):
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(b"synthetic protected asset")
+        protected = smoke.tier._protected(self.root)
+        contract = smoke.tier.prepare_runtime_storage(self.root, protected)
+        self.inputs = dict(implementation={"frozen": "hash"}, protected=protected,
+                           runtime_storage=contract, instance={"files": files})
         self.run = dict(version=1, tier=smoke.tier.TIER, run_id=RUN, operation="skyrimnet_disabled_first_boot",
                         inputs=self.inputs, inputs_sha256=smoke.tier._digest(self.inputs),
                         launch_command=smoke.tier._runtime_command(self.root), started_ns=self.started)
         self.launch = dict(tier=smoke.tier.TIER, run_id=RUN, process_started=True, launcher_pid=10,
                            processes=self.processes, game=self.processes[-1], launch_attributed=True)
         self.write_documents()
-        for name, value in (("_root", self.root), ("_implementation", self.inputs["implementation"]),
-                            ("_protected", self.inputs["protected"])):
+        for name, value in (("_root", self.root), ("_implementation", self.inputs["implementation"])):
             mock = patch.object(smoke.tier, name, return_value=value)
             mock.start(); self.addCleanup(mock.stop)
         self.rows = tcp()
@@ -200,9 +205,50 @@ class SmokeTests(unittest.TestCase):
 
     def test_protected_state_drift_refuses_before_http(self):
         token = self.plan()["review_token"]
-        with patch.object(smoke.tier, "_protected", return_value={"baseline": "changed"}), self.assertRaises(ValueError):
+        (self.root / "Game/SkyrimSE.exe").write_bytes(b"changed")
+        with self.assertRaises(ValueError):
             self.collect(token)
         self.assertFalse(self.calls)
+
+    def test_permitted_storage_churn_preserves_review_binding_but_not_full_unchanged_claim(self):
+        plan = self.plan()
+        directory = self.root / "Game/default"; directory.mkdir()
+        for name in ("cookie.jar.db", "cookie.jar.db-shm", "cookie.jar.db-wal"):
+            (directory / name).write_bytes(SECRET.encode())
+        later = self.plan()
+        self.assertEqual(plan["review_token"], later["review_token"])
+        self.assertEqual(plan["binding"], later["binding"])
+        observed = later["runtime_storage_observation"]["after"]
+        self.assertFalse(observed["protected_paths_unchanged"])
+        self.assertTrue(observed["original_assets_unchanged"])
+        self.assertTrue(observed["storage_within_contract"])
+        def transport(*args):
+            path = directory / "cookie.jar.db-wal"
+            path.write_bytes(path.read_bytes() + b"next frame")
+            return self.transport(*args)
+        report = self.collect(plan["review_token"], transport=transport)
+        self.assertEqual(report["status"], "disabled_controls_observed")
+        self.assertNotIn(SECRET, json.dumps(report))
+
+    def test_missing_or_mutated_storage_contract_cannot_be_granted_after_launch(self):
+        original = copy.deepcopy(self.inputs["runtime_storage"])
+        for value in (None, dict(original, version=99)):
+            with self.subTest(value=value):
+                self.inputs["runtime_storage"] = value
+                self.run["inputs_sha256"] = smoke.tier._digest(self.inputs); self.write_documents()
+                with self.assertRaises(ValueError): self.plan()
+        self.assertFalse(self.calls)
+
+    def test_unexpected_storage_file_or_immutable_drift_during_http_fails_observation(self):
+        plan = self.plan()
+        def transport(*args):
+            directory = self.root / "Game/default"; directory.mkdir(exist_ok=True)
+            (directory / "unexpected.db").write_bytes(SECRET.encode())
+            return self.transport(*args)
+        report = self.collect(plan["review_token"], transport=transport)
+        self.assertFalse(report["disabled_controls_observed"])
+        self.assertFalse(report["identity_stable"])
+        self.assertNotIn(SECRET, json.dumps(report))
 
     def test_wrong_types_values_and_missing_controls_never_export_values(self):
         for bad in ("false", 0, True, SECRET, None):
@@ -214,6 +260,28 @@ class SmokeTests(unittest.TestCase):
                 report = self.collect(transport=transport)
                 self.assertFalse(report["disabled_controls_observed"])
                 self.assertNotIn(SECRET, json.dumps(report))
+
+    def test_telemetry_requires_both_explicit_typed_false_readbacks(self):
+        for name in ("enabled", "metrics_enabled"):
+            for value in (None, True, "false", 0, SECRET):
+                with self.subTest(name=name, value=value):
+                    payload = response("game")
+                    if value is None: payload["data"]["telemetry"].pop(name)
+                    else: payload["data"]["telemetry"][name] = value
+                    projection = smoke._project("game", json.dumps(payload).encode())
+                    self.assertFalse(projection["all_match"])
+                    self.assertNotIn(SECRET, json.dumps(projection))
+
+    def test_gamemaster_master_and_narrator_kokoro_switches_must_be_explicitly_false(self):
+        for section, name in (("gamemaster", "enabled"), ("tts", "useKokoroForNarrator")):
+            for value in (None, True, "false", 0, SECRET):
+                with self.subTest(section=section, name=name, value=value):
+                    payload = response("game")
+                    if value is None: payload["data"][section].pop(name)
+                    else: payload["data"][section][name] = value
+                    projection = smoke._project("game", json.dumps(payload).encode())
+                    self.assertFalse(projection["all_match"])
+                    self.assertNotIn(SECRET, json.dumps(projection))
 
     def test_duplicate_json_and_private_exception_are_sanitized(self):
         for payload in (b'{"data":{},"data":{}}',b'{"error":"'+SECRET.encode()+b'"}',b'{"data":{"x":NaN}}'):
