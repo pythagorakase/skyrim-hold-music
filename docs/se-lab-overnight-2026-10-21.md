@@ -7,9 +7,10 @@ paused. The former Steam-use deferral is lifted for the isolated lab only.
 
 ## Current checkpoint (02:44 CDT)
 
-- Native-fix checkpoint `f54a52a` is synchronized on Halcyon, GitHub and clean
-  Echo. The earlier local commit is retained on
-  `checkpoint/se-lab-native-fixes-20261021-0120`.
+- Three-scenario checkpoint `450e6b5` is synchronized on Halcyon, GitHub and
+  clean Echo. The identical-tree local commit is retained on
+  `checkpoint/se-lab-three-scenarios-20261021-0246`; the earlier native-fix
+  checkpoint and its local branch are also retained.
 - Installed: production `se-lab-production-admission-20261021-01`, harness `-20`.
   They passed 110 production / 146 lab tests. General suite: 918 passes and 11
   expected skips. Tests use fake providers; no paid generation occurred.
@@ -623,3 +624,41 @@ artifact needs to change. A separate smoke collector is being developed with
 fake transports to read narrow effective disabled settings only after exact
 process/module/listener attribution. No SkyrimNet instance has been installed
 or launched yet.
+
+### 03:06 CDT: disabled-tier launch and smoke tools frozen; installation pending
+
+All three native references pass the full acceptance validator, bound to the
+same 200 copied baseline mod files and preserved prior trace/receipt hashes.
+Reference file `local/se-lab-skyrimnet-baseline-evidence-20261021.json` has SHA256
+`6bb86f980f8e6dd6f32bfcf122e21e92ba3e9ed7ab74d83eaec1243e6fbcc242`.
+Ambient duration is validated from its production start trace against the
+pinned eight-second source; the harness's focused-only cached duration is not
+used for that scenario. Focused duration and requested-interruption window
+checks remain strict; no raw capture was rewritten.
+
+The new pre-armed native observer records exact FILETIME creation ticks and
+retains short-lived loader ancestry. It uses read-only process handles. A
+reviewed final-sample race is fixed: after worker join, the final observed
+history/current set is revalidated and can invalidate prior attribution; it
+cannot upgrade a previously unattributed launch. Initial full suite passed
+67 of 68 with one expected platform skip; four affected launch tests and two
+independent final-sample regressions pass. The final 70-case suite is still
+running against frozen module SHA256
+`e412d6f026a1f236aeefc11b2c516a6ed144b759f212b500fb94368273b1fa79`.
+Wait for its final result before installation. Do not compare native creation
+ticks to rounded CIM timestamps when checking owned processes for cleanup.
+
+The separate smoke collector passed 20/20 synthetic tests, independently reviewed
+and rerun by root. It observes pinned loaded modules, exact process/listener/
+accepted-connection ownership and 13 fixed read-only config categories, retaining
+only typed comparison results. No live endpoints have been contacted. A new
+MCP discovery-only client is being implemented separately; no tool calls or
+provider calls are authorized by that discovery client.
+
+The frozen-source installation review has 5,572 files, no blockers and an absent
+separate target. It remains unapplied. Root saved prelaunch shared-log existence,
+bytes/hashes and timestamps under
+`checkpoints/skyrimnet-first-boot-shared-logs-before-20261021/`; SkyrimNet.log did
+not exist. This operator snapshot is separate from the bounded smoke collector.
+The last synchronized source checkpoint is `450e6b5`; the three-run independent
+native audit is retained at `local/se-lab-native-baseline-review-20261021.json`.

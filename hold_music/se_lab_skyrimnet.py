@@ -1,7 +1,8 @@
 """Reviewed preparation and first-boot inspection for the isolated SkyrimNet tier.
 
 Installation is explicit and only publishes a new, separate MO2 directory.
-There is deliberately no HTTP, provider, arm or launch operation.
+Explicit first-boot launch and local collection are separate from installation.
+There is no HTTP, provider, MCP, arm, configuration-update or retry operation.
 Config seeds describe observed beta26 controls; successful file inspection does
 not prove the native plugin accepted them or that network egress is blocked.
 """
@@ -9,6 +10,7 @@ from __future__ import annotations
 
 import configparser
 import ctypes
+from datetime import datetime, timezone
 import hashlib
 import hmac
 import json
@@ -18,6 +20,8 @@ import re
 import socket
 import subprocess
 import sys
+import threading
+import time
 import uuid
 import zipfile
 
@@ -26,6 +30,8 @@ from hold_music.library_merge import _json
 from hold_music.promotion import _component, _no_alias, _relative
 from hold_music.job_store import _writer_lock
 from hold_music.promotion_transaction import _atomic_write, _closed, _sync_directory
+from hold_music.runtime_contract import (RUNTIME_CONTRACT_FIELDS, manifest_runtime_selection_errors,
+                                        recording_contract_errors)
 from tools import se_lab as baseline
 
 LAB_ROOT = Path(r"C:\MGO\HoldMusic-SE-Lab")
@@ -72,7 +78,7 @@ def _digest(value):
 
 
 def clean_launch_environment(environment=None):
-    """Return a future launch environment; never inherit arbitrary credentials.
+    """Return a launch environment; never inherit arbitrary credentials.
 
     This helper launches nothing and does not claim filesystem credential isolation.
     Values are intentionally excluded from public reports.
@@ -531,7 +537,8 @@ def _protected(root):
 def _implementation(snapshot):
     paths = ("hold_music/se_lab_skyrimnet.py", "tools/se_lab_skyrimnet.py", "tools/se_lab.py",
              "hold_music/promotion.py", "hold_music/promotion_transaction.py", "hold_music/job_store.py",
-             "hold_music/installed_library.py", "hold_music/library_merge.py")
+             "hold_music/installed_library.py", "hold_music/library_merge.py",
+             "hold_music/runtime_contract.py", "hold_music/recording_identity.py")
     return {path: snapshot.read(REPO / path)["sha256"] for path in paths}
 
 
@@ -911,3 +918,716 @@ def recover_installation(action, *, review_token=None, apply=False, process_prob
     result = installation_status()
     result["writes_performed"] = True
     return result
+
+
+# Deliberately one first boot, separate from the installation transaction. The
+# original baseline runner and its request/result protocol are not generalized.
+RUNTIME_CONTROL = ".skyrimnet-tier-runtime"
+CAPTURE_ID = re.compile(r"^[0-9a-f]{32}$")
+BASELINE_LOGS = {"harness": baseline.STORAGE + "/result.json",
+                 "receipts": "SKSE/Plugins/StorageUtilData/HoldMusic/receipts.json",
+                 "trace": "SKSE/Plugins/StorageUtilData/HoldMusic/trace.json"}
+
+
+def _document(snapshot, path):
+    path = _no_alias(path)
+    if not path.is_file() or path.stat().st_size > 16 * 1024 * 1024:
+        raise ValueError("Required bounded evidence document is unavailable")
+    state, raw = snapshot.read(path, content=True)
+    try:
+        value = _json(raw)
+    except (ValueError, UnicodeError):
+        raise ValueError("Evidence document is not valid JSON") from None
+    if not isinstance(value, dict):
+        raise ValueError("Evidence document must be an object")
+    return value, state
+
+
+def _capture_reference(root, reference):
+    if (not isinstance(reference, dict) or set(reference) != {"run_id", "capture_id"}
+            or not isinstance(reference["run_id"], str) or not baseline.RUN_ID.fullmatch(reference["run_id"])
+            or not isinstance(reference["capture_id"], str) or not CAPTURE_ID.fullmatch(reference["capture_id"])):
+        raise ValueError("Baseline reference requires a run ID and capture ID")
+    run = _no_alias(root / "runs" / reference["run_id"])
+    return run, _no_alias(run / "captures" / reference["capture_id"])
+
+
+def _capture_documents(root, reference, snapshot):
+    run_dir, capture = _capture_reference(root, reference)
+    evidence, _ = _document(snapshot, capture / "evidence.json")
+    if (evidence.get("run_id") != reference["run_id"] or evidence.get("capture_id") != reference["capture_id"]
+            or not isinstance(evidence.get("logs"), list)):
+        raise ValueError("Captured evidence identity is inconsistent")
+    rows = evidence["logs"]
+    if (any(not isinstance(row, dict) or not isinstance(row.get("id"), str) for row in rows)
+            or len({row["id"] for row in rows}) != len(rows)):
+        raise ValueError("Captured evidence sources are ambiguous")
+    documents, states = {}, {}
+    for name, virtual in BASELINE_LOGS.items():
+        spec = next((row for row in rows if row.get("id") == name), None)
+        value, state = _document(snapshot, capture / "logs" / (name + ".bin"))
+        if (spec is None or spec.get("source") != "MO2/overwrite/" + virtual
+                or spec.get("archived_file") != "logs/" + name + ".bin"
+                or not isinstance(spec.get("after"), dict) or spec["after"].get("sha256") != state["sha256"]):
+            raise ValueError("Captured evidence bytes do not match their fixed source")
+        documents[name], states[name] = value, state
+    return run_dir, evidence, documents, states
+
+
+def _number(value):
+    return type(value) in (int, float) and float("-inf") < value < float("inf")
+
+
+def _object(value):
+    return value if isinstance(value, dict) else {}
+
+
+def _ascii_case(value):
+    return value.translate(str.maketrans("ABCDEFGHIJKLMNOPQRSTUVWXYZ", "abcdefghijklmnopqrstuvwxyz"))
+
+
+def _baseline_fixture(root, recipe, snapshot):
+    path = root / "MO2/mods/Hold Music Lab Data/SKSE/Plugins/StorageUtilData/HoldMusic/library.json"
+    manifest, state = _document(snapshot, path)
+    inputs = [row for row in recipe["files"] if row.get("source", {}).get("path") == str(path)]
+    if (len(inputs) != 1 or inputs[0]["sha256"] != state["sha256"]
+            or manifest_runtime_selection_errors(manifest, required=True)):
+        raise ValueError("Baseline fixture is not a validated copied runtime projection")
+    return manifest
+
+
+def _receipt_identity(receipt, slot, key, manifest):
+    rows = [row for row in manifest["recordings"] if row.get("slot") == slot]
+    contracts = [row for row in manifest["runtime_selection"]["contracts"] if row["identity_key"] == key]
+    identity = receipt.get("runtime_identity")
+    if (len(rows) != 1 or len(contracts) != 1 or type(rows[0].get("slot")) is not int
+            or recording_contract_errors(rows[0], contracts[0])
+            or _object(rows[0].get("provenance")).get("kind") != "synthetic_test_fixture"
+            or any(not isinstance(rows[0].get(field), str) or not rows[0][field]
+                   for field in ("performer_id", "region", "composition_id"))
+            or not isinstance(identity, dict) or set(identity) != {*RUNTIME_CONTRACT_FIELDS, "identity_key", "version"}
+            or type(identity.get("version")) is not int or identity["version"] != 1
+            or identity.get("identity_key") != key
+            or any(not isinstance(identity.get(field), str)
+                   or _ascii_case(identity[field]) != _ascii_case(contracts[0][field]) for field in RUNTIME_CONTRACT_FIELDS)
+            or any(not isinstance(receipt.get(field), str)
+                   or _ascii_case(receipt[field]) != _ascii_case(rows[0][field])
+                   for field in ("performer_id", "region", "composition_id"))
+            or not isinstance(receipt.get("save_id"), str) or not receipt["save_id"]):
+        raise ValueError("Receipt requires the complete selected source identity")
+    return rows[0]
+
+
+def _accept_baseline(root, references, recipe, snapshot):
+    if not isinstance(references, dict) or set(references) != {"focused_complete", "focused_interrupt", "ambient_entry"}:
+        raise ValueError("Completed, requested-interruption and ambient-entry baseline captures are required")
+    manifest = _baseline_fixture(root, recipe, snapshot)
+    accepted = {}
+    for scenario, expected in (("focused_complete", "completed"), ("focused_interrupt", "interrupted"), ("ambient_entry", "completed")):
+        reference = references[scenario]
+        if not isinstance(reference, dict) or set(reference) not in ({"capture"}, {"capture", "before"}):
+            raise ValueError("Baseline evidence requires capture and optional before references")
+        run_dir, evidence, docs, states = _capture_documents(root, reference["capture"], snapshot)
+        run, _ = _document(snapshot, run_dir / "run.json")
+        prior, _ = _document(snapshot, run_dir / "preflight.json")
+        result, receipts, trace = docs["harness"], docs["receipts"], docs["trace"]
+        if (run.get("run_id") != reference["capture"]["run_id"] or run.get("request_published") is not True
+                or run.get("scenario") != scenario.replace("_", "-")
+                or type(run.get("started_ns")) is not int or run["started_ns"] <= 0
+                or not isinstance(run.get("started_at_utc"), str) or not run["started_at_utc"]
+                or result.get("run_id") != run["run_id"] or result.get("started_at_utc") != run["started_at_utc"]
+                or result.get("scenario") != scenario or result.get("status") != "passed"
+                or result.get("world_id") != "hold-music-se-lab"
+                or result.get("expected_outcome") != expected or result.get("runtime_engine_observed") is not True
+                or evidence.get("fresh_required_evidence") is not True
+                or prior.get("operation") != "se_lab_preflight" or prior.get("status") != "ready_for_explicit_launch"
+                or prior.get("profile") != baseline.PROFILE
+                or not isinstance(run.get("review_token"), str) or not run["review_token"]
+                or run["review_token"] != prior.get("review_token")):
+            raise ValueError("Baseline capture is not a fresh accepted scenario")
+        for row in evidence["logs"]:
+            if row.get("id") in BASELINE_LOGS:
+                if (row.get("fresh") is not True or row.get("content_changed") is not True
+                        or row.get("written_after_start") is not True
+                        or type(row["after"].get("mtime_ns")) is not int
+                        or row["after"]["mtime_ns"] < run["started_ns"]):
+                    raise ValueError("Baseline capture freshness is incomplete")
+        flags = result.get("assertions", {})
+        required = ("evidence_valid", "slot_selection", "performance_start", "performance_stop",
+                    "receipt", "receipt_identity_key", "cleanup_trace_and_receipt")
+        if (not isinstance(flags, dict) or any(flags.get(name) is not True for name in required)
+                or result.get("globals_restored") is not True
+                or result.get("focused_start_in_flight") is not False
+                or result.get("focused_start_cleanup_pending") is not False
+                or type(result.get("boolean_serialization_errors")) is not int
+                or result["boolean_serialization_errors"] != 0):
+            raise ValueError("Baseline cleanup or identity assertions are incomplete")
+        if "admission" in result:
+            admission = result["admission"]
+            pending = ("acquire_in_flight", "resume_in_flight", "fault", "cleanup_pending", "initial_drain_pending",
+                       "begin_in_flight", "baseline_work_in_flight", "transition_in_flight")
+            optional_pending = ("fixture_transition_in_flight", "fixture_movement_unresolved")
+            if (not isinstance(admission, dict) or type(admission.get("ticket")) is not int or admission["ticket"] != 0
+                    or any(admission.get(name) is not True for name in ("baselines_ready", "resumed", "drained_observed"))
+                    or any(admission.get(name) is not False for name in pending)
+                    or any(name in admission and admission[name] is not False for name in optional_pending)
+                    or admission.get("pending_finish_reason") != ""):
+                raise ValueError("Baseline admission has unresolved work or ownership")
+        if scenario == "ambient_entry":
+            if (any(flags.get(name) is not True for name in ("production_scan", "eligible_owned_sven", "real_inn_entry"))
+                    or result.get("ambient_scheduling_bypassed") is not False
+                    or result.get("controller_entry_setup_injected") is not False):
+                raise ValueError("Ambient baseline did not exercise the production entry path")
+        for name in ("fixture_ai", "vanilla_autostart"):
+            state = result.get(name)
+            if not isinstance(state, dict):
+                raise ValueError("Controlled baseline fixture evidence is missing")
+            if type(state.get("requested")) is not bool:
+                raise ValueError("Controlled baseline fixture request is malformed")
+            if state["requested"]:
+                pending = ("acquisition_in_flight", "acquisition_intent") if name == "fixture_ai" else ("intent", "mutation_in_flight", "conflict")
+                if state.get("released") is not True or any(state.get(key) is not False for key in pending):
+                    raise ValueError("Baseline fixture has unresolved ownership")
+        if _object(result.get("world_setup")).get("game_hour_restored") is not True:
+            raise ValueError("Baseline world setup restoration is unverified")
+        baseline_index = result.get("receipt_baseline")
+        original_trace = None
+        rows = receipts.get("performances")
+        if (type(baseline_index) is not int or baseline_index < 0 or not isinstance(rows, list)
+                or len(rows) != baseline_index + 1 or type(result.get("receipt_index")) is not int
+                or result["receipt_index"] != baseline_index):
+            raise ValueError("Baseline must contain exactly one new receipt")
+        if baseline_index:
+            if "before" not in reference:
+                raise ValueError("Nonempty receipt history requires its original before capture")
+            _, _, before_docs, before_states = _capture_documents(root, reference["before"], snapshot)
+            if (not isinstance(run.get("logs"), list) or any(not isinstance(row, dict) for row in run["logs"])
+                    or any(not isinstance(row.get("id"), str) for row in run["logs"])
+                    or len({row["id"] for row in run["logs"]}) != len(run["logs"])):
+                raise ValueError("Original run log inventory is malformed")
+            run_logs = {row["id"]: row for row in run["logs"]}
+            for name in ("receipts", "trace"):
+                if _object(run_logs.get(name, {}).get("before")).get("sha256") != before_states[name]["sha256"]:
+                    raise ValueError("Before capture is not the original run baseline")
+            if before_docs["receipts"].get("performances") != rows[:baseline_index]:
+                raise ValueError("Original baseline receipt history changed")
+            old_entries = before_docs["trace"].get("entries", [])
+            if (not isinstance(old_entries, list) or any(not isinstance(r, dict) for r in old_entries)
+                    or any("seq" in r and type(r["seq"]) is not int for r in old_entries)
+                    or max((r.get("seq", 0) for r in old_entries), default=0) != result.get("trace_baseline")):
+                raise ValueError("Original trace baseline changed")
+            original_trace = old_entries
+        elif "before" in reference:
+            raise ValueError("An empty history must not carry an unrelated before capture")
+        row = rows[-1]
+        slot, key = result.get("selected_slot"), result.get("selected_identity_key")
+        began, ended = result.get("started_real_seconds"), result.get("observed_real_seconds")
+        if (not isinstance(row, dict) or type(slot) is not int or not 1 <= slot <= 24
+                or not isinstance(key, str) or not baseline.SHA.fullmatch(key)
+                or not _number(began) or not _number(ended) or not began <= ended
+                or type(row.get("slot")) is not int or row["slot"] != slot or row.get("outcome") != expected
+                or row.get("performer_id") not in ("sven", "Sven")
+                or row.get("world_id") != "hold-music-se-lab"
+                or not _number(row.get("at_hours"))
+                or not _number(row.get("started_real_seconds")) or not began <= row["started_real_seconds"] <= ended
+                or _object(row.get("runtime_identity")).get("identity_key") != key):
+            raise ValueError("Baseline receipt does not match the selected performance")
+        recording = _receipt_identity(row, slot, key, manifest)
+        duration = _object(result.get("timing")).get("fixture_duration_seconds")
+        if (not _number(recording.get("duration_seconds")) or recording["duration_seconds"] <= 0
+                or (scenario != "ambient_entry" and (not _number(duration) or duration <= 0
+                                                     or duration != recording["duration_seconds"]))):
+            raise ValueError("Baseline duration differs from its selected fixture")
+        trace_baseline = result.get("trace_baseline")
+        entries = trace.get("entries")
+        if (type(trace_baseline) is not int or trace_baseline < 0 or not isinstance(entries, list)
+                or any(not isinstance(r, dict) for r in entries)
+                or any("seq" in r and type(r["seq"]) is not int for r in entries)):
+            raise ValueError("Baseline trace is malformed")
+        if original_trace is not None and entries[:len(original_trace)] != original_trace:
+            raise ValueError("Original trace history changed")
+        fresh = [r for r in entries if type(r.get("seq")) is int and r["seq"] > trace_baseline]
+        if len({r["seq"] for r in fresh}) != len(fresh):
+            raise ValueError("Baseline trace sequence is ambiguous")
+        def matches(event, text):
+            return [r for r in fresh if r.get("event") == event and isinstance(r.get("detail"), str)
+                    and r["detail"].lower().startswith(text) and _number(r.get("real_seconds"))
+                    and began <= r["real_seconds"] <= ended]
+        starts = matches("performance_start", "id=sven slot=" + str(slot) + " ")
+        stop_text = "outcome=" + expected + " id=sven slot=" + str(slot)
+        stops = [r for r in matches("performance_stop", stop_text) if r["detail"].lower() == stop_text]
+        if (len(starts) != 1 or len(stops) != 1
+                or sum(r.get("event") == "performance_start" for r in fresh) != 1
+                or sum(r.get("event") == "performance_stop" for r in fresh) != 1
+                or starts[0]["real_seconds"] > stops[0]["real_seconds"]):
+            raise ValueError("Baseline requires one matching start and stop")
+        if scenario == "ambient_entry":
+            # This cache is populated by focused setup only. Ambient duration
+            # comes from the production start trace and the pinned source row.
+            match = re.fullmatch(r"id=sven slot=" + str(slot) + r" duration=([0-9]+(?:\.[0-9]+)?)",
+                                 starts[0]["detail"].lower())
+            if match is None or float(match.group(1)) != recording["duration_seconds"]:
+                raise ValueError("Ambient production duration differs from its selected fixture")
+        if scenario == "focused_interrupt":
+            request = result.get("interruption_request_real_seconds")
+            guards = matches("performance_interrupt_guard", "id=sven slot=" + str(slot) + " reason=stop_requested ")
+            if (flags.get("requested_interruption_guard") is not True or flags.get("stop_request_issued") is not True
+                    or not _number(request) or not _number(duration) or duration <= 0
+                    or not row["started_real_seconds"] <= request < row["started_real_seconds"] + duration
+                    or len(guards) != 1 or not request <= guards[0]["real_seconds"] <= stops[0]["real_seconds"]):
+                raise ValueError("Baseline interruption was not caused by its timely request")
+        # Match every copied baseline source to its original preflight bytes;
+        # paths are compared only, never opened from the historical document.
+        original = _object(prior.get("snapshot")).get("files", [])
+        if (not isinstance(original, list) or any(not isinstance(r, dict) for r in original)
+                or any(not isinstance(r.get("path"), str) for r in original)
+                or len({r["path"] for r in original}) != len(original)):
+            raise ValueError("Baseline artifact inventory is missing")
+        original_hashes = {r.get("path"): r.get("sha256") for r in original}
+        copied = 0
+        for item in recipe["files"]:
+            source = item.get("source", {}).get("path")
+            if source and Path(source).is_relative_to(root / "MO2/mods"):
+                if original_hashes.get(source) != item["sha256"]:
+                    raise ValueError("Accepted baseline artifacts differ from the tier recipe")
+                copied += 1
+        if not copied:
+            raise ValueError("No baseline artifacts were bound to acceptance")
+        accepted[scenario] = dict(reference=reference, identity_key=key, slot=slot,
+                                  new_receipt_count=1, copied_files_bound=copied,
+                                  controlled_actor_ai=result.get("controlled_actor_ai") is True,
+                                  document_hashes={k: v["sha256"] for k, v in states.items()})
+    return accepted
+
+
+def _launch_inputs(references):
+    root = _root()
+    status = installation_status()
+    prepared = preflight()
+    if status["status"] != "installed_disabled" or status["blockers"] or prepared["status"] != "prepared_files_verified":
+        raise ValueError("Exact installed first-boot preflight is required")
+    snapshot = _Snapshot()
+    accepted = _accept_baseline(root, references, prepared, snapshot)
+    observed = snapshot.finish()
+    environment = clean_launch_environment()
+    return dict(tier=TIER, operation="skyrimnet_disabled_first_boot", acceptance=accepted,
+                acceptance_snapshot=observed, preflight_token=prepared["review_token"],
+                installation_transaction=status["transaction_id"], installation_journal_hash=status["journal_hash"],
+                implementation=status["implementation"], protected=_protected(root),
+                instance=_inventory(root / INSTANCE),
+                environment=dict(policy="allowlist-v1", names=sorted(environment), sha256=_digest(environment)))
+
+
+def launch_plan(baseline_evidence):
+    """Read-only, first-boot-only review. No process, provider or HTTP request."""
+    inputs = _launch_inputs(baseline_evidence)
+    runtime = _fixed(_root(), RUNTIME_CONTROL)
+    if runtime.exists():
+        raise ValueError("A first-boot attempt already exists; no automatic retry or reset")
+    return dict(version=1, tier=TIER, operation="skyrimnet_se_lab_launch_plan",
+                status="ready_for_explicit_launch", can_launch=True, writes_performed=False,
+                baseline_evidence=baseline_evidence, inputs=inputs,
+                review_token="skyrimnet-launch-v1:" + _digest(inputs),
+                native_verified=False, runtime_verified=False, effective_config_verified=False,
+                egress_verified=False, paid_generation=False)
+
+
+def _runtime_command(root):
+    return [str(root / INSTANCE / "ModOrganizer.exe"), "-p", PROFILE, "--logs", "run", "--cwd",
+            str(root / "Game"), str(root / "Game/skse64_loader.exe")]
+
+
+PROCESS_OBSERVER = "native-filetime-v1"
+PROCESS_NAMES = {"modorganizer.exe", "skse64_loader.exe", "skyrimse.exe", "skyrimvr.exe",
+                 "sksevr_loader.exe", "usvfs_proxy_x64.exe", "usvfs_proxy_x86.exe"}
+FILETIME_TO_DOTNET_TICKS = 504911232000000000
+UNIX_TO_DOTNET_TICKS = 621355968000000000
+
+
+class _NativeProcesses:
+    """Read-only Win32 metadata; handles carry no write/terminate rights."""
+    def __init__(self):
+        if os.name != "nt":
+            raise ValueError("Process identity observation requires Windows")
+        from ctypes import wintypes as w
+        class Entry(ctypes.Structure):
+            _fields_ = [("dwSize", w.DWORD), ("cntUsage", w.DWORD), ("pid", w.DWORD),
+                ("heap", ctypes.c_size_t), ("module", w.DWORD), ("threads", w.DWORD),
+                ("parent_pid", w.DWORD), ("priority", w.LONG), ("flags", w.DWORD), ("name", w.WCHAR * 260)]
+        self.w, self.Entry = w, Entry
+        self.api = ctypes.WinDLL("kernel32", use_last_error=True)
+        signatures = {
+            "CreateToolhelp32Snapshot": ([w.DWORD, w.DWORD], w.HANDLE),
+            "Process32FirstW": ([w.HANDLE, ctypes.POINTER(Entry)], w.BOOL),
+            "Process32NextW": ([w.HANDLE, ctypes.POINTER(Entry)], w.BOOL),
+            "OpenProcess": ([w.DWORD, w.BOOL, w.DWORD], w.HANDLE),
+            "QueryFullProcessImageNameW": ([w.HANDLE, w.DWORD, w.LPWSTR, ctypes.POINTER(w.DWORD)], w.BOOL),
+            "GetProcessTimes": ([w.HANDLE, *([ctypes.POINTER(w.FILETIME)] * 4)], w.BOOL),
+            "CloseHandle": ([w.HANDLE], w.BOOL),
+        }
+        for name, (arguments, result) in signatures.items():
+            function = getattr(self.api, name)
+            function.argtypes, function.restype = arguments, result
+
+    def entries(self):
+        began = time.time_ns() // 100 + UNIX_TO_DOTNET_TICKS
+        handle = self.api.CreateToolhelp32Snapshot(2, 0)  # TH32CS_SNAPPROCESS only
+        if handle == ctypes.c_void_p(-1).value:
+            raise ValueError("Native process snapshot is unavailable")
+        try:
+            entry = self.Entry()
+            entry.dwSize = ctypes.sizeof(entry)
+            found = self.api.Process32FirstW(handle, ctypes.byref(entry))
+            rows = {}
+            while found:
+                if entry.name.lower() in PROCESS_NAMES:
+                    if entry.pid in rows:
+                        raise ValueError("Native process snapshot has duplicate identities")
+                    rows[entry.pid] = dict(pid=entry.pid, parent_pid=entry.parent_pid, name=entry.name.lower())
+                found = self.api.Process32NextW(handle, ctypes.byref(entry))
+            if ctypes.get_last_error() != 18:  # ERROR_NO_MORE_FILES
+                raise ValueError("Native process enumeration is incomplete")
+            return began, rows
+        finally:
+            self.api.CloseHandle(handle)
+
+    def identity(self, entry, snapshot_started):
+        process = self.api.OpenProcess(0x1000, False, entry["pid"])  # PROCESS_QUERY_LIMITED_INFORMATION
+        if not process:
+            raise ValueError("Native process identity disappeared or is inaccessible")
+        try:
+            name = ctypes.create_unicode_buffer(32768)
+            size = self.w.DWORD(len(name))
+            times = [self.w.FILETIME() for _ in range(4)]
+            if (not self.api.QueryFullProcessImageNameW(process, 0, name, ctypes.byref(size))
+                    or not self.api.GetProcessTimes(process, *[ctypes.byref(value) for value in times])):
+                raise ValueError("Native process identity is incomplete")
+            created = ((times[0].dwHighDateTime << 32) | times[0].dwLowDateTime) + FILETIME_TO_DOTNET_TICKS
+            if created > snapshot_started:
+                # PID may have been reused after the first snapshot. Keep this
+                # exact handle open and confirm its parent in a fresh snapshot.
+                confirmed_at, current = self.entries()
+                if created > confirmed_at or current.get(entry["pid"]) != entry:
+                    raise ValueError("Native process identity changed during observation")
+            return dict(pid=entry["pid"], parent_pid=entry["parent_pid"], path=name.value, created_ticks=created)
+        finally:
+            self.api.CloseHandle(process)
+
+
+def _runtime_process_snapshot():
+    """Exact native creation ticks; shared by launch and collector, never CIM."""
+    native = _NativeProcesses()
+    began, entries = native.entries()
+    return [native.identity(entry, began) for entry in entries.values()]
+
+
+class _ProcessObserver:
+    """Bounded pre-armed sampler retaining verified short-lived parent rows."""
+    def __init__(self, *, timeout_seconds, snapshot=None, interval=0.02, max_identities=128):
+        self.snapshot = snapshot or _runtime_process_snapshot
+        self.timeout, self.interval, self.maximum = timeout_seconds, interval, max_identities
+        self.ready, self.stopped, self.lock = threading.Event(), threading.Event(), threading.Lock()
+        self.history, self.current, self.initial = {}, [], []
+        self.failed, self.expired = False, False
+        self.samples, self.max_gap, self.last_sample = 0, 0.0, None
+        self.thread = threading.Thread(target=self._run, name="hold-music-native-observer", daemon=True)
+
+    def _run(self):
+        deadline = time.monotonic() + self.timeout
+        try:
+            while not self.stopped.is_set():
+                if time.monotonic() >= deadline:
+                    with self.lock: self.expired = True
+                    return
+                rows = self.snapshot()
+                if not isinstance(rows, list):
+                    raise ValueError("Invalid process observation")
+                with self.lock:
+                    seen = set()
+                    for row in rows:
+                        if (not isinstance(row, dict) or set(row) != {"pid", "parent_pid", "path", "created_ticks"}
+                                or any(type(row.get(key)) is not int for key in ("pid", "parent_pid", "created_ticks"))
+                                or row["pid"] <= 0 or row["parent_pid"] < 0 or row["created_ticks"] <= 0
+                                or not isinstance(row["path"], str) or not row["path"] or row["pid"] in seen):
+                            raise ValueError("Invalid process observation")
+                        seen.add(row["pid"])
+                        prior = self.history.get(row["pid"])
+                        if prior is not None and prior != row:
+                            raise ValueError("Observed process identity was reused")
+                        self.history[row["pid"]] = dict(row)
+                    if len(self.history) > self.maximum:
+                        raise ValueError("Process observation exceeded its bound")
+                    observed = time.monotonic()
+                    if self.last_sample is not None:
+                        self.max_gap = max(self.max_gap, observed - self.last_sample)
+                    self.last_sample = observed
+                    self.current = [dict(row) for row in rows]
+                    if self.samples == 0:
+                        self.initial = list(self.current)
+                    self.samples += 1
+                self.ready.set()
+                self.stopped.wait(self.interval)
+        except Exception:
+            # Preserve only a failure flag, never native exception text.
+            with self.lock: self.failed = True
+        finally:
+            self.ready.set()
+
+    def start(self):
+        self.thread.start()
+        if not self.ready.wait(min(5, self.timeout)):
+            self.stop()
+            raise ValueError("Native observer did not become ready")
+        self.capture()
+        return list(self.initial)
+
+    def capture(self):
+        with self.lock:
+            if self.failed or self.expired or not self.samples:
+                raise ValueError("Native process observation is incomplete")
+            return dict(history=[dict(row) for row in self.history.values()],
+                        current=[dict(row) for row in self.current], samples=self.samples,
+                        max_sample_gap_seconds=self.max_gap)
+
+    def stop(self):
+        self.stopped.set()
+        if self.thread.ident is not None:
+            self.thread.join(timeout=1)
+        return not self.thread.is_alive()
+
+
+def _process_history(rows, prior, root, started_ns, launcher_pid):
+    allowed = {str(root / INSTANCE / "ModOrganizer.exe"), str(root / "Game/skse64_loader.exe"),
+               str(root / "Game/SkyrimSE.exe"), str(root / INSTANCE / "usvfs_proxy_x64.exe"),
+               str(root / INSTANCE / "usvfs_proxy_x86.exe")}
+    normalized = {os.path.normcase(path): path for path in allowed}
+    if (not isinstance(rows, list) or not isinstance(prior, list)
+            or type(started_ns) is not int or started_ns <= 0
+            or type(launcher_pid) is not int or launcher_pid <= 0):
+        raise ValueError("Malformed process observation context")
+    earliest = started_ns // 100 + 621355968000000000
+    def checked(row):
+        if (not isinstance(row, dict) or set(row) != {"pid", "parent_pid", "path", "created_ticks"}
+                or any(type(row.get(k)) is not int for k in ("pid", "parent_pid", "created_ticks"))
+                or row["pid"] <= 0 or row["parent_pid"] < 0 or row["created_ticks"] < earliest
+                or not isinstance(row["path"], str) or os.path.normcase(row["path"]) not in normalized):
+            raise ValueError("Unexpected, preexisting or unverifiable process identity")
+        return dict(row, path=normalized[os.path.normcase(row["path"])])
+    history = {}
+    for row in prior:
+        value = checked(row)
+        if value["pid"] in history:
+            raise ValueError("Duplicate retained process identity")
+        history[value["pid"]] = value
+    current = {}
+    for row in rows:
+        value = checked(row)
+        if value["pid"] in current or (value["pid"] in history and history[value["pid"]] != value):
+            raise ValueError("Duplicate or reused process identity")
+        current[value["pid"]] = value
+        history[value["pid"]] = value
+    organizer = history.get(launcher_pid)
+    if organizer is not None and organizer["path"] != str(root / INSTANCE / "ModOrganizer.exe"):
+        raise ValueError("Launcher identity does not belong to the separate instance")
+    games = [r for r in current.values() if r["path"] == str(root / "Game/SkyrimSE.exe")]
+    if len(games) > 1:
+        raise ValueError("More than one game process is present")
+    game = games[0] if games else None
+    def lineage(node):
+        visited, paths = set(), set()
+        while node["pid"] not in visited:
+            visited.add(node["pid"])
+            paths.add(node["path"])
+            if node["pid"] == launcher_pid:
+                return paths
+            parent = history.get(node["parent_pid"])
+            if parent is None or parent["created_ticks"] > node["created_ticks"]:
+                break
+            node = parent
+        return set()
+    linked = False
+    if game and organizer:
+        linked = (str(root / "Game/skse64_loader.exe") in lineage(game)
+                  and all(lineage(row) for row in current.values()))
+    return list(history.values()), game if linked else None
+
+
+def _runtime_json(path, value, *, new=False, expected=None):
+    raw = (json.dumps(value, indent=2, ensure_ascii=False, allow_nan=False) + "\n").encode()
+    if new:
+        baseline._write_new(_no_alias(path), raw)
+    else:
+        _atomic_write(_no_alias(path), raw, expected=expected)
+    return dict(exists=True, sha256=hashlib.sha256(raw).hexdigest(), size=len(raw))
+
+
+def launch(baseline_evidence, review_token, *, timeout_seconds=30, process_probe=None):
+    """Explicit one-shot launch. Timeout never kills, retries or enables anything."""
+    baseline._require_windows()
+    if type(timeout_seconds) not in (int, float) or not 1 <= timeout_seconds <= 60:
+        raise ValueError("Launch observation timeout must be between 1 and 60 seconds")
+    plan = launch_plan(baseline_evidence)
+    if not _matches(review_token, plan["review_token"]):
+        raise ValueError("Launch review is stale or belongs to another operation")
+    _assert_closed(process_probe)
+    root = _root()
+    with _writer_lock(_no_alias(root / ".se-lab-writer.lock")), _writer_lock(_no_alias(root / CONTROL / "writer.lock")):
+        fresh = launch_plan(baseline_evidence)
+        if not _matches(review_token, fresh["review_token"]):
+            raise ValueError("Launch inputs changed before admission")
+        _assert_closed(process_probe)
+        runtime = _fixed(root, RUNTIME_CONTROL)
+        runtime.mkdir(exist_ok=False)
+        started_ns = time.time_ns()
+        run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ-") + uuid.uuid4().hex[:12]
+        run = dict(version=1, tier=TIER, operation="skyrimnet_disabled_first_boot", run_id=run_id,
+                   started_ns=started_ns, baseline_evidence=baseline_evidence, inputs=fresh["inputs"],
+                   inputs_sha256=_digest(fresh["inputs"]), launch_command=_runtime_command(root),
+                   process_observer=PROCESS_OBSERVER)
+        run_state = _runtime_json(runtime / "run.json", run, new=True)
+        result = dict(version=1, tier=TIER, run_id=run_id, status="launch_intent", process_started=False,
+                      launcher_pid=None, processes=[], game=None, launch_attributed=False,
+                      native_verified=False, effective_config_verified=False, runtime_verified=False,
+                      egress_verified=False, paid_generation=False, processes_terminated=False, writes_performed=True,
+                      process_observer=PROCESS_OBSERVER, observer_samples=0, max_sample_gap_seconds=None)
+        result_state = _runtime_json(runtime / "launch-result.json", result, new=True)
+        # The immutable intent survives unknown spawn outcomes. Never recycle it.
+        if _digest(_launch_inputs(baseline_evidence)) != run["inputs_sha256"]:
+            raise ValueError("Launch inputs changed while recording intent; attempt retained")
+        _assert_closed(process_probe)
+        environment = clean_launch_environment()
+        if _digest(environment) != run["inputs"]["environment"]["sha256"]:
+            raise ValueError("Launch environment changed after review")
+        if _Snapshot().read(runtime / "run.json")["sha256"] != run_state["sha256"]:
+            raise ValueError("Launch intent changed before dispatch")
+        observer = None
+        try:
+            observer = _ProcessObserver(timeout_seconds=timeout_seconds + 5)
+            if observer.start():
+                raise ValueError("A process appeared before observer admission")
+            _assert_closed(process_probe)
+            if observer.capture()["history"]:
+                raise ValueError("A process appeared before dispatch")
+            process = subprocess.Popen(run["launch_command"], cwd=str(root / INSTANCE), shell=False,
+                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=environment)
+            result.update(status="launched_unattributed", process_started=True, launcher_pid=process.pid)
+            result_state = _runtime_json(runtime / "launch-result.json", result, expected=result_state)
+            deadline = time.monotonic() + timeout_seconds
+            while True:
+                observed = observer.capture()
+                history, game = _process_history(observed["current"], observed["history"], root, started_ns, process.pid)
+                result.update(processes=history, game=game, launch_attributed=game is not None,
+                              observer_samples=observed["samples"], max_sample_gap_seconds=observed["max_sample_gap_seconds"])
+                if game is not None:
+                    result["status"] = "launched_attributed"
+                    break
+                if time.monotonic() >= deadline:
+                    break
+                time.sleep(0.02)
+            result["protected_paths_unchanged"] = _protected(root) == run["inputs"]["protected"]
+            if not result["protected_paths_unchanged"]:
+                result["status"] = "protected_state_changed"
+            last = observer.capture()
+            history, last_game = _process_history(last["current"], last["history"], root, started_ns, process.pid)
+            result.update(processes=history, observer_samples=last["samples"],
+                          max_sample_gap_seconds=last["max_sample_gap_seconds"])
+            if game is not None and last_game != game:
+                result.update(status="launch_observation_incomplete", game=None, launch_attributed=False)
+        except (OSError, ValueError, subprocess.SubprocessError):
+            # No exception bodies, paths, output or environment values are copied.
+            result["status"] = "launch_observation_incomplete" if result["process_started"] else "launch_failed_or_unknown"
+            result.update(game=None, launch_attributed=False)
+        finally:
+            if observer is not None and not observer.stop():
+                result.update(status="launch_observation_incomplete", game=None, launch_attributed=False)
+            elif observer is not None:
+                try:
+                    # Use the final joined frame, including rows observed after
+                    # the last main-thread poll. Never upgrade an unattributed
+                    # launch merely because a game appeared during shutdown.
+                    final = observer.capture()
+                    if result["process_started"]:
+                        history, final_game = _process_history(final["current"], final["history"], root,
+                                                               started_ns, result["launcher_pid"])
+                        result.update(processes=history, observer_samples=final["samples"],
+                                      max_sample_gap_seconds=final["max_sample_gap_seconds"])
+                        if result["launch_attributed"] and final_game != result["game"]:
+                            result.update(status="launch_observation_incomplete", game=None, launch_attributed=False)
+                except ValueError:
+                    result.update(status="launch_observation_incomplete" if result["process_started"] else "launch_failed_or_unknown",
+                                  game=None, launch_attributed=False)
+        _runtime_json(runtime / "launch-result.json", result, expected=result_state)
+        return result
+
+
+def collect(run_id):
+    """Serialize local capture with this tool's writers; never arm or launch."""
+    root = _root()
+    runtime = _fixed(root, RUNTIME_CONTROL)
+    if not runtime.is_dir():
+        raise ValueError("No retained first-boot attempt exists")
+    with _writer_lock(_no_alias(root / ".se-lab-writer.lock")), _writer_lock(_no_alias(root / CONTROL / "writer.lock")):
+        return _collect(run_id)
+
+
+def _collect(run_id):
+    """Local metadata collection only; does not contact listeners or read secrets.
+
+    Effective config and native initialization remain unverified in this bounded
+    checkpoint. Changed first-boot state is observed, never accepted as a new seed.
+    """
+    if not isinstance(run_id, str) or not baseline.RUN_ID.fullmatch(run_id):
+        raise ValueError("Invalid first-boot run ID")
+    root = _root()
+    runtime = _fixed(root, RUNTIME_CONTROL)
+    snapshot = _Snapshot()
+    run, _ = _document(snapshot, runtime / "run.json")
+    launched, _ = _document(snapshot, runtime / "launch-result.json")
+    if (run.get("version") != 1 or run.get("tier") != TIER or run.get("run_id") != run_id
+            or run.get("operation") != "skyrimnet_disabled_first_boot"
+            or run.get("launch_command") != _runtime_command(root)
+            or not isinstance(run.get("inputs"), dict) or _digest(run["inputs"]) != run.get("inputs_sha256")
+            or launched.get("tier") != TIER or launched.get("run_id") != run_id
+            or run.get("process_observer") != PROCESS_OBSERVER or launched.get("process_observer") != PROCESS_OBSERVER
+            or launched.get("process_started") is not True or type(launched.get("launcher_pid")) is not int
+            or type(run.get("started_ns")) is not int or not isinstance(launched.get("processes"), list)):
+        raise ValueError("No valid retained launch observation exists")
+    implementation = _implementation(snapshot)
+    if implementation != run["inputs"].get("implementation"):
+        raise ValueError("Collector implementation changed since this launch")
+    history, game = _process_history(_runtime_process_snapshot(), launched["processes"], root,
+                                     run["started_ns"], launched["launcher_pid"])
+    before = run["inputs"].get("instance")
+    if not isinstance(before, dict) or not isinstance(before.get("files"), dict):
+        raise ValueError("Retained tier inventory is malformed")
+    current = _inventory(root / INSTANCE)
+    protected = _protected(root)
+    history, after_game = _process_history(_runtime_process_snapshot(), history, root,
+                                          run["started_ns"], launched["launcher_pid"])
+    if current != _inventory(root / INSTANCE) or protected != _protected(root):
+        raise ValueError("Runtime evidence changed during collection")
+    snapshot.finish()
+    attributed = game is not None and game == after_game and game == launched.get("game")
+    changed = [name for name in before["files"].keys() | current["files"].keys()
+               if before["files"].get(name) != current["files"].get(name)]
+    capture_id = uuid.uuid4().hex
+    report = dict(version=1, tier=TIER, run_id=run_id, capture_id=capture_id,
+                  process_observer=PROCESS_OBSERVER,
+                  status="local_evidence_collected" if attributed else "incomplete_process_evidence",
+                  launch_attributed=attributed, game=game if attributed else None,
+                  protected_paths_unchanged=protected == run["inputs"].get("protected"),
+                  changed_file_count=len(changed), instance_inventory_sha256=_digest(current),
+                  changed_inventory_sha256=_digest(changed),
+                  private_runtime_file_count=sum(_private_path(name) for name in current["files"]),
+                  native_verified=False, effective_config_verified=False, vfs_verified=False,
+                  runtime_verified=False, egress_verified=False, paid_generation=False,
+                  writes_performed=True, network_requests_performed=False,
+                  limitations=["Local file hashes and exact process lineage only; no native initialization or effective config smoke proof.",
+                      "No HTTP, MCP, provider, raw log, Auth.yaml, database or environment body is collected.",
+                      "First-boot changes are retained, never reset or promoted into the installation contract."])
+    if not report["protected_paths_unchanged"]:
+        report["status"] = "protected_state_changed"
+    captures = _no_alias(runtime / "captures")
+    captures.mkdir(exist_ok=True)
+    _runtime_json(captures / (capture_id + ".json"), report, new=True)
+    return report

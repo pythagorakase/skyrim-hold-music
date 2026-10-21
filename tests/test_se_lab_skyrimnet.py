@@ -9,11 +9,14 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+import time
 import unittest
+from types import SimpleNamespace
 from unittest.mock import patch
 import zipfile
 
 from hold_music import se_lab_skyrimnet as tier
+from hold_music.runtime_contract import runtime_identity_key
 from tools import se_lab_skyrimnet as cli
 
 
@@ -612,6 +615,566 @@ tier.install(tier.installation_plan()['review_token'],process_probe=lambda:dict(
         self.assertNotIn("inputs", report)
         self.assertGreater(report["file_count"], 20)
         self.assertFalse((self.root / tier.CONTROL).exists())
+
+    def baseline_capture(self, scenario, recipe, *, before=None):
+        number = {"focused_complete": 1, "focused_interrupt": 2, "ambient_entry": 3}[scenario]
+        reference = dict(run_id=f"20261021T01000{number}Z-" + str(number) * 12,
+                         capture_id=str(number) * 32)
+        capture = self.root / "runs" / reference["run_id"] / "captures" / reference["capture_id"]
+        run_dir = capture.parent.parent
+        old_rows, old_trace = [], []
+        before_states = {}
+        if before:
+            _, _, docs, before_states = tier._capture_documents(self.root, before, tier._Snapshot())
+            old_rows, old_trace = docs["receipts"]["performances"], docs["trace"]["entries"]
+        old_seq = max((row.get("seq", 0) for row in old_trace), default=0)
+        outcome = "interrupted" if scenario == "focused_interrupt" else "completed"
+        assertion_names = ("evidence_valid", "slot_selection", "performance_start", "performance_stop",
+                           "receipt", "receipt_identity_key", "cleanup_trace_and_receipt")
+        result = dict(version=1, run_id=reference["run_id"], started_at_utc="2026-10-21T01:00:00+00:00",
+            scenario=scenario, status="passed", expected_outcome=outcome, runtime_engine_observed=True,
+            world_id="hold-music-se-lab",
+            assertions={name: True for name in assertion_names}, globals_restored=True,
+            focused_start_in_flight=False, focused_start_cleanup_pending=False, boolean_serialization_errors=0,
+            fixture_ai=dict(requested=True, released=True, acquisition_intent=False, acquisition_in_flight=False),
+            vanilla_autostart=dict(requested=True, released=True, intent=False, mutation_in_flight=False, conflict=False),
+            world_setup=dict(game_hour_restored=True), receipt_baseline=len(old_rows), receipt_index=len(old_rows),
+            selected_slot=1, selected_identity_key=self.fixture_contract["identity_key"], started_real_seconds=10, observed_real_seconds=40,
+            trace_baseline=old_seq, controlled_actor_ai=True, timing=dict(fixture_duration_seconds=8))
+        if scenario == "ambient_entry":
+            result["timing"]["fixture_duration_seconds"] = 0  # The native ambient path never fills the focused cache.
+            result["assertions"].update(production_scan=True, eligible_owned_sven=True, real_inn_entry=True)
+            result.update(ambient_scheduling_bypassed=False, controller_entry_setup_injected=False)
+        rows = old_rows + [dict(slot=1, outcome=outcome, performer_id="Sven", region="Whiterun",
+            composition_id="lab:synthetic", save_id="disposable-" + str(number), world_id="hold-music-se-lab",
+            started_real_seconds=20, at_hours=18, runtime_identity=dict(self.fixture_contract, version=1,
+                                                         performer_id="Sven", mode="Instrumental", voice="None"))]
+        new_trace = [dict(seq=old_seq + 1, event="performance_start", detail="id=sven slot=1 duration=8.000000",
+                          real_seconds=21)]
+        if scenario == "focused_interrupt":
+            result["assertions"].update(requested_interruption_guard=True, stop_request_issued=True)
+            result["interruption_request_real_seconds"] = 22
+            new_trace.append(dict(seq=old_seq + 2, event="performance_interrupt_guard",
+                detail="id=Sven slot=1 reason=stop_requested enabled=1", real_seconds=23))
+        new_trace.append(dict(seq=old_seq + len(new_trace) + 1, event="performance_stop",
+                             detail="outcome=" + outcome + " id=Sven slot=1", real_seconds=25))
+        docs = dict(harness=result, receipts=dict(performances=rows), trace=dict(entries=old_trace + new_trace))
+        logs = []
+        for name, virtual in tier.BASELINE_LOGS.items():
+            raw = json.dumps(docs[name]).encode()
+            self.write(str((capture / "logs" / (name + ".bin")).relative_to(self.root)), raw)
+            logs.append(dict(id=name, source="MO2/overwrite/" + virtual, archived_file="logs/" + name + ".bin",
+                after=dict(sha256=hashlib.sha256(raw).hexdigest(), mtime_ns=2), fresh=True,
+                content_changed=True, written_after_start=True))
+        evidence = dict(version=1, run_id=reference["run_id"], capture_id=reference["capture_id"],
+                        fresh_required_evidence=True, logs=logs)
+        run = dict(version=1, run_id=reference["run_id"], request_published=True,
+            scenario=scenario.replace("_", "-"), started_ns=1, started_at_utc=result["started_at_utc"],
+            review_token="baseline-proof", logs=[dict(id=k, before=v) for k, v in before_states.items()])
+        original = [dict(path=row["source"]["path"], sha256=row["sha256"]) for row in recipe["files"]
+                    if "path" in row["source"]]
+        prior = dict(operation="se_lab_preflight", status="ready_for_explicit_launch", profile=tier.baseline.PROFILE,
+                     review_token=run["review_token"], snapshot=dict(files=original))
+        for path, document in ((capture / "evidence.json", evidence), (run_dir / "run.json", run),
+                               (run_dir / "preflight.json", prior)):
+            self.write(str(path.relative_to(self.root)), json.dumps(document).encode())
+        return reference
+
+    def runtime_fixture(self):
+        self.fixture_contract = dict(performer_id="sven", region="whiterun", mode="instrumental", voice="none",
+            recipe_id="lab/synthetic", recipe_revision="lab-v1", model_id="deterministic-pcm-fixture",
+            instrument_family="plucked_string", instrument_name="synthetic plucked-string test signal", arrangement="solo_lute")
+        self.fixture_contract["identity_key"] = runtime_identity_key(self.fixture_contract)
+        recording = dict(self.fixture_contract, slot=1, duration_seconds=8, composition_id="lab:synthetic",
+                         provenance=dict(kind="synthetic_test_fixture"))
+        manifest = dict(recordings=[recording], runtime_selection=dict(version=1, contracts=[self.fixture_contract]))
+        source = "MO2/mods/Hold Music Lab Data/SKSE/Plugins/StorageUtilData/HoldMusic/library.json"
+        self.write(source, json.dumps(manifest).encode())
+        self.manifest["files"].append(dict(path=source, sha256=self.sha(source)))
+        self.save_manifest()
+        self.install_fixture()
+        recipe = tier.preflight()
+        complete = self.baseline_capture("focused_complete", recipe)
+        interrupt = self.baseline_capture("focused_interrupt", recipe, before=complete)
+        ambient = self.baseline_capture("ambient_entry", recipe, before=interrupt)
+        return dict(focused_complete=dict(capture=complete), focused_interrupt=dict(capture=interrupt, before=complete),
+                    ambient_entry=dict(capture=ambient, before=interrupt))
+
+    def change_capture(self, reference, name, change):
+        _, directory = tier._capture_reference(self.root, reference)
+        path = directory / "logs" / (name + ".bin")
+        document = json.loads(path.read_bytes())
+        change(document)
+        raw = json.dumps(document).encode()
+        path.write_bytes(raw)
+        evidence_path = directory / "evidence.json"
+        evidence = json.loads(evidence_path.read_bytes())
+        next(row for row in evidence["logs"] if row["id"] == name)["after"]["sha256"] = hashlib.sha256(raw).hexdigest()
+        evidence_path.write_text(json.dumps(evidence))
+
+    def process_rows(self):
+        run = json.loads((self.root / tier.RUNTIME_CONTROL / "run.json").read_bytes())
+        ticks = run["started_ns"] // 100 + 621355968000000000 + 1
+        return [dict(pid=100, parent_pid=77, path=str(self.root / tier.INSTANCE / "ModOrganizer.exe"), created_ticks=ticks),
+                dict(pid=101, parent_pid=100, path=str(self.root / "Game/skse64_loader.exe"), created_ticks=ticks + 1),
+                dict(pid=102, parent_pid=101, path=str(self.root / "Game/SkyrimSE.exe"), created_ticks=ticks + 2)]
+
+    def fake_observer(self, spawn, *, rows=None):
+        get_rows = rows or self.process_rows
+        class Observer:
+            def __init__(self, **options): pass
+            def start(self): return []
+            def capture(self):
+                current = get_rows() if spawn.called else []
+                return dict(history=current, current=current, samples=1, max_sample_gap_seconds=0)
+            def stop(self): return True
+        return Observer
+
+    def fake_launch(self, references, *, popen=None):
+        plan = tier.launch_plan(references)
+        with patch.object(tier.baseline, "_require_windows"), \
+                patch.object(tier.subprocess, "Popen", side_effect=popen or (lambda *a, **k: SimpleNamespace(pid=100))) as spawn, \
+                patch.object(tier, "_ProcessObserver", self.fake_observer(spawn)):
+            return tier.launch(references, plan["review_token"], process_probe=self.closed)
+
+    def test_launch_review_binds_all_baselines_without_writes_or_processes(self):
+        references = self.runtime_fixture()
+        before = self.files()
+        with patch.object(tier.subprocess, "Popen", side_effect=AssertionError("review spawned")):
+            report = tier.launch_plan(references)
+        self.assertTrue(report["can_launch"])
+        self.assertFalse(report["runtime_verified"])
+        self.assertEqual(before, self.files())
+        self.assertEqual(report["review_token"], tier.launch_plan(references)["review_token"])
+
+    def test_failed_interrupt_cannot_authorize_first_boot(self):
+        references = self.runtime_fixture()
+        self.change_capture(references["focused_interrupt"]["capture"], "harness", lambda row: row.update(status="failed"))
+        with self.assertRaisesRegex(ValueError, "accepted scenario"):
+            tier.launch_plan(references)
+        self.assertFalse((self.root / tier.RUNTIME_CONTROL).exists())
+
+    def test_baseline_nonempty_history_requires_exact_preserved_before_capture(self):
+        references = self.runtime_fixture()
+        incomplete = json.loads(json.dumps(references))
+        incomplete["focused_interrupt"].pop("before")
+        with self.assertRaisesRegex(ValueError, "before capture"):
+            tier.launch_plan(incomplete)
+        self.change_capture(references["focused_interrupt"]["capture"], "receipts",
+            lambda row: row["performances"][0].update(outcome="lost-original"))
+        with self.assertRaisesRegex(ValueError, "history changed"):
+            tier.launch_plan(references)
+
+    def test_baseline_wrong_identity_cleanup_and_late_interrupt_fail_closed(self):
+        references = self.runtime_fixture()
+        selected = references["focused_interrupt"]["capture"]
+        _, directory = tier._capture_reference(self.root, selected)
+        original = {p: p.read_bytes() for p in directory.rglob("*") if p.is_file()}
+        cases = (("harness", lambda r: r.update(selected_identity_key="b" * 64)),
+                 ("harness", lambda r: r["fixture_ai"].update(acquisition_in_flight=True)),
+                 ("harness", lambda r: r.update(interruption_request_real_seconds=28)),
+                 ("harness", lambda r: r.update(world_setup=None)),
+                 ("receipts", lambda r: r["performances"][-1].update(runtime_identity=None)),
+                 ("receipts", lambda r: r["performances"][-1].update(runtime_identity=dict(identity_key=self.fixture_contract["identity_key"]))),
+                 ("receipts", lambda r: r["performances"][-1]["runtime_identity"].update(instrument_name="different")),
+                 ("trace", lambda r: r["entries"][-1].update(detail="outcome=interrupted id=Sven slot=10")))
+        for name, change in cases:
+            with self.subTest(name=name, change=change):
+                for path, raw in original.items(): path.write_bytes(raw)
+                self.change_capture(selected, name, change)
+                with self.assertRaises(ValueError): tier.launch_plan(references)
+
+    def test_admission_protocol_requires_fully_restored_ticket_and_no_pending_work(self):
+        references = self.runtime_fixture()
+        selected = references["ambient_entry"]["capture"]
+        admission = dict(ticket=0, baselines_ready=True, resumed=True, drained_observed=True,
+            acquire_in_flight=False, resume_in_flight=False, fault=False, cleanup_pending=False,
+            initial_drain_pending=False, begin_in_flight=False, baseline_work_in_flight=False,
+            transition_in_flight=False, pending_finish_reason="")
+        self.change_capture(selected, "harness", lambda row: row.update(admission=admission))
+        tier.launch_plan(references)
+        self.change_capture(selected, "harness", lambda row: row.update(admission=dict(admission,
+            fixture_transition_in_flight=False, fixture_movement_unresolved=False)))
+        tier.launch_plan(references)
+        for key, value in (("ticket", 1), ("resumed", False), ("drained_observed", False),
+                           ("cleanup_pending", True), ("fault", True), ("resume_in_flight", True)):
+            with self.subTest(key=key):
+                self.change_capture(selected, "harness", lambda row: row.update(admission=dict(admission, **{key: value})))
+                with self.assertRaisesRegex(ValueError, "admission"): tier.launch_plan(references)
+        for key in ("fixture_transition_in_flight", "fixture_movement_unresolved"):
+            for value in (True, 0, None, "false"):
+                with self.subTest(key=key, value=value):
+                    self.change_capture(selected, "harness", lambda row: row.update(admission=dict(admission, **{key: value})))
+                    with self.assertRaisesRegex(ValueError, "admission"): tier.launch_plan(references)
+
+    def test_ambient_baseline_is_required_and_cannot_bypass_production_entry(self):
+        references = self.runtime_fixture()
+        missing = dict(references); missing.pop("ambient_entry")
+        with self.assertRaisesRegex(ValueError, "ambient-entry"): tier.launch_plan(missing)
+        self.change_capture(references["ambient_entry"]["capture"], "harness",
+                            lambda row: row.update(ambient_scheduling_bypassed=True))
+        with self.assertRaisesRegex(ValueError, "production entry"): tier.launch_plan(references)
+
+    def test_ambient_duration_uses_exact_production_start_and_pinned_source(self):
+        references = self.runtime_fixture()
+        self.assertTrue(tier.launch_plan(references)["can_launch"])
+        reference = references["ambient_entry"]["capture"]
+        for detail in ("id=sven slot=1 ", "id=sven slot=1 duration=", "id=sven slot=1 duration=NaN",
+                       "id=sven slot=1 duration=9.000000", "id=sven slot=1 duration=-8", "id=sven slot=1 duration=8 extra"):
+            with self.subTest(detail=detail):
+                def change(document):
+                    next(row for row in reversed(document["entries"]) if row["event"] == "performance_start")["detail"] = detail
+                self.change_capture(reference, "trace", change)
+                with self.assertRaisesRegex(ValueError, "Ambient production duration"):
+                    tier.launch_plan(references)
+
+    def test_focused_duration_cache_and_actual_request_window_remain_required(self):
+        references = self.runtime_fixture()
+        reference = references["focused_interrupt"]["capture"]
+        for duration in (None, 0, 9, "8", float("nan")):
+            with self.subTest(duration=duration):
+                self.change_capture(reference, "harness", lambda row: row.update(timing=dict(fixture_duration_seconds=duration)))
+                with self.assertRaisesRegex(ValueError, "Baseline duration|not valid JSON"):
+                    tier.launch_plan(references)
+        self.change_capture(reference, "harness", lambda row: row.update(timing=dict(fixture_duration_seconds=8),
+                                                                        interruption_request_real_seconds=28))
+        with self.assertRaisesRegex(ValueError, "timely request"): tier.launch_plan(references)
+
+    def test_capture_path_and_body_cannot_select_external_reads(self):
+        references = self.runtime_fixture()
+        references["focused_complete"]["capture"]["run_id"] = "../private"
+        with self.assertRaisesRegex(ValueError, "reference"):
+            tier.launch_plan(references)
+
+    def test_launch_rejects_stale_or_cross_operation_token_before_spawn(self):
+        references = self.runtime_fixture()
+        plan = tier.launch_plan(references)
+        self.change_capture(references["focused_complete"]["capture"], "harness", lambda r: r.update(review_note="changed"))
+        with patch.object(tier.baseline, "_require_windows"), patch.object(tier.subprocess, "Popen") as spawn:
+            for token in ("skyrimnet-install-v1:other", plan["review_token"]):
+                with self.assertRaises(ValueError): tier.launch(references, token, process_probe=self.closed)
+            spawn.assert_not_called()
+        self.assertFalse((self.root / tier.RUNTIME_CONTROL).exists())
+
+    def test_launch_clean_environment_exact_command_and_original_trees_preserved(self):
+        references = self.runtime_fixture()
+        original = tier._protected(self.root)
+        calls = []
+        def spawn(command, **options):
+            calls.append((command, options))
+            return SimpleNamespace(pid=100)
+        with patch.dict(os.environ, {"OPENROUTER_API_KEY": "NEVER_COPY", "HTTP_PROXY": "NEVER_COPY"}):
+            result = self.fake_launch(references, popen=spawn)
+        self.assertEqual(result["status"], "launched_attributed")
+        self.assertEqual(calls[0][0], tier._runtime_command(self.root))
+        self.assertEqual(calls[0][1]["cwd"], str(self.root / tier.INSTANCE))
+        self.assertFalse(calls[0][1]["shell"])
+        self.assertNotIn("NEVER_COPY", json.dumps(calls[0][1]["env"]))
+        self.assertEqual(original, tier._protected(self.root))
+        self.assertFalse(result["native_verified"])
+        with self.assertRaisesRegex(ValueError, "attempt already"):
+            tier.launch_plan(references)
+
+    def test_process_lineage_refuses_missing_loader_foreign_parent_old_and_reused_pid(self):
+        references = self.runtime_fixture()
+        self.fake_launch(references)
+        run = json.loads((self.root / tier.RUNTIME_CONTROL / "run.json").read_bytes())
+        original = self.process_rows()
+        for mutation in (lambda rows: rows[1].update(parent_pid=900),
+                         lambda rows: rows[2].update(parent_pid=100)):
+            rows = json.loads(json.dumps(original)); mutation(rows)
+            self.assertIsNone(tier._process_history(rows, [], self.root, run["started_ns"], 100)[1])
+        for mutation in (lambda rows: rows[0].update(path=str(self.root / "MO2/ModOrganizer.exe")),
+                         lambda rows: rows[0].update(created_ticks=1),
+                         lambda rows: rows.append(dict(rows[0]))):
+            rows = json.loads(json.dumps(original)); mutation(rows)
+            with self.assertRaises(ValueError): tier._process_history(rows, [], self.root, run["started_ns"], 100)
+        replaced = json.loads(json.dumps(original)); replaced[2]["created_ticks"] += 1
+        with self.assertRaisesRegex(ValueError, "reused"):
+            tier._process_history(replaced, original, self.root, run["started_ns"], 100)
+        with self.assertRaises(ValueError): tier._process_history([], [{}], self.root, run["started_ns"], 100)
+
+    def test_uncertain_spawn_is_retained_and_never_retried(self):
+        references = self.runtime_fixture()
+        def uncertain(*args, **kwargs): raise OSError("PRIVATE_SPAWN_SENTINEL")
+        result = self.fake_launch(references, popen=uncertain)
+        self.assertEqual(result["status"], "launch_failed_or_unknown")
+        self.assertNotIn("PRIVATE_SPAWN_SENTINEL", json.dumps(result))
+        with self.assertRaises(ValueError): tier.launch_plan(references)
+
+    def test_change_after_intent_preserves_attempt_without_spawning(self):
+        references = self.runtime_fixture()
+        token = tier.launch_plan(references)["review_token"]
+        original = tier._runtime_json
+        def intent(path, value, **options):
+            result = original(path, value, **options)
+            if path.name == "launch-result.json":
+                self.write("Game/late-change", b"foreign")
+            return result
+        with patch.object(tier.baseline, "_require_windows"), patch.object(tier, "_runtime_json", side_effect=intent), \
+                patch.object(tier.subprocess, "Popen") as spawn:
+            with self.assertRaisesRegex(ValueError, "inputs changed"):
+                tier.launch(references, token, process_probe=self.closed)
+            spawn.assert_not_called()
+        self.assertTrue((self.root / tier.RUNTIME_CONTROL / "run.json").is_file())
+        self.assertEqual((self.root / "Game/late-change").read_bytes(), b"foreign")
+
+    def test_missing_short_lived_loader_times_out_without_claim_or_retry(self):
+        references = self.runtime_fixture()
+        token = tier.launch_plan(references)["review_token"]
+        def rows(): return [row for row in self.process_rows() if row["pid"] != 101]
+        with patch.object(tier.baseline, "_require_windows"), \
+                patch.object(tier.subprocess, "Popen", return_value=SimpleNamespace(pid=100)) as spawn, \
+                patch.object(tier, "_ProcessObserver", self.fake_observer(spawn, rows=rows)), \
+                patch.object(tier.time, "monotonic", side_effect=[0, 2]):
+            result = tier.launch(references, token, timeout_seconds=1, process_probe=self.closed)
+        self.assertEqual(result["status"], "launched_unattributed")
+        self.assertFalse(result["launch_attributed"])
+        self.assertFalse(result["processes_terminated"])
+        self.assertEqual(spawn.call_count, 1)
+
+    def test_prearmed_foreign_history_refuses_dispatch_even_after_process_exits(self):
+        references = self.runtime_fixture()
+        token = tier.launch_plan(references)["review_token"]
+        test = self
+        class Observer:
+            def __init__(self, **options): pass
+            def start(self): return []
+            def capture(self): return dict(history=test.process_rows()[:1], current=[], samples=2, max_sample_gap_seconds=0)
+            def stop(self): return True
+        with patch.object(tier.baseline, "_require_windows"), patch.object(tier, "_ProcessObserver", Observer), \
+                patch.object(tier.subprocess, "Popen") as spawn:
+            result = tier.launch(references, token, process_probe=self.closed)
+        spawn.assert_not_called()
+        self.assertFalse(result["launch_attributed"])
+        self.assertFalse(result["process_started"])
+
+    def test_worker_failure_at_join_cannot_leave_positive_launch_claim(self):
+        references = self.runtime_fixture()
+        token = tier.launch_plan(references)["review_token"]
+        with patch.object(tier.baseline, "_require_windows"), \
+                patch.object(tier.subprocess, "Popen", return_value=SimpleNamespace(pid=100)) as spawn:
+            base = self.fake_observer(spawn)
+            class Observer(base):
+                failed = False
+                def capture(self):
+                    if self.failed: raise ValueError("incomplete")
+                    return super().capture()
+                def stop(self): self.failed = True; return True
+            with patch.object(tier, "_ProcessObserver", Observer):
+                result = tier.launch(references, token, process_probe=self.closed)
+        self.assertEqual(result["status"], "launch_observation_incomplete")
+        self.assertEqual(result["process_observer"], "native-filetime-v1")
+        self.assertTrue(result["process_started"])
+        self.assertFalse(result["launch_attributed"])
+        self.assertIsNone(result["game"])
+        self.assertFalse(result["processes_terminated"])
+
+    def assert_final_frame_invalidates_launch(self, mutation):
+        references = self.runtime_fixture()
+        token = tier.launch_plan(references)["review_token"]
+        with patch.object(tier.baseline, "_require_windows"), \
+                patch.object(tier.subprocess, "Popen", return_value=SimpleNamespace(pid=100)) as spawn:
+            base = self.fake_observer(spawn)
+            class Observer(base):
+                joined = False
+                def capture(self):
+                    observed = super().capture()
+                    if self.joined: mutation(observed)
+                    return observed
+                def stop(self): self.joined = True; return True
+            with patch.object(tier, "_ProcessObserver", Observer):
+                result = tier.launch(references, token, process_probe=self.closed)
+        self.assertEqual(result["status"], "launch_observation_incomplete")
+        self.assertTrue(result["process_started"])
+        self.assertFalse(result["launch_attributed"])
+        self.assertIsNone(result["game"])
+        self.assertFalse(result["processes_terminated"])
+
+    def test_game_exit_in_final_joined_frame_invalidates_launch(self):
+        self.assert_final_frame_invalidates_launch(lambda frame: frame.update(
+            current=[row for row in frame["current"] if row["pid"] != 102]))
+
+    def test_foreign_process_in_final_joined_frame_invalidates_launch(self):
+        def foreign(frame):
+            row = dict(frame["current"][-1], pid=777, parent_pid=666,
+                       path=str(self.root / "other/SkyrimSE.exe"))
+            frame["current"] = frame["current"] + [row]
+            frame["history"] = frame["history"] + [row]
+        self.assert_final_frame_invalidates_launch(foreign)
+
+    def test_runtime_writer_lock_and_foreign_result_change_are_preserved(self):
+        references = self.runtime_fixture()
+        token = tier.launch_plan(references)["review_token"]
+        with patch.object(tier.baseline, "_require_windows"), tier._writer_lock(self.root / ".se-lab-writer.lock"), \
+                patch.object(tier.subprocess, "Popen") as spawn:
+            with self.assertRaises(ValueError): tier.launch(references, token, process_probe=self.closed)
+            spawn.assert_not_called()
+        foreign = b'{"foreign":"preserve"}'
+        def replace_result(*args, **kwargs):
+            (self.root / tier.RUNTIME_CONTROL / "launch-result.json").write_bytes(foreign)
+            return SimpleNamespace(pid=100)
+        with self.assertRaisesRegex(ValueError, "changed"):
+            self.fake_launch(references, popen=replace_result)
+        self.assertEqual((self.root / tier.RUNTIME_CONTROL / "launch-result.json").read_bytes(), foreign)
+
+    def test_process_guard_and_invalid_timeout_refuse_before_attempt(self):
+        references = self.runtime_fixture()
+        token = tier.launch_plan(references)["review_token"]
+        with patch.object(tier.baseline, "_require_windows"), patch.object(tier.subprocess, "Popen") as spawn:
+            for timeout in (0, 61, float("nan"), float("inf"), True):
+                with self.assertRaises(ValueError): tier.launch(references, token, timeout_seconds=timeout, process_probe=self.closed)
+            with self.assertRaises(ValueError): tier.launch(references, token, process_probe=lambda: dict(verified=False))
+            spawn.assert_not_called()
+        self.assertFalse((self.root / tier.RUNTIME_CONTROL).exists())
+
+    def test_collector_handles_firstboot_changes_without_exporting_private_content(self):
+        references = self.runtime_fixture()
+        result = self.fake_launch(references)
+        self.write(tier.INSTANCE + "/overwrite/" + tier.CONFIG + "Auth.yaml", b"COLLECTOR_SECRET_SENTINEL")
+        self.write(tier.INSTANCE + "/overwrite/private.db", b"DATABASE_SECRET_SENTINEL")
+        with patch.object(tier, "_runtime_process_snapshot", side_effect=self.process_rows), \
+                patch.object(tier, "preflight", side_effect=AssertionError("firstboot contract reused")), \
+                patch.object(tier.subprocess, "run", side_effect=AssertionError("unexpected child/network")):
+            report = tier.collect(result["run_id"])
+        self.assertEqual(report["status"], "local_evidence_collected")
+        self.assertEqual(report["private_runtime_file_count"], 2)
+        self.assertEqual(report["changed_file_count"], 2)
+        self.assertFalse(report["native_verified"])
+        self.assertFalse(report["effective_config_verified"])
+        self.assertFalse(report["network_requests_performed"])
+        self.assertNotIn("SECRET_SENTINEL", json.dumps(report))
+        self.assertTrue(report["protected_paths_unchanged"])
+
+    def test_collector_rejects_process_reuse_and_reports_protected_drift(self):
+        references = self.runtime_fixture()
+        result = self.fake_launch(references)
+        rows = self.process_rows(); rows[-1]["created_ticks"] += 1
+        with patch.object(tier, "_runtime_process_snapshot", return_value=rows), self.assertRaises(ValueError):
+            tier.collect(result["run_id"])
+        self.write("Game/new-foreign-file", b"changed")
+        with patch.object(tier, "_runtime_process_snapshot", side_effect=self.process_rows):
+            report = tier.collect(result["run_id"])
+        self.assertEqual(report["status"], "protected_state_changed")
+
+    def test_collector_rejects_changed_inventory_before_capture(self):
+        references = self.runtime_fixture()
+        result = self.fake_launch(references)
+        observations = 0
+        def changed():
+            nonlocal observations
+            observations += 1
+            if observations == 2:
+                self.write(tier.INSTANCE + "/overwrite/new-runtime-file", b"changed during capture")
+            return self.process_rows()
+        with patch.object(tier, "_runtime_process_snapshot", side_effect=changed), self.assertRaisesRegex(ValueError, "changed"):
+            tier.collect(result["run_id"])
+        self.assertFalse((self.root / tier.RUNTIME_CONTROL / "captures").exists())
+
+    def test_runtime_cli_requires_separate_arguments_and_sanitizes_errors(self):
+        for args in (["launch"], ["launch-plan"], ["collect"], ["collect", "--run-id", "x", "--show-files"],
+                     ["plan", "--timeout-seconds", "4"], ["launch-plan", "--baseline-evidence", "x", "--apply"]):
+            with self.subTest(args=args), redirect_stderr(io.StringIO()), self.assertRaises(SystemExit): cli.main(args)
+        error = io.StringIO()
+        with patch.object(tier, "collect", side_effect=ValueError("PRIVATE_ERROR_SENTINEL")), redirect_stderr(error):
+            self.assertEqual(cli.main(["collect", "--run-id", "20261021T010001Z-" + "1" * 12]), 1)
+        self.assertNotIn("PRIVATE_ERROR_SENTINEL", error.getvalue())
+
+
+class NativeProcessObserverTests(unittest.TestCase):
+    def wait_for(self, predicate, timeout=2):
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if predicate(): return
+            time.sleep(0.005)
+        self.fail("Bounded observer condition was not observed")
+
+    def rows(self, root):
+        tick = tier.UNIX_TO_DOTNET_TICKS + 1
+        return [dict(pid=100, parent_pid=77, path=str(root / tier.INSTANCE / "ModOrganizer.exe"), created_ticks=tick),
+                dict(pid=101, parent_pid=100, path=str(root / "Game/skse64_loader.exe"), created_ticks=tick + 1),
+                dict(pid=102, parent_pid=101, path=str(root / "Game/SkyrimSE.exe"), created_ticks=tick + 2)]
+
+    def test_prearmed_sampler_retains_transient_loader_and_exact_ticks(self):
+        root = Path(tempfile.gettempdir()).resolve() / "synthetic-observer"
+        rows, frame = self.rows(root), []
+        observer = tier._ProcessObserver(timeout_seconds=3, snapshot=lambda: list(frame), interval=0.001)
+        self.addCleanup(observer.stop)
+        self.assertEqual(observer.start(), [])
+        frame[:] = rows[:2]
+        self.wait_for(lambda: len(observer.capture()["history"]) == 2)
+        frame[:] = [rows[0], rows[2]]
+        self.wait_for(lambda: len(observer.capture()["history"]) == 3)
+        observed = observer.capture()
+        history, game = tier._process_history(observed["current"], observed["history"], root, 100, 100)
+        self.assertEqual(history, rows)
+        self.assertEqual(game, rows[2])
+        self.assertGreaterEqual(observed["samples"], 3)
+        self.assertTrue(observer.stop())
+        self.assertFalse(observer.thread.is_alive())
+
+    def test_initial_nonempty_frame_is_reported_before_dispatch(self):
+        rows = self.rows(Path(tempfile.gettempdir()).resolve())
+        observer = tier._ProcessObserver(timeout_seconds=2, snapshot=lambda: rows, interval=0.001)
+        self.addCleanup(observer.stop)
+        self.assertEqual(observer.start(), rows)
+
+    def test_native_failure_and_malformed_first_frame_fail_closed_without_exception_body(self):
+        def broken(): raise OSError("PRIVATE_NATIVE_SENTINEL")
+        for snapshot in (broken, lambda: {}, lambda: [{}]):
+            with self.subTest(snapshot=snapshot):
+                observer = tier._ProcessObserver(timeout_seconds=2, snapshot=snapshot)
+                try:
+                    with self.assertRaisesRegex(ValueError, "incomplete") as error: observer.start()
+                    self.assertNotIn("PRIVATE_NATIVE_SENTINEL", str(error.exception))
+                finally: self.assertTrue(observer.stop())
+
+    def test_reused_duplicate_and_overflowing_late_identities_fail_closed(self):
+        root = Path(tempfile.gettempdir()).resolve()
+        rows = self.rows(root)
+        for later, maximum in (([dict(rows[0], created_ticks=rows[0]["created_ticks"] + 1)], 128),
+                               ([rows[0], rows[0]], 128), (rows[:2], 1)):
+            with self.subTest(later=later, maximum=maximum):
+                frame = rows[:1]
+                observer = tier._ProcessObserver(timeout_seconds=2, snapshot=lambda: list(frame), interval=0.001,
+                                                 max_identities=maximum)
+                try:
+                    observer.start()
+                    frame[:] = later
+                    self.wait_for(lambda: observer.failed)
+                    with self.assertRaisesRegex(ValueError, "incomplete"): observer.capture()
+                finally: self.assertTrue(observer.stop())
+
+    def test_observer_deadline_expires_without_unbounded_polling(self):
+        observer = tier._ProcessObserver(timeout_seconds=0.05, snapshot=lambda: [], interval=0.001)
+        try:
+            observer.start()
+            self.wait_for(lambda: observer.expired)
+            with self.assertRaisesRegex(ValueError, "incomplete"): observer.capture()
+        finally: self.assertTrue(observer.stop())
+
+    @unittest.skipUnless(os.name == "nt", "Native Windows process identity check")
+    def test_harmless_native_python_child_is_retained_after_exit_with_exact_filetime(self):
+        # No game, Steam, private config, network, file output or provider is involved.
+        with patch.object(tier, "PROCESS_NAMES", {Path(sys.executable).name.lower()}):
+            observer = tier._ProcessObserver(timeout_seconds=4, interval=0.01)
+            try:
+                observer.start()
+                child = subprocess.Popen([sys.executable, "-B", "-c", "import time; time.sleep(0.4)"],
+                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NO_WINDOW)
+                try:
+                    self.wait_for(lambda: any(row["pid"] == child.pid for row in observer.capture()["history"]))
+                    row = next(row for row in observer.capture()["history"] if row["pid"] == child.pid)
+                    native = tier._NativeProcesses()
+                    started, entries = native.entries()
+                    self.assertEqual(row, native.identity(entries[child.pid], started))
+                    self.assertEqual(row["parent_pid"], os.getpid())
+                    self.assertEqual(os.path.normcase(row["path"]), os.path.normcase(sys.executable))
+                finally: child.wait(timeout=3)
+                self.wait_for(lambda: all(item["pid"] != child.pid for item in observer.capture()["current"]))
+                self.assertIn(row, observer.capture()["history"])
+            finally: self.assertTrue(observer.stop())
 
 
 if __name__ == "__main__":

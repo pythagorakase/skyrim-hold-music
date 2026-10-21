@@ -204,6 +204,11 @@ ancestry; its local collector records bounded metadata without HTTP/MCP or
 provider calls. This prepares the next coexistence milestone while retaining
 the smaller controller baseline and its outstanding runtime checks.
 
+The separate [native/config smoke collector](se-lab-skyrimnet-smoke.md) adds
+bounded, read-only GET checks after exact process, module and listener
+attribution. Its 20 synthetic tests pass; a real settings readback remains
+pending. It does not enable AI, generate content or export raw settings.
+
 Runtime receipts can inherit Papyrus string casing (`Sven` versus authored
 `sven`). The history adapter resolves only unambiguous source spellings within
 the exact save/world scope, so repeat suppression sees the actual performance.

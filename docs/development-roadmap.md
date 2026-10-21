@@ -43,6 +43,13 @@ and records exact process ancestry. Its local collector records bounded metadata
 it makes no HTTP/MCP/provider calls. Actual native loading and effective
 configuration remain a later runtime checkpoint.
 
+A separate [read-only native/config smoke collector](se-lab-skyrimnet-smoke.md)
+has passed 20 synthetic tests and independent review. It requires the exact
+attributed live game, pinned native module paths/hashes and owned loopback
+listeners before fixed config GETs. It records only typed comparisons for the
+disabled controls. No live endpoint has been contacted yet; these tests do not
+establish effective native settings or zero network egress.
+
 The first real identity-bearing receipt also exposed Papyrus string casing at
 the planner boundary. Derived performance history now resolves unambiguous
 source performer/composition spellings while preserving the original receipt,

@@ -1,8 +1,9 @@
 # Disabled SkyrimNet SE lab preparation
 
 `tools/se_lab_skyrimnet.py` reviews a concrete preparation recipe, checks a
-first-boot installation, or explicitly installs a new separate disabled tier.
-It never launches, arms, contacts HTTP/MCP, or generates audio. The existing
+first-boot installation, explicitly installs a separate disabled tier, and offers
+a separately reviewed one-shot launch plus local metadata collection. It never
+arms a scenario, contacts HTTP/MCP, or generates audio. The existing
 baseline `tools/se_lab.py` is unchanged and continues to exclude SkyrimNet.
 
 ```powershell
@@ -12,8 +13,8 @@ baseline `tools/se_lab.py` is unchanged and continues to exclude SkyrimNet.
 
 `--show-files` includes every proposed payload hash/source and observed snapshot.
 `plan`, `preflight`, `install-plan`, `install-status` and recovery previews are
-read-only. Installation and recovery have separate explicit commands and tokens.
-There is no root override or launch command. Tests substitute temporary roots
+read-only. Installation, recovery and launch have separate explicit commands and
+tokens. There is no root override. Tests substitute temporary roots
 in process only.
 
 ## Separate instance and source contract
@@ -110,16 +111,17 @@ send HTTP, reserve them for a future launch, or identify an existing server.
 Any future HTTP/MCP collector must bind the listening PID, executable path and
 start time to the exact launched lab game. A port number alone proves nothing.
 
-`clean_launch_environment()` is an allowlist helper for a future explicit
+`clean_launch_environment()` is an allowlist helper for the explicit
 launcher: OS paths survive, arbitrary credential/proxy variables do not, and
 Steam app/game IDs are pinned to 489830. It does not mutate the caller's
 environment. Reports disclose names of retained variables, never their values.
-No current tool consumes this helper to launch a process.
+The launcher passes this environment explicitly to the separate MO2 executable.
 
 The original inspection reports keep `can_apply` false. Installation/recovery
 reviews can report `can_apply=true`, meaning only that their explicit file action
-can be requested. Every operation keeps `can_launch`, `native_verified`,
-`runtime_verified` and `egress_verified` false. Tokens bind their distinct tier
+can be requested. Only a successful `launch-plan` reports `can_launch=true`.
+Every operation keeps `native_verified`, `runtime_verified` and `egress_verified`
+false. Tokens bind their distinct tier
 and operation and cannot authorize the baseline runner.
 
 ## Explicit installation and interrupted preparation
@@ -196,6 +198,112 @@ directory or uninstall a used instance. Successful file installation is still
 not native/VFS/runtime/config-acceptance verification.
 
 ## Next runtime milestone
+
+The current launch/collection checkpoint is tested with synthetic installations
+and fake process observations. Those tests are not a real SkyrimNet first-boot
+result. Do not use the failed requested-interruption baseline as acceptance.
+
+## Explicit first boot and bounded local collection
+
+`launch-plan` requires an exact completed installation and the unchanged strict
+first-boot preflight. It also requires three explicit accepted baseline capture
+references: `focused_complete`, `focused_interrupt`, and `ambient_entry`. Put
+only references in a JSON file:
+
+```json
+{
+  "focused_complete": {
+    "capture": {"run_id": "<baseline run ID>", "capture_id": "<32 hex characters>"},
+    "before": {"run_id": "<prior run ID>", "capture_id": "<prior capture ID>"}
+  },
+  "focused_interrupt": {
+    "capture": {"run_id": "<baseline run ID>", "capture_id": "<32 hex characters>"},
+    "before": {"run_id": "<prior run ID>", "capture_id": "<prior capture ID>"}
+  },
+  "ambient_entry": {
+    "capture": {"run_id": "<baseline run ID>", "capture_id": "<32 hex characters>"},
+    "before": {"run_id": "<prior run ID>", "capture_id": "<prior capture ID>"}
+  }
+}
+```
+
+The `before` reference is required when the run began with existing receipts;
+omit it for an empty history. The prior capture's receipt and trace bytes must
+match the original run's baseline hashes. All references resolve only beneath
+the fixed lab `runs` directory. Paths in historical JSON cannot select files
+for the tool to open.
+
+Acceptance checks the fresh nonce, request timestamp, scenario, passed terminal
+result, exactly one new receipt, unchanged prior receipt history, matching
+start/stop trace, restored globals/hour and resolved controlled alias/faction
+ownership. When admission evidence exists, its ticket must be released, drain
+and resume observed, and all pending/fault fields clear. Ambient acceptance
+requires the production inn-entry and scan assertions without injected entry
+setup. Requested interruption requires a timely stop request and the causal
+`stop_requested` trace guard; completion or an unrelated interruption fails.
+Ambient duration must match the pinned source recording and the production
+start trace; its unused focused-duration cache is not an ambient measurement.
+Focused scenarios require their cached fixture duration to match the source.
+The complete receipt identity must match the selected synthetic source fixture
+and its projected digest. ASCII case differences in captured Papyrus display
+strings are accepted without recomputing or normalizing the source digest.
+Every baseline mod file copied into the second tier must match that accepted
+run's original preflight hash. Controlled AI evidence does not establish natural
+tavern behavior or general vanilla-scene quiescence.
+
+```powershell
+& '<bundled Python 3.12 path>\python.exe' -B -X utf8 tools/se_lab_skyrimnet.py launch-plan --baseline-evidence '<references.json>'
+& '<bundled Python 3.12 path>\python.exe' -B -X utf8 tools/se_lab_skyrimnet.py launch --baseline-evidence '<references.json>' --review-token '<launch-plan token>' --timeout-seconds 30
+& '<bundled Python 3.12 path>\python.exe' -B -X utf8 tools/se_lab_skyrimnet.py collect --run-id '<returned first-boot run ID>'
+```
+
+Launch rechecks the exact recipe, acceptance files, implementation, protected
+Game/baseline inventories, process closure and clean environment under writer
+locks. It stores durable intent in `.skyrimnet-tier-runtime` before `Popen`.
+Only fixed `MO2-SkyrimNet/ModOrganizer.exe`, the disabled profile and fixed lab
+SKSE loader are dispatched. The observation timeout is finite, 1–60 seconds;
+it never kills a process or repeats a launch. Any retained attempt, including an
+unknown spawn outcome, prevents automatic retry or reset.
+
+Process evidence uses executable path, PID, parent PID and exact Windows creation
+ticks. A bounded native observer is ready before dispatch and polls at a requested
+20 ms interval, retaining short-lived parent identities. It uses process-only
+Toolhelp snapshots, limited-query process handles, `QueryFullProcessImageNameW`
+and `GetProcessTimes`. Run and result metadata name this backend
+`native-filetime-v1` and report sample count and maximum observed sampling gap.
+Launch and collection use the same full-precision ticks: FILETIME plus
+504911232000000000, expressed as 100 ns intervals since year 1. Do not compare
+these identities to rounded CIM creation timestamps.
+
+Attribution requires the observed separate MO2 → SKSE loader → game ancestry.
+Polling cannot guarantee observation of every transient process. A missing or
+inaccessible identity, changed PID, worker failure or missing parent leaves the
+launch **unattributed**. The tool does not relax that condition to a matching
+executable path. Shared Documents logs remain outside this proof.
+
+For a read-only identity recheck before any separately authorized cleanup,
+import `hold_music.se_lab_skyrimnet` from this checkout and call
+`_runtime_process_snapshot()`. Match the retained row's PID, parent PID, full
+path and `created_ticks` exactly. The call reads process metadata only; it does
+not stop anything. A missing row or mismatched identity provides no authority
+to stop a replacement process. Neither this launcher nor collector provides a
+kill command.
+
+The collector is separate from strict first-boot preflight: generated config,
+Auth or database files need not match pristine seeds after boot. It hashes local
+files and reports only change counts/digests, private-file count, protected-path
+drift and current process attribution. It exports no raw logs, configuration,
+Auth/database contents, environment values, command-line inventory or arbitrary
+generated filenames. A changing file tree or reused PID prevents a coherent
+capture. Captures are new files under `.skyrimnet-tier-runtime/captures`; they
+never replace runtime state or original baseline evidence. Local metadata is
+not proof that a plugin initialized or accepted a configuration.
+
+No HTTP/MCP client is implemented in this checkpoint. `native_verified`,
+`effective_config_verified`, `vfs_verified`, `runtime_verified` and
+`egress_verified` remain false even when launch ancestry is attributed. Native
+loading, effective disabled settings, write destinations and listener ownership
+still need a separate bounded smoke test before any enabled AI pathway.
 
 The disabled configuration and absent credentials supply no provider billing
 authority; they are not independent proof of zero network egress. Windows
