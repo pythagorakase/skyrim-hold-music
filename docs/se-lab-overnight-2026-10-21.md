@@ -5,6 +5,33 @@ Continue until 08:00 America/Chicago on 21 October, then summarize and pause the
 `hold-music-offline-overnight-development` heartbeat. The old Echo watcher stays
 paused. The former Steam-use deferral is lifted for the isolated lab only.
 
+## Morning handoff (07:53 CDT)
+
+Source checkpoint `9e977802123d7dc5ecb4c54ef0a9c5af84e65162` is synchronized
+on Halcyon, GitHub and a clean Echo checkout. The current source has 301 passing
+Windows cases with two platform skips across the 303-case suite; the three Qt
+checks initially missing their optional bundle path passed separately. Echo's
+full eight-suite run passed 297 cases with six expected platform skips
+(303 total, 57.162 seconds), clean before and after. Its log is
+`local/se-lab-echo-qasmoke-v3-9e97780-20261021.log`, SHA256
+`0c1fb8a510c72c82eba8db9d087fde8b88aceaef423aa6f9248633ff42d61893`.
+
+Final process inspection finds no relevant game/MO2 processes. The sixth tier
+and its opaque cache are retained; active tier paths and `Game/default` are
+absent. Both original Steam manifests remain read-only with their starting
+hashes. No paid inference or audio-generation request was made by the tools.
+Native startup transfer activity is explicitly documented below.
+
+The controlled baseline's three engine scenarios pass. SkyrimNet v2 adds
+effective disabled-control, plugin and player observations, with the visible
+notice and incomplete routing capture preserved. The source-only v3 recipe and
+routing correction are ready for a new isolated installation/readback; v3 has
+not been installed or launched. The next live cycle should be completed and
+retained as a whole, then advance to a bounded fake-provider check and controlled
+coexistence. Natural NPC behavior, audible quality and SkyrimVR acceptance are
+separate remaining checks. Pause the overnight follow-up after this checkpoint
+is synchronized; leave the older Echo watcher disabled.
+
 ## Sixth run: player observed, controls disabled (07:20 CDT)
 
 The QASmoke preparation was published as `0b9831b` and synchronized to clean
