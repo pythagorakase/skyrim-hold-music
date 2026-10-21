@@ -84,12 +84,19 @@ def clean_launch_environment(environment=None):
     Values are intentionally excluded from public reports.
     """
     environment = os.environ if environment is None else environment
+    # MO2 2.5.2 initLogging() concatenates getenv("USERNAME") without a null
+    # check. Preserve exactly one inherited value under its canonical Windows
+    # name; do not invent one from a path or accept ambiguous casing aliases.
+    usernames = [value for key, value in environment.items() if key.casefold() == "username"]
+    if (len(usernames) != 1 or not isinstance(usernames[0], str)
+            or not usernames[0] or "\0" in usernames[0]):
+        raise ValueError("One nonempty inherited USERNAME is required for MO2 startup")
     allowed = {"systemroot", "windir", "comspec", "temp", "tmp", "userprofile",
                "appdata", "localappdata", "programdata", "programfiles",
                "programfiles(x86)", "commonprogramfiles", "commonprogramfiles(x86)",
                "path", "pathext", "systemdrive", "homedrive", "homepath"}
     result = {key: value for key, value in environment.items() if key.casefold() in allowed}
-    result.update(SteamAppId="489830", SteamGameId="489830")
+    result.update(USERNAME=usernames[0], SteamAppId="489830", SteamGameId="489830")
     return result
 
 
@@ -384,7 +391,8 @@ def _inspect(prepared):
                 return os.path.normcase(os.path.abspath(candidate)) == os.path.normcase(str(expected))
             if (not equivalent(ini.get("General", "gamePath"), root / "Game")
                     or _qt_ini_string(ini.get("General", "selected_profile")) != PROFILE
-                    or _qt_ini_string(ini.get("General", "gameName")) != "Skyrim Special Edition"):
+                    or _qt_ini_string(ini.get("General", "gameName")) != "Skyrim Special Edition"
+                    or _qt_ini_string(ini.get("General", "game_edition")) != "Steam"):
                 block("mo2_identity", "Second instance must select only the fixed lab Game and tier profile")
             directory_keys = {"base_directory": "", "mod_directory": "mods", "mods_directory": "mods",
                 "profiles_directory": "profiles", "overwrite_directory": "overwrite", "download_directory": "downloads",
@@ -519,7 +527,7 @@ def _instance_seeds(root, recipe):
     profile = "profiles/" + PROFILE + "/"
     return {
         "portable.txt": "",
-        "ModOrganizer.ini": "[General]\ngameName=Skyrim Special Edition\nselected_profile=@ByteArray(" + PROFILE
+        "ModOrganizer.ini": "[General]\ngameName=Skyrim Special Edition\ngame_edition=Steam\nselected_profile=@ByteArray(" + PROFILE
             + ")\ngamePath=@ByteArray(" + (root / "Game").as_posix() + ")\n[Settings]\n"
             + "\n".join(key + "=" + (target / child).as_posix() for key, child in (
                 ("base_directory", ""), ("mod_directory", "mods"), ("profiles_directory", "profiles"),

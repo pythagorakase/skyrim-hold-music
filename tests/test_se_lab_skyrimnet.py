@@ -28,6 +28,8 @@ class SkyrimNetTierTests(unittest.TestCase):
         self.root = Path(temporary.name).resolve() / "lab"
         self.root.mkdir()
         self.addCleanup(patch.stopall)
+        # The target is Windows, including when fake-tree tests run elsewhere.
+        patch.dict(os.environ, {"USERNAME": "fixture-user"}).start()
         patch.object(tier, "LAB_ROOT", self.root).start()
         patch.object(tier.baseline, "_file_version", return_value="1.6.1170.0").start()
         patch.object(tier, "_ports_available", return_value=True).start()
@@ -121,7 +123,7 @@ class SkyrimNetTierTests(unittest.TestCase):
             self.write(tier.INSTANCE + "/ModOrganizer.ini", seed.encode("utf-8"))
             return
         self.write(tier.INSTANCE + "/ModOrganizer.ini", (
-            "[General]\ngameName=Skyrim Special Edition\nselected_profile=@ByteArray(" + tier.PROFILE
+            "[General]\ngameName=Skyrim Special Edition\ngame_edition=Steam\nselected_profile=@ByteArray(" + tier.PROFILE
             + ")\ngamePath=@ByteArray(" + (game or self.root / "Game").as_posix() + ")\n" + extra).encode())
 
     @staticmethod
@@ -170,6 +172,21 @@ class SkyrimNetTierTests(unittest.TestCase):
         self.assertEqual(report["status"], "blocked")
         self.assertIn("file_hash", self.codes(report))
         self.assertEqual(before, self.files())
+
+    def test_preflight_requires_explicit_steam_edition_in_canonical_seed(self):
+        self.prepare_fixture()
+        relative = tier.INSTANCE + "/ModOrganizer.ini"
+        canonical = (self.root / relative).read_bytes()
+        self.assertEqual(canonical.count(b"game_edition=Steam\n"), 1)
+        for replacement in (b"", b"game_edition=\n", b"game_edition=GOG\n",
+                            b"game_edition=Epic Games\n"):
+            with self.subTest(replacement=replacement):
+                raw = canonical.replace(b"game_edition=Steam\n", replacement)
+                self.write(relative, raw)
+                report = tier.preflight()
+                self.assertEqual(report["status"], "blocked")
+                self.assertIn("mo2_ini_seed", self.codes(report))
+                self.assertEqual((self.root / relative).read_bytes(), raw)
 
     def test_pinned_archive_drift_rejected_before_payload_trust(self):
         self.archives[0]["path"].write_bytes(b"replaced")
@@ -361,12 +378,23 @@ class SkyrimNetTierTests(unittest.TestCase):
 
     def test_clean_environment_has_no_inherited_keys_tokens_or_proxies(self):
         source = {"SystemRoot": r"C:\Windows", "PATH": "fixture-path", "APPDATA": "fixture-appdata",
+                  "uSeRnAmE": "exact fixture user",
                   "OPENROUTER_API_KEY": "secret-a", "AWS_SECRET_ACCESS_KEY": "secret-b",
                   "HTTP_PROXY": "private-proxy", "UNKNOWN_SECRET": "secret-c", "SteamAppId": "611670"}
         clean = tier.clean_launch_environment(source)
         self.assertEqual(clean, {"SystemRoot": r"C:\Windows", "PATH": "fixture-path", "APPDATA": "fixture-appdata",
+                                 "USERNAME": "exact fixture user",
                                  "SteamAppId": "489830", "SteamGameId": "489830"})
         self.assertEqual(source["SteamAppId"], "611670")
+        self.assertNotIn("USERNAME", source)
+
+    def test_clean_environment_rejects_missing_empty_and_ambiguous_username(self):
+        for source in ({}, {"USERNAME": ""}, {"USERNAME": None}, {"USERNAME": "PRIVATE\0VALUE"},
+                       {"USERNAME": "PRIVATE_A", "username": "PRIVATE_B"},
+                       {"USERNAME": "PRIVATE_A", "UserName": "PRIVATE_A"}):
+            with self.subTest(names=sorted(source)), self.assertRaisesRegex(ValueError, "USERNAME") as error:
+                tier.clean_launch_environment(source)
+            self.assertNotIn("PRIVATE", str(error.exception))
 
     def test_alias_rejected_without_following_target(self):
         destination = self.root / "Game/Data/aliased"
@@ -944,17 +972,38 @@ tier.install(tier.installation_plan()['review_token'],process_probe=lambda:dict(
         def spawn(command, **options):
             calls.append((command, options))
             return SimpleNamespace(pid=100)
-        with patch.dict(os.environ, {"OPENROUTER_API_KEY": "NEVER_COPY", "HTTP_PROXY": "NEVER_COPY"}):
+        with patch.dict(os.environ, {"OPENROUTER_API_KEY": "NEVER_COPY", "HTTP_PROXY": "NEVER_COPY",
+                                    "USERNAME": "PRIVATE_USERNAME_SENTINEL"}):
             result = self.fake_launch(references, popen=spawn)
         self.assertEqual(result["status"], "launched_attributed")
         self.assertEqual(calls[0][0], tier._runtime_command(self.root))
         self.assertEqual(calls[0][1]["cwd"], str(self.root / tier.INSTANCE))
         self.assertFalse(calls[0][1]["shell"])
         self.assertNotIn("NEVER_COPY", json.dumps(calls[0][1]["env"]))
+        self.assertEqual(calls[0][1]["env"]["USERNAME"], "PRIVATE_USERNAME_SENTINEL")
+        self.assertNotIn("PRIVATE_USERNAME_SENTINEL", json.dumps(result))
+        for name in ("run.json", "launch-result.json"):
+            self.assertNotIn("PRIVATE_USERNAME_SENTINEL", (self.root / tier.RUNTIME_CONTROL / name).read_text())
         self.assertEqual(original, tier._protected(self.root))
         self.assertFalse(result["native_verified"])
         with self.assertRaisesRegex(ValueError, "attempt already"):
             tier.launch_plan(references)
+
+    def test_launch_rejects_missing_empty_or_changed_username_before_attempt(self):
+        references = self.runtime_fixture()
+        plan = tier.launch_plan(references)
+        source = dict(os.environ)
+        source.pop("USERNAME", None)
+        for username in (None, "", "PRIVATE_CHANGED_USERNAME"):
+            environment = dict(source)
+            if username is not None: environment["USERNAME"] = username
+            with self.subTest(username_present=username is not None), patch.dict(os.environ, environment, clear=True), \
+                    patch.object(tier.baseline, "_require_windows"), patch.object(tier.subprocess, "Popen") as spawn:
+                with self.assertRaises(ValueError) as error:
+                    tier.launch(references, plan["review_token"], process_probe=self.closed)
+                spawn.assert_not_called()
+                self.assertNotIn("PRIVATE_CHANGED_USERNAME", str(error.exception))
+                self.assertFalse((self.root / tier.RUNTIME_CONTROL).exists())
 
     def test_process_lineage_refuses_missing_loader_foreign_parent_old_and_reused_pid(self):
         references = self.runtime_fixture()
@@ -1181,6 +1230,8 @@ class QtIniEncodingTests(unittest.TestCase):
         seed = tier._instance_seeds(root, dict(active_mods=[], enabled_plugins=[]))["ModOrganizer.ini"]
         parsed = configparser.ConfigParser(interpolation=None); parsed.read_string(seed)
         self.assertEqual(tier._qt_ini_string(parsed.get("General", "gamePath")), (root / "Game").as_posix())
+        self.assertEqual(parsed.get("General", "game_edition"), "Steam")
+        self.assertEqual(set(parsed["General"]), {"gamename", "game_edition", "selected_profile", "gamepath"})
         self.assertNotIn("\\", seed)
         for key, value in parsed.items("Settings"):
             self.assertTrue(Path(tier._qt_ini_string(value)).is_relative_to(root / tier.INSTANCE), key)
@@ -1206,7 +1257,7 @@ from PyQt6.QtCore import QSettings,QByteArray,qVersion
 rows=[]
 for name in sys.argv[2:]:
  settings=QSettings(name,QSettings.Format.IniFormat)
- keys=['gamePath','Settings/base_directory','Settings/mod_directory','Settings/profiles_directory',
+ keys=['gamePath','game_edition','Settings/base_directory','Settings/mod_directory','Settings/profiles_directory',
        'Settings/overwrite_directory','Settings/download_directory','Settings/cache_directory']
  values={}
  for key in keys:
@@ -1222,7 +1273,7 @@ print(json.dumps(dict(version=qVersion(),rows=rows)))
             self.assertEqual([row["status"] for row in report["rows"]], ["NoError", "NoError", "NoError"])
             self.assertNotEqual(report["rows"][0]["values"]["gamePath"], str(root / "Game"))
             parsed = configparser.ConfigParser(interpolation=None);parsed.read_string(corrected)
-            self.assertEqual(report["rows"][1]["values"], {"gamePath": (root / "Game").as_posix(),
+            self.assertEqual(report["rows"][1]["values"], {"gamePath": (root / "Game").as_posix(), "game_edition": "Steam",
                 **{"Settings/" + key: value for key, value in parsed.items("Settings")}})
             self.assertEqual(report["rows"][2]["values"]["gamePath"], "C:/Steam/Skyrim")
             self.assertEqual(original, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths})

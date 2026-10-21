@@ -5,7 +5,58 @@ Continue until 08:00 America/Chicago on 21 October, then summarize and pause the
 `hold-music-offline-overnight-development` heartbeat. The old Echo watcher stays
 paused. The former Steam-use deferral is lifted for the isolated lab only.
 
-## Current checkpoint (04:08 CDT)
+## Current checkpoint (04:24 CDT)
+
+- Second retention completed `retained_verified`: all three directories, 5,573
+  instance files, raw journals and original `327cc4f` source archive are intact
+  under `checkpoints/skyrimnet-username-failed-attempt-20261021/`; protected
+  baseline/Game state is unchanged. The first qsettings checkpoint is untouched.
+- The final USERNAME/Steam-edition source is frozen at SHA256
+  `1960a510ea0a92b5a7ceeb1ed24c6b7ae9130a138c24a0582f2df6d69e2f80cd`.
+  Independent focused checks pass 7/7, including actual Qt6.7.1; the 80 smoke,
+  routing and MCP regressions pass against it. The synchronized prior checkpoint
+  also passes those 80 observation tests on Echo's Python3.13. The full tier suite
+  passed 84 cases: 83 passed and one expected Windows symlink-permission skip,
+  with both actual Qt6.7.1 cases run. Log SHA256:
+  `bd2d260b99eaaa35e6b5d3ccb619dc90a7724ed8ed9952f739eade1388b1bb9c`.
+  The new install plan has no blockers and its reviewed apply is in progress.
+  Native launch and all HTTP/MCP observation remain pending.
+
+### Diagnosed startup checkpoint (04:12 CDT)
+
+- Inspection checkpoint `69ba125` is synchronized on Halcyon, GitHub and clean
+  Echo. Its identical-tree local commit `327cc4f` is retained on
+  `checkpoint/se-lab-inspection-20261021-0413`. The final 80 observation tests
+  passed again after whitespace cleanup; no live observations have run.
+- Matching official MO2 2.5.2 symbols localize both early crashes to
+  `initLogging`, `src/loglist.cpp:371`, the unchecked
+  `std::string("\\") + getenv("USERNAME")` expression. Executable, PDB and
+  dump GUID/age match; the dump records a null read with both instruction address
+  operands zero. The retained launch environment omitted `USERNAME`, while the
+  working baseline inherits it. This identifies the early startup failure;
+  progress beyond it still needs a corrected launch.
+- All 1,626 regular application archive files match the working baseline.
+  No dependency replacement is justified. A narrow source correction now
+  preserves exactly one nonempty inherited `USERNAME` without exporting its
+  value, and rejects missing/ambiguous values before dispatch. Its tests/review
+  are in progress; the installed failed attempt is untouched.
+- Independent source review also confirms the fresh INI needs
+  `game_edition=Steam`: instance setup otherwise presents a variant-selection
+  dialog before CLI dispatch. Only that field is added; the direct CLI path
+  bypasses the main-window tutorial/version handling, so those flags and custom
+  executables remain absent. Final test coverage includes actual Qt parsing.
+- The second retention helper is prepared, not applied, under
+  `local/se-lab-skyrimnet-env-retention-20261021/`. Its 11 fixture tests pass
+  independently. It changes only five fixed literals from the first reviewed
+  helper and targets `skyrimnet-username-failed-attempt-20261021`. The original
+  `327cc4f` archive is retained as Git content; all ten exact raw source files
+  already match the failed run's hashes in the separate source snapshot. Git
+  archive line endings differ only by CRLF-to-LF normalization.
+- Symbol evidence is `local/mo2-symbols-20261021/symbol-projection.json`, SHA256
+  `b91087073945676786538ed182500b8b85e800973e9e360af2a74a4e4f304311`.
+  The official source is [MO2 loglist.cpp at v2.5.2](https://github.com/ModOrganizer2/modorganizer/blob/v2.5.2/src/loglist.cpp#L371).
+
+### Second failed startup checkpoint (04:08 CDT)
 
 - Corrected run `20261021T090334Z-6b4447114828` also failed before Skyrim
   started. Its separate MO2 PID 14048 crashed at the same `0xEF486` offset and

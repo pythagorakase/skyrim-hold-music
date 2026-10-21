@@ -113,7 +113,12 @@ start time to the exact launched lab game. A port number alone proves nothing.
 
 `clean_launch_environment()` is an allowlist helper for the explicit
 launcher: OS paths survive, arbitrary credential/proxy variables do not, and
-Steam app/game IDs are pinned to 489830. It does not mutate the caller's
+Steam app/game IDs are pinned to 489830. The exact inherited `USERNAME` is
+required and passed under that canonical name: MO2 2.5.2's
+[logging initializer](https://github.com/ModOrganizer2/modorganizer/blob/v2.5.2/src/loglist.cpp#L371)
+uses it without checking for a missing value. Missing, empty, NUL-containing or
+case-ambiguous values fail before launch; no fallback identity is invented.
+The helper does not mutate the caller's
 environment. Reports disclose names of retained variables, never their values.
 The launcher passes this environment explicitly to the separate MO2 executable.
 
@@ -272,6 +277,16 @@ against the pinned MO2 Qt 6.7.1 parser can be enabled with
 `HOLD_MUSIC_TEST_QT_ROOT` pointing to that MO2 distribution; it does not launch MO2
 or change its settings. A configuration defect does not establish the exact
 cause of an application crash without further evidence.
+The fresh instance explicitly sets `game_edition=Steam`: MO2 2.5.2's
+[instance setup](https://github.com/ModOrganizer2/modorganizer/blob/v2.5.2/src/instancemanager.cpp#L162)
+requires a selected edition when a game has multiple variants, and the
+[Skyrim SE plugin](https://github.com/ModOrganizer2/modorganizer-game_skyrimSE/blob/82ac42f83f717b4884c8c551cb67b545e15177bc/src/gameskyrimse.cpp#L257)
+lists Steam, GOG and Epic Games. This prevents the known edition-selection prompt
+before command dispatch. The plugin source is a pinned public revision, not a
+claim that its complete source was matched to the shipped DLL.
+The seed leaves `first_start`, `version` and custom executables absent: the
+[direct CLI run path](https://github.com/ModOrganizer2/modorganizer/blob/v2.5.2/src/main.cpp#L121)
+returns before the main window's tutorial and version-migration handling.
 Only fixed `MO2-SkyrimNet/ModOrganizer.exe`, the disabled profile and fixed lab
 SKSE loader are dispatched. The observation timeout is finite, 1–60 seconds;
 it never kills a process or repeats a launch. Any retained attempt, including an

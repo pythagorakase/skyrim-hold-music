@@ -53,8 +53,12 @@ both real Qt regressions (one expected Windows permissions skip). The failed
 instance, receipts and original source are retained intact with verified
 inventories and protected paths. The corrected installation and preflight passed,
 but its launch reproduced the same early MO2 crash, before Skyrim. Both attempts
-and exact source snapshots are preserved. Matching-symbol startup diagnosis is
-next; native SkyrimNet acceptance remains pending.
+and exact source snapshots are preserved. Matching official symbols identify
+MO2's unchecked `getenv("USERNAME")` in startup logging: the launch allowlist
+removed that required variable. The inherited-value correction and explicit
+Steam-edition seed pass 83 tests plus one expected Windows skip, including the
+actual Qt parser, and independent review. A new isolated installation is in
+progress; native SkyrimNet acceptance remains pending until a new launch.
 
 A separate [read-only native/config smoke collector](se-lab-skyrimnet-smoke.md)
 has passed 24 synthetic tests and independent review. It requires the exact
