@@ -5,7 +5,144 @@ Continue until 08:00 America/Chicago on 21 October, then summarize and pause the
 `hold-music-offline-overnight-development` heartbeat. The old Echo watcher stays
 paused. The former Steam-use deferral is lifted for the isolated lab only.
 
-## Current checkpoint (05:41 CDT)
+## Current checkpoint (06:35 CDT)
+
+Fifth run `20261021T105157Z-a7f1bce383bc` is positively attributed with
+`native-filetime-v2`. Its fresh installation transaction is
+`f5e9389e26d24022bcb8aa36ad6b8eed`; first-boot preflight passed. The observer
+retained MO2 PID45328, loader PID50044 and game PID10008 with their full creation
+ticks and exact paths. Same-handle cleanup is now complete: game10008 exited
+with the recorded forced code18509, MO2 exited naturally with code0, and a fresh
+snapshot confirms all relevant processes closed. Whole-tier and opaque-cache
+retention are complete; the next installation will need fresh preparation.
+
+The fresh smoke capture `2e6d86c91f02414392cf9b618b03d637` passes all 29 typed
+checks across 13 configuration categories. All seven pinned native modules
+match physical paths and hashes; both loopback listeners belong to the same
+game. Global AI, both GameMaster switches, bard generation, narration, telemetry
+and the other requested services read back disabled. The main-menu window was
+visually observed. No optional Anniversary download was accepted. This is
+effective-control evidence, not a world-load, playback, or zero-egress result.
+Smoke report SHA256:
+`c528b7eebd2146ca6b32743228d56b8e8ecf4d9a63f5d75fba61b110c20dcb5e`.
+
+Four routing GETs completed in capture `9d1631c5728d4f50b2b33119b4c51e14`.
+Its audit remains `incomplete_or_mismatched`: six returned providers, one
+variant and two slots include non-test endpoints/defaults and unresolved
+inheritance/fields. No provider request was made; do not enable generation
+from this evidence. MCP discovery capture `b914abeb74f74b0b81c5940074a722a7`
+is also incomplete, with stable identity and a bounded discovery failure.
+Two separately reviewed observations preserve that failure and narrow it:
+`cd3d1e880d8f421a90f25369cd87ddc5` reports SSE handshake failure;
+`aff92aaf04904e1aa67c86c2513128ce` reports `sse_headers/header_duplicate`,
+HTTP200, matched final context and no deadline overrun. No `tools/call` has
+been sent. Diagnostics change no wire acceptance or request sequence; the latest
+36-case discovery suite passes independently. Exact source for the last capture
+is saved under `local/se-lab-mcp-handshake-source-20261021` with a receipt;
+module SHA256 `4ddc9c32d549db9aec1114dff582dd2ba616b1e4f4c321c83fbdf98a66752a39`.
+Fresh capture `b66c1648a99048fdb6cd3181154e89bb` identifies the duplicate as
+`content-type`, with equal trimmed values, two occurrences and two fields
+examined. It still rejects the response and sends no POST. This connects the
+observed failure to the clean DLL's MCP SSE handler, which inserts the same
+`text/event-stream` value twice into the same response headers. The separate
+AgentsPage streaming handler is not the evidence for this finding. Diagnostic
+source `5ddc0fe6eaad32521d30480896d89254c230a16d51abd27583117182dcadf74b`
+is retained under `local/se-lab-mcp-duplicate-source-20261021`. A narrowly pinned
+SSE-only compatibility change is being tested; no header acceptance has yet
+changed in an actual observation. Root's combined discovery/plugin fake suite
+passed 54/54 in 15.459 seconds using unittest discovery; direct module-style
+invocation failed the new test's sibling-fixture import and is not a passing run.
+At that diagnostic checkpoint, the separate `get_plugins` collector was still
+under adversarial prerequisite review and had made no actual tool call.
+
+The subsequently reviewed compatibility source
+`217872aaa2a5004a1387adf2825e937ceeb302aacae4c4ad383ba252f251dab0`
+passes a fresh live discovery: capture `d006c9c5f98e43e39e45b086c1fb9c2c`
+returned 56 tools using four requests and three SSE events, with matched final
+context and the pinned two-Content-Type exception actually used. Report SHA256:
+`b3b5de55bd6e5b451c9825cfb0872b124765def74204900810d19369b925efa5`.
+All previous failures above remain separate failed captures.
+
+One explicitly reviewed `get_plugins` call then passed in capture
+`1881b35770274cc2abc89cb1c7ba9f1b`: ten loaded filenames, all five expected
+profile plugins present, five total requests, four SSE events, and stable
+identity/context. No other game-inspection tool was called. Its exact source
+is retained in `local/se-lab-mcp-plugins-source-20261021`; the four files and
+both linked prerequisite captures passed independent review. Root's final
+combined suite passed 68/68 in 19.426 seconds with zero skips. Log SHA256:
+`615c6b1b98f0910269f9e138e93799eee28b8d1ea4462288df9430acc4603ebb`.
+This is a main-menu loaded-plugin observation, not world or playback acceptance.
+MO2 changed its profile header again during exit; that later state correctly
+fails the live profile gate and is retained rather than retroactively adopted.
+
+Earlier diagnostic revisions have recorded hashes/test results, but were not
+independently snapshotted before later edits. Their reports remain immutable.
+
+Static inspection explains the routing mismatch: the native reload adds missing
+built-in provider IDs, and text-model loading recreates the `decisions` variant
+when omitted. A custom-only catalog and `variants:{}` therefore do not remove
+native routes. A separate explicit seed candidate is being prepared; no live
+configuration has been changed. The Anniversary download prompt remains visible
+after Escape/console-key attempts; no further UI input or download was accepted.
+The earlier baseline entered QASmoke using its explicit `sStartingCell`, which
+this first-boot profile deliberately does not set.
+
+Local metadata capture `32ba9d3dcfe74fbdab49d8f0a52da14d` reports original
+assets unchanged and runtime storage within its explicit contract. Literal
+protected-path equality is false because the permitted session cache appeared.
+The next task is a separate disposable QASmoke world-readiness checkpoint,
+keeping generation, production Hold Music playback and harness autorun disabled.
+The native provider-default audit remains incomplete.
+
+Closed-run shared logs are archived under
+`checkpoints/skyrimnet-observer-v2-shared-logs-after-20261021`. SkyrimNet.log is
+214,169 bytes/1,620 lines, SHA256
+`713e2a099f6e499ceed01a71913fbd798b3f933b5ae717e0181aac0c5d934934`.
+The fixed-pattern summary records zero error/critical/config-registration
+failures, four warning lines, one model-download-start marker, two download
+success/verification markers and no telemetry/provider-request markers. Absent
+markers are not proof of absent traffic. The [native model audit](se-lab-native-model-initialization.md)
+explains unconditional embedding/VAD verification and exact-hash local reuse;
+it does not establish a general no-egress control. The archived Papyrus log's
+old timestamp means it must not be treated as fresh fifth-run world evidence.
+
+All eleven raw launch-bound source files, including the original line endings,
+are separately preserved under `local/se-lab-fifth-launch-source-20261021`.
+Its receipt SHA256 is
+`bc251c8859e4d15f1367e327a908b29048eefb395cf01ab43953a72f1a33683b`.
+Both new retention helpers passed 36/36 independent temporary-fixture tests.
+Actual whole-tier retention now reports `retained_verified`, preserving all
+5,840 instance files, two installation files and twelve runtime evidence files
+under `checkpoints/skyrimnet-disabled-controls-observed-20261021`. Its separate
+opaque three-file cache operation reports `cache_retained_verified`, with
+Game/default absent and all preexisting protected files unchanged. Original-run
+literal protected equality remains false; it is not reset by moving the cache.
+Whole-tier result SHA256:
+`11d5574fb9de4c977bb4d9631a4de1aca6da7d8cbea54beb3bdb9b22f4fd65a4`.
+The next source work may now begin. A three-file public model seed was staged
+from exact catalog-matching retained overwrite files, without old verification
+sidecars, network requests or installation; see the model audit for its hash.
+
+### Source and prior retention checkpoint (05:42 CDT)
+
+- Checkpoint `4969963` is synchronized on Halcyon, GitHub and clean Echo.
+  Identical-tree local commit `5dff260` is preserved on
+  `checkpoint/se-lab-observer-v2-20261021-0543`. Echo's full 209-case suite
+  completed in 44.654 seconds: 202 passed, six expected Windows-only skips,
+  and one fixture error. The fixture's synthetic `PATH` hid the host `tar`
+  executable. Full log: `local/se-lab-echo-observer-v2-4969963-20261021.log`,
+  SHA256 `5c5284235e70ca37d9f24e4bcad5d31aabfdccfd3b81ab6defea04b08a67f2a0`.
+  A test-only correction restores the host lookup path solely around the two
+  archive-reader calls. The affected case then passed 1/1 with no skips on
+  Windows (0.100 seconds) and Echo (0.017 seconds). Echo executed the patched
+  test in memory; its `4969963` checkout remained clean before and after.
+  Patched test SHA256:
+  `e733760bbad5d7f1ce5d739dccec9044e1acb8cfbbb2b1f3575ee9357743465a`.
+  Targeted Echo log: `local/se-lab-echo-tar-fixture-4969963-20261021.log`,
+  SHA256 `5f282f22ed10aff7c8d06a3648b1882602ca7935e3fb2da803b4731824f0b2ed`.
+  The full suite was not repeated after that correction. Frozen implementation
+  hashes below are unchanged; these tests made no service changes or game/MO2
+  launches. The fresh installation and runtime observations are recorded above.
 
 - Fourth-run cleanup is complete: exact owned game handle terminated with exit
   18509, MO2 exited naturally with code 0, and an independent snapshot confirms
@@ -15,8 +152,13 @@ paused. The former Steam-use deferral is lifted for the isolated lab only.
   source archive, are intact under
   `checkpoints/skyrimnet-observer-failed-attempt-20261021`. Protected state stayed
   unchanged relative to the retention review; original-run equality remains
-  explicitly false. The separate opaque cache archive is under review. Both
-  helpers passed 24/24 independent fixture tests.
+  explicitly false. The separate three-file opaque cache archive also completed
+  `cache_retained_verified`, preserving all preexisting protected files and
+  leaving Game/default absent. The cache bytes remain inside the fourth-run
+  checkpoint; their contents were not parsed or exported. Both helpers passed
+  24/24 independent fixture tests. Result hashes:
+  `bf440cd0e0cca08d50fdea9cb7abe22ebe13fd7de913add75fcf10c0b2d9b55c`
+  and `1705397a037b8d8f56723a13f27270ec58a4ba36f0626cda03ea7beea8fe9614`.
 - The archived SkyrimNet log explains a separate startup failure:
   `GameConfig.h:2555` rejects missing
   `dialogue.distanceToDetectBackgroundDialogue`, then MainWorker fails game

@@ -6,6 +6,7 @@ are retained. No credentials, prompts, raw sessions or payloads are exported.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager, nullcontext
 import json
 import os
 from pathlib import Path
@@ -23,6 +24,10 @@ VERSION = 1
 HOST = "127.0.0.1"
 PORT = 18889
 PROTOCOL = "2024-11-05"
+SSE_SOURCE_BASIS = {
+    "contract": "beta26-rc4-sse-content-type-pair-v1",
+    "dll_sha256": "2cbb5ae8fa5aac0ff98f64d5728d1938f58c991473dbfbc39b9c88094c08e35a",
+}
 METHODS = ("initialize", "notifications/initialized", "tools/list")
 TOTAL_SECONDS = 60.0
 MAX_TOTAL = 2 * 1024 * 1024
@@ -38,6 +43,94 @@ SESSION = re.compile(r"[A-Za-z0-9_-]{1,128}\Z")
 HEADER = re.compile(r"[!#$%&'*+.^_`|~0-9A-Za-z-]+\Z")
 FAILURES = (OSError, ValueError, TypeError, KeyError, RuntimeError, RecursionError,
             subprocess.SubprocessError)
+DIAGNOSTIC_STAGES = frozenset((
+    "sse_connect", "sse_accepted_peer", "sse_get_send", "sse_headers",
+    "sse_content_type", "sse_endpoint", "initialize_post", "initialize_result",
+    "initialized_notification", "tools_list_post", "tools_list_result",
+    "inventory_validation", "final_stream_validation", "discovery_transport",
+    "post_discovery_identity", "final_context", "total_deadline"))
+DIAGNOSTIC_REASONS = frozenset((
+    "validation_or_probe_failure", "socket_timeout", "socket_error",
+    "unexpected_eof", "framing_limit", "header_ascii", "header_status_line",
+    "header_version", "header_status", "header_field", "header_duplicate",
+    "header_encoding", "sse_content_type", "body_encoding", "body_length",
+    "peer_ownership", "deadline_exceeded", "context_changed", "context_failed"))
+DUPLICATE_HEADER_CLASSES = frozenset((
+    "content-type", "content-length", "transfer-encoding", "content-encoding",
+    "cache-control", "connection", "keep-alive", "date", "server", "pragma",
+    "vary", "location", "www-authenticate", "proxy-authenticate", "authorization",
+    "proxy-authorization", "cookie", "set-cookie", "access-control-allow-origin",
+    "access-control-allow-methods", "access-control-allow-headers", "other"))
+
+
+def _duplicate_diagnostic(value):
+    if value is None:
+        return None
+    if (not isinstance(value, dict)
+            or set(value) != {"header_class", "values_equal", "occurrences_seen", "fields_seen"}
+            or type(value["header_class"]) is not str
+            or value["header_class"] not in DUPLICATE_HEADER_CLASSES
+            or type(value["values_equal"]) is not bool
+            or type(value["occurrences_seen"]) is not int or not 2 <= value["occurrences_seen"] <= 3
+            or (value["occurrences_seen"] == 3 and value["header_class"] != "content-type")
+            or type(value["fields_seen"]) is not int
+            or not value["occurrences_seen"] <= value["fields_seen"] <= MAX_HEADERS):
+        raise ValueError("Invalid fixed duplicate-header diagnostic")
+    return {key: value[key] for key in ("header_class", "values_equal", "occurrences_seen", "fields_seen")}
+
+
+def _sse_compatibility(value):
+    if value is None:
+        return False
+    if (type(value) is not dict or set(value) != set(SSE_SOURCE_BASIS)
+            or any(type(item) is not str for item in value.values())
+            or value != SSE_SOURCE_BASIS):
+        raise ValueError("Unsupported SSE header compatibility contract")
+    return True
+
+
+class _WireFailure(ValueError):
+    def __init__(self, reason, http_status=None, duplicate_header=None):
+        if reason not in DIAGNOSTIC_REASONS:
+            raise ValueError("Unknown fixed discovery reason")
+        self.reason = reason
+        self.http_status = http_status if type(http_status) is int and 100 <= http_status <= 599 else None
+        self.duplicate_header = _duplicate_diagnostic(duplicate_header)
+        super().__init__("Bounded discovery wire check failed")
+
+
+class _DiscoveryFailure(ValueError):
+    def __init__(self, stage, reason="validation_or_probe_failure", http_status=None, duplicate_header=None):
+        if stage not in DIAGNOSTIC_STAGES:
+            raise ValueError("Unknown fixed discovery stage")
+        if reason not in DIAGNOSTIC_REASONS:
+            raise ValueError("Unknown fixed discovery reason")
+        self.stage = stage
+        self.reason = reason
+        self.http_status = http_status if type(http_status) is int and 100 <= http_status <= 599 else None
+        self.duplicate_header = _duplicate_diagnostic(duplicate_header)
+        super().__init__("Bounded discovery stage failed")
+
+
+@contextmanager
+def _stage(name):
+    try:
+        yield
+    except _DiscoveryFailure:
+        raise
+    except _WireFailure as error:
+        raise _DiscoveryFailure(name, error.reason, error.http_status, error.duplicate_header) from None
+    except FAILURES:
+        raise _DiscoveryFailure(name) from None
+
+
+def _socket_io(operation, *args):
+    try:
+        return operation(*args)
+    except TimeoutError:
+        raise _WireFailure("socket_timeout") from None
+    except OSError:
+        raise _WireFailure("socket_error") from None
 
 
 def _messages():
@@ -94,6 +187,8 @@ def _capture(path, binding, snapshot):
 
 def _context(run_id, smoke_capture, process_probe, module_probe, connection_probe):
     base, run, launched = smoke._context(run_id, process_probe, module_probe, connection_probe)
+    if base["modules"]["skyrimnet.dll"]["sha256"] != SSE_SOURCE_BASIS["dll_sha256"]:
+        raise ValueError("SSE native implementation is not the reviewed build")
     snapshot = tier._Snapshot()
     capture = _capture(smoke_capture, base, snapshot)
     files = (Path(__file__), tier.REPO / "tools/se_lab_mcp_discovery.py")
@@ -102,7 +197,8 @@ def _context(run_id, smoke_capture, process_probe, module_probe, connection_prob
     return {"version": VERSION, "tier": tier.TIER, "run_id": run_id,
             "smoke_binding": base, "smoke_capture": capture, "implementation": implementation,
             "host": HOST, "port": PORT, "sse_path": "/sse", "message_path": "/message",
-            "protocol": PROTOCOL, "methods": list(METHODS)}, run, launched
+            "protocol": PROTOCOL, "methods": list(METHODS),
+            "sse_header_compatibility": dict(SSE_SOURCE_BASIS)}, run, launched
 
 
 def discovery_plan(run_id, smoke_capture, *, process_probe=None, module_probe=None,
@@ -134,12 +230,15 @@ def _endpoint(value):
 
 
 def _peer(rows, pid, local_port):
-    smoke._listeners(rows, pid)
+    try:
+        smoke._listeners(rows, pid)
+    except FAILURES:
+        raise _WireFailure("peer_ownership") from None
     matches = [r for r in rows if r["local_address"] == HOST and r["local_port"] == PORT
                and r["remote_address"] == HOST and r["remote_port"] == local_port
                and r["state"] == "Established"]
     if len(matches) != 1 or matches[0]["pid"] != pid:
-        raise ValueError("MCP connection is not owned by the attributed game")
+        raise _WireFailure("peer_ownership")
 
 
 class _Budget:
@@ -150,7 +249,7 @@ class _Budget:
     def remaining(self):
         seconds = self.deadline - time.monotonic()
         if seconds <= 0:
-            raise ValueError("MCP discovery deadline exceeded")
+            raise _WireFailure("deadline_exceeded")
         return min(seconds, 10.0)
 
     def check(self):
@@ -162,56 +261,81 @@ class _Budget:
 class _Reader:
     def __init__(self, stream, budget):
         self.stream, self.budget, self.buffer = stream, budget, b""
+        self.sse_content_type_pair_normalized = False
 
     def receive(self):
         self.budget.check()
-        self.stream.settimeout(self.budget.remaining())
-        chunk = self.stream.recv(4096)
+        _socket_io(self.stream.settimeout, self.budget.remaining())
+        chunk = _socket_io(self.stream.recv, 4096)
         self.budget.received += len(chunk)
         if self.budget.received > MAX_TOTAL:
-            raise ValueError("MCP response exceeds total bound")
+            raise _WireFailure("framing_limit")
         self.buffer += chunk
         return bool(chunk)
 
     def through(self, delimiter, maximum):
         while delimiter not in self.buffer:
-            if len(self.buffer) > maximum or not self.receive():
-                raise ValueError("Incomplete or oversized HTTP framing")
+            if len(self.buffer) > maximum:
+                raise _WireFailure("framing_limit")
+            if not self.receive():
+                raise _WireFailure("unexpected_eof")
         index = self.buffer.index(delimiter)
         if index > maximum:
-            raise ValueError("HTTP framing exceeds bound")
+            raise _WireFailure("framing_limit")
         result, self.buffer = self.buffer[:index], self.buffer[index + len(delimiter):]
         return result
 
     def exact(self, size):
         while len(self.buffer) < size:
             if not self.receive():
-                raise ValueError("Incomplete HTTP content")
+                raise _WireFailure("unexpected_eof")
         result, self.buffer = self.buffer[:size], self.buffer[size:]
         return result
 
-    def headers(self, accepted):
+    def headers(self, accepted, *, sse_content_type_compatibility=None):
+        # Only the SSE GET call site supplies this pinned-build exception.
+        # POST acknowledgements and callers without explicit opt-in stay strict.
+        compatible_sse = _sse_compatibility(sse_content_type_compatibility)
         raw = self.through(b"\r\n\r\n", MAX_HEADERS)
         try:
             lines = raw.decode("ascii").split("\r\n")
+        except UnicodeError:
+            raise _WireFailure("header_ascii") from None
+        try:
             version, status, *_ = lines.pop(0).split(" ")
-            if version != "HTTP/1.1" or not re.fullmatch(r"[0-9]{3}", status) or int(status) not in accepted:
-                raise ValueError("Unexpected HTTP status")
-            result = {}
-            for line in lines:
+        except ValueError:
+            raise _WireFailure("header_status_line") from None
+        if version != "HTTP/1.1":
+            raise _WireFailure("header_version")
+        if not re.fullmatch(r"[0-9]{3}", status):
+            raise _WireFailure("header_status_line")
+        status_code = int(status)
+        if status_code not in accepted:
+            raise _WireFailure("header_status", status_code)
+        result, counts = {}, {}
+        for field_count, line in enumerate(lines, 1):
+            try:
                 key, value = line.split(":", 1)
-                if not HEADER.fullmatch(key) or any(ord(c) < 32 and c != "\t" for c in value):
-                    raise ValueError("Invalid HTTP header")
-                key = key.lower()
-                if key in result:
-                    raise ValueError("Duplicate HTTP header")
-                result[key] = value.strip()
-            if (result.get("content-encoding", "identity") != "identity"
-                    or ("content-length" in result and "transfer-encoding" in result)):
-                raise ValueError("Unsupported HTTP encoding")
-            return result
-        except (ValueError, UnicodeError):
-            raise ValueError("Invalid bounded HTTP response") from None
+            except ValueError:
+                raise _WireFailure("header_field", status_code) from None
+            if not HEADER.fullmatch(key) or any(ord(c) < 32 and c != "\t" for c in value):
+                raise _WireFailure("header_field", status_code)
+            key = key.lower()
+            counts[key] = counts.get(key, 0) + 1
+            if key in result:
+                if (compatible_sse and status_code == 200 and key == "content-type"
+                        and counts[key] == 2 and result[key] == value.strip() == "text/event-stream"):
+                    self.sse_content_type_pair_normalized = True
+                    continue
+                raise _WireFailure("header_duplicate", status_code, {
+                    "header_class": key if key in DUPLICATE_HEADER_CLASSES else "other",
+                    "values_equal": result[key] == value.strip(),
+                    "occurrences_seen": counts[key], "fields_seen": field_count})
+            result[key] = value.strip()
+        if (result.get("content-encoding", "identity") != "identity"
+                or ("content-length" in result and "transfer-encoding" in result)):
+            raise _WireFailure("header_encoding", status_code)
+        return result
 
 
 class _Body:
@@ -221,14 +345,14 @@ class _Body:
         self.left, self.done = None, False
         if self.chunked:
             if headers["transfer-encoding"].lower() != "chunked":
-                raise ValueError("Unsupported HTTP transfer encoding")
+                raise _WireFailure("body_encoding")
         elif "content-length" in headers:
             text = headers["content-length"]
             if not text.isascii() or not text.isdecimal() or len(text) > 10:
-                raise ValueError("Invalid content length")
+                raise _WireFailure("body_length")
             self.left = int(text)
             if self.left > maximum:
-                raise ValueError("HTTP content exceeds bound")
+                raise _WireFailure("framing_limit")
 
     def piece(self):
         if self.done:
@@ -330,7 +454,10 @@ class _Events:
 
 
 class _Session:
-    def __init__(self, pid, deadline, verify_live, connection_probe):
+    def __init__(self, pid, deadline, verify_live, connection_probe, *, sse_content_type_compatibility=None):
+        _sse_compatibility(sse_content_type_compatibility)
+        self.sse_content_type_compatibility = dict(sse_content_type_compatibility) if sse_content_type_compatibility is not None else None
+        self.sse_content_type_pair_normalized = False
         self.pid, self.connections = pid, connection_probe
         self.budget = _Budget(deadline, verify_live)
         self.sse = None
@@ -338,18 +465,22 @@ class _Session:
         self.post_index = 0
         self.requests_sent = 0
 
-    def _connect(self):
-        self.budget.check()
-        stream = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    def _connect(self, *, sse=False):
+        stream = None
         try:
-            stream.settimeout(self.budget.remaining())
-            stream.connect((HOST, PORT))
-            self.budget.check()
-            _peer(self.connections(), self.pid, stream.getsockname()[1])
-            self.budget.check()
+            with _stage("sse_connect") if sse else nullcontext():
+                self.budget.check()
+                stream = _socket_io(socket.socket, socket.AF_INET, socket.SOCK_STREAM)
+                _socket_io(stream.settimeout, self.budget.remaining())
+                _socket_io(stream.connect, (HOST, PORT))
+                self.budget.check()
+            with _stage("sse_accepted_peer") if sse else nullcontext():
+                _peer(self.connections(), self.pid, _socket_io(stream.getsockname)[1])
+                self.budget.check()
             return stream
         except BaseException:
-            stream.close()
+            if stream is not None:
+                stream.close()
             raise
 
     def _send(self, stream, method, path, body=b""):
@@ -367,20 +498,25 @@ class _Session:
             raise ValueError("Unapproved MCP request")
         raw = (method + " " + path + " HTTP/1.1\r\nHost: 127.0.0.1:18889\r\n"
                "Accept-Encoding: identity\r\n" + headers + "\r\n").encode("ascii") + body
-        stream.settimeout(self.budget.remaining())
+        _socket_io(stream.settimeout, self.budget.remaining())
         self.requests_sent += 1
-        stream.sendall(raw)
+        _socket_io(stream.sendall, raw)
 
     def __enter__(self):
         try:
-            self.sse = self._connect()
-            self._send(self.sse, "GET", "/sse")
-            reader = _Reader(self.sse, self.budget)
-            headers = reader.headers({200})
-            if headers.get("content-type", "").split(";", 1)[0].strip().lower() != "text/event-stream":
-                raise ValueError("Expected SSE content type")
-            self.events = _Events(_Body(reader, headers, MAX_TOTAL), self.budget)
-            self.endpoint = _endpoint(self.events.expected("endpoint"))
+            self.sse = self._connect(sse=True)
+            with _stage("sse_get_send"):
+                self._send(self.sse, "GET", "/sse")
+            with _stage("sse_headers"):
+                reader = _Reader(self.sse, self.budget)
+                headers = reader.headers({200}, sse_content_type_compatibility=self.sse_content_type_compatibility)
+                self.sse_content_type_pair_normalized = reader.sse_content_type_pair_normalized
+            with _stage("sse_content_type"):
+                if headers.get("content-type", "").split(";", 1)[0].strip().lower() != "text/event-stream":
+                    raise _WireFailure("sse_content_type", 200)
+            with _stage("sse_endpoint"):
+                self.events = _Events(_Body(reader, headers, MAX_TOTAL), self.budget)
+                self.endpoint = _endpoint(self.events.expected("endpoint"))
             return self
         except BaseException:
             self.__exit__(None, None, None)
@@ -472,28 +608,38 @@ def _inventory(result, forbidden_text=()):
             "inventory_sha256": tier._digest(result)}
 
 
-def _discover(pid, deadline, verify_live, connection_probe):
-    with _Session(pid, deadline, verify_live, connection_probe) as session:
-        session.post_next()
-        initialized = session.result(1)
-        if (initialized.get("protocolVersion") != PROTOCOL
-                or not isinstance(initialized.get("capabilities"), dict)
-                or not isinstance(initialized["capabilities"].get("tools"), dict)
-                or not isinstance(initialized.get("serverInfo"), dict)):
-            raise ValueError("Unsupported MCP initialization result")
-        for key, limit in (("name", 256), ("version", 128)):
-            value = initialized["serverInfo"].get(key)
-            if (not isinstance(value, str) or not value.strip() or len(value) > limit
-                    or any(ord(char) < 32 or ord(char) == 127 for char in value)):
-                raise ValueError("Invalid bounded MCP server implementation metadata")
-        session.post_next()
-        session.post_next()
-        inventory = _inventory(session.result(2), (session.endpoint.split("=", 1)[1],))
-        session.require_no_buffered_work()
-        session.budget.check()
+def _discover(pid, deadline, verify_live, connection_probe, *, sse_content_type_compatibility=None):
+    with _Session(pid, deadline, verify_live, connection_probe,
+                  sse_content_type_compatibility=sse_content_type_compatibility) as session:
+        with _stage("initialize_post"):
+            session.post_next()
+        with _stage("initialize_result"):
+            initialized = session.result(1)
+            if (initialized.get("protocolVersion") != PROTOCOL
+                    or not isinstance(initialized.get("capabilities"), dict)
+                    or not isinstance(initialized["capabilities"].get("tools"), dict)
+                    or not isinstance(initialized.get("serverInfo"), dict)):
+                raise ValueError("Unsupported MCP initialization result")
+            for key, limit in (("name", 256), ("version", 128)):
+                value = initialized["serverInfo"].get(key)
+                if (not isinstance(value, str) or not value.strip() or len(value) > limit
+                        or any(ord(char) < 32 or ord(char) == 127 for char in value)):
+                    raise ValueError("Invalid bounded MCP server implementation metadata")
+        with _stage("initialized_notification"):
+            session.post_next()
+        with _stage("tools_list_post"):
+            session.post_next()
+        with _stage("tools_list_result"):
+            listed = session.result(2)
+        with _stage("inventory_validation"):
+            inventory = _inventory(listed, (session.endpoint.split("=", 1)[1],))
+        with _stage("final_stream_validation"):
+            session.require_no_buffered_work()
+            session.budget.check()
         return {"protocol": PROTOCOL, "methods": list(METHODS), "matched_response_ids": [1, 2],
                 "requests_sent": session.requests_sent, "received_bytes": session.budget.received,
                 "events_received": session.budget.events, "initialization_sha256": tier._digest(initialized),
+                "sse_content_type_pair_normalized": session.sse_content_type_pair_normalized,
                 **inventory}
 
 
@@ -510,23 +656,52 @@ def collect_discovery(run_id, smoke_capture, review_token, *, process_probe=None
         def live():
             if time.monotonic() >= deadline or smoke._live(run, launched, process_probe) != binding["smoke_binding"]["game"]:
                 raise ValueError("MCP discovery identity or deadline changed")
-        observation, failure = None, None
+        observation, failure, failure_stage = None, None, None
+        failure_reason, http_status, duplicate_header = None, None, None
         try:
-            observation = (transport or _discover)(binding["smoke_binding"]["game"]["pid"], deadline, live, connection_probe)
-            live()
+            if transport is None:
+                observation = _discover(binding["smoke_binding"]["game"]["pid"], deadline, live, connection_probe,
+                    sse_content_type_compatibility=binding["sse_header_compatibility"])
+            else:
+                observation = transport(binding["smoke_binding"]["game"]["pid"], deadline, live, connection_probe)
+            with _stage("post_discovery_identity"):
+                live()
+        except _DiscoveryFailure as error:
+            failure = "bounded_discovery_failed"
+            failure_stage = error.stage if error.stage in DIAGNOSTIC_STAGES else "discovery_transport"
+            failure_reason = error.reason if error.reason in DIAGNOSTIC_REASONS else "validation_or_probe_failure"
+            http_status = error.http_status if type(error.http_status) is int and 100 <= error.http_status <= 599 else None
+            duplicate_header = _duplicate_diagnostic(error.duplicate_header)
         except FAILURES:
             failure = "bounded_discovery_failed"
+            failure_stage = "discovery_transport"
+            failure_reason = "validation_or_probe_failure"
         try:
             after, _, _ = _context(run_id, smoke_capture, process_probe, module_probe, connection_probe)
             stable = after == binding
+            final_context = "matched" if stable else "changed"
         except FAILURES:
             stable = False
+            final_context = "failed"
+        if not stable and failure_stage is None:
+            failure_stage = "final_context"
+            failure_reason = "context_" + final_context
+        deadline_exceeded = time.monotonic() >= deadline
+        if deadline_exceeded:
+            failure = "bounded_discovery_failed"
+            if failure_stage is None:
+                failure_stage = "total_deadline"
+                failure_reason = "deadline_exceeded"
         complete = failure is None and stable and observation is not None and not observation["pagination_present"]
         report = {"version": VERSION, "tier": tier.TIER, "operation": "mcp_discovery_capture",
             "run_id": run_id, "capture_id": uuid.uuid4().hex,
             "status": "tools_discovered" if complete else "incomplete",
             "binding": binding, "binding_sha256": tier._digest(binding), "observation": observation,
             "observation_failure": failure, "identity_stable": stable, "discovery_complete": complete,
+            "diagnostics": {"failure_stage": failure_stage, "final_context": final_context,
+                            "failure_reason": failure_reason, "http_status": http_status,
+                            "duplicate_header": duplicate_header,
+                            "total_deadline_exceeded": deadline_exceeded},
             "client_tools_call_enabled": False, "tools_call_requests_performed": False,
             "game_inspection_tools_called": False,
             "runtime_verified": False, "runtime_playback_verified": False,

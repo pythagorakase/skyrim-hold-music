@@ -30,6 +30,7 @@ class SkyrimNetTierTests(unittest.TestCase):
         self.root = Path(temporary.name).resolve() / "lab"
         self.root.mkdir()
         self.addCleanup(patch.stopall)
+        self.command_path = os.environ.get("PATH", os.defpath)
         # The target is Windows, including when fake-tree tests run elsewhere.
         patch.dict(os.environ, {"USERNAME": "fixture-user", "PATH": "fixture-path",
                                 "ProgramW6432": "fixture-program-files"}).start()
@@ -528,7 +529,10 @@ class SkyrimNetTierTests(unittest.TestCase):
                 archive.addfile(info, io.BytesIO(raw))
         spec = dict(path=archive_path, sha256=hashlib.sha256(archive_path.read_bytes()).hexdigest(),
                     kind="tar", prefixes=("",))
-        decoded = {name: bytes(raw) for name, raw, _ in tier._archive_payloads(spec, tier._Snapshot())}
+        # This case intentionally invokes the host's archive reader. Preserve
+        # its lookup path only here; launch-environment cases stay synthetic.
+        with patch.dict(os.environ, {"PATH": self.command_path}):
+            decoded = {name: bytes(raw) for name, raw, _ in tier._archive_payloads(spec, tier._Snapshot())}
         self.assertEqual(decoded, {"folder/first.txt": b"first", "second.txt": b"second"})
         with tarfile.open(archive_path, "w") as archive:
             info = tarfile.TarInfo("escape")
@@ -536,7 +540,7 @@ class SkyrimNetTierTests(unittest.TestCase):
             info.linkname = "../outside"
             archive.addfile(info)
         spec["sha256"] = hashlib.sha256(archive_path.read_bytes()).hexdigest()
-        with self.assertRaisesRegex(ValueError, "member listing"):
+        with patch.dict(os.environ, {"PATH": self.command_path}), self.assertRaisesRegex(ValueError, "member listing"):
             list(tier._archive_payloads(spec, tier._Snapshot()))
 
     def test_application_component_alias_is_rejected_in_review(self):

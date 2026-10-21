@@ -16,6 +16,11 @@ SECRET = "NEVER-EXPORT-SECRET-SENTINEL"
 SESSION = "session-private-abcdef123456"
 
 
+def diagnostic(stage=None, reason=None, status=None, context="matched", exceeded=False, duplicate=None):
+    return {"failure_stage":stage,"failure_reason":reason,"http_status":status,
+            "final_context":context,"total_deadline_exceeded":exceeded,"duplicate_header":duplicate}
+
+
 def tcp():
     rows = [dict(local_address="127.0.0.1", local_port=port,
         remote_address="0.0.0.0", remote_port=0, state="Listen", pid=12)
@@ -113,13 +118,13 @@ def gated_sockets(initial, ack=ACK, fragment=19):
 
 
 class WireTests(unittest.TestCase):
-    def run_wire(self, initial=None, ack=ACK, connections=None, live=None, gated=True, fragment=19):
+    def run_wire(self, initial=None, ack=ACK, connections=None, live=None, gated=True, fragment=19, compatibility=None):
         raw=initial if initial is not None else sse()
         sockets=gated_sockets(raw,ack,fragment) if gated else [FakeSocket(raw,53123,fragment)]+[FakeSocket(ack,p,fragment) for p in range(53124,53127)]
         self.sockets = sockets
         with patch.object(mcp.socket, "socket", side_effect=sockets):
             return mcp._discover(12, time.monotonic() + 60, live or (lambda: None),
-                                 connections or tcp)
+                                 connections or tcp, sse_content_type_compatibility=compatibility)
 
     def test_chunked_split_sse_only_emits_fixed_discovery_messages(self):
         with patch.dict("os.environ", {"HTTP_PROXY": "http://evil.invalid", "ALL_PROXY": SECRET}):
@@ -139,6 +144,78 @@ class WireTests(unittest.TestCase):
         sent = [json.loads(s.sent[0].split(b"\r\n\r\n")[1]) for s in self.sockets[1:]]
         self.assertEqual(sent, list(mcp._messages()))
         self.assertNotIn("tools/call", json.dumps(sent))
+
+    def test_pinned_sse_pair_requires_explicit_optin_and_normalizes_only_two_literals(self):
+        for names in (b"Content-Type: text/event-stream\r\nContent-Type: text/event-stream\r\n",
+                      b"cOnTeNt-TyPe:\ttext/event-stream \t\r\nCONTENT-TYPE: text/event-stream\r\n"):
+            raw=sse().replace(b"Content-Type: text/event-stream\r\n",names,1)
+            with self.subTest(names=names):
+                with self.assertRaises(mcp._DiscoveryFailure) as caught:self.run_wire(raw)
+                self.assertEqual(caught.exception.reason,"header_duplicate")
+                self.assertFalse(any(s.sent for s in self.sockets[1:]))
+                result=self.run_wire(raw,compatibility=dict(mcp.SSE_SOURCE_BASIS))
+                self.assertTrue(result["sse_content_type_pair_normalized"])
+                self.assertEqual(result["requests_sent"],4)
+                self.assertEqual([json.loads(s.sent[0].split(b"\r\n\r\n")[1]) for s in self.sockets[1:]],list(mcp._messages()))
+        self.assertFalse(self.run_wire(compatibility=dict(mcp.SSE_SOURCE_BASIS))["sse_content_type_pair_normalized"])
+
+    def test_sse_pair_exception_does_not_admit_conflicts_third_or_combined_types(self):
+        invalid=(
+            b"Content-Type: text/event-stream\r\nContent-Type: application/json\r\n",
+            b"Content-Type: text/event-stream; charset=utf-8\r\nContent-Type: text/event-stream; charset=utf-8\r\n",
+            b"Content-Type: application/json\r\nContent-Type: application/json\r\n",
+            b"Content-Type: TEXT/EVENT-STREAM\r\nContent-Type: TEXT/EVENT-STREAM\r\n",
+            b"Content-Type: text/event-stream\r\n"*3,
+            b"Content-Type: text/event-stream, text/event-stream\r\n",
+        )
+        for headers in invalid:
+            raw=sse().replace(b"Content-Type: text/event-stream\r\n",headers,1)
+            with self.subTest(headers=headers),self.assertRaises(mcp._DiscoveryFailure) as caught:
+                self.run_wire(raw,compatibility=dict(mcp.SSE_SOURCE_BASIS))
+            self.assertFalse(any(s.sent for s in self.sockets[1:]))
+            if headers.count(b"Content-Type:")==3:
+                self.assertEqual(caught.exception.duplicate_header["occurrences_seen"],3)
+
+    def test_sse_pair_continues_validating_entire_header_and_framing(self):
+        pair=b"Content-Type: text/event-stream\r\n"*2
+        bad=(b"Content-Length: 0\r\nContent-Length: 0\r\n",
+             b"Transfer-Encoding: chunked\r\n",
+             b"Content-Length: 0\r\n",  # Conflicts with the existing Transfer-Encoding.
+             b"Authorization: x\r\nAuthorization: x\r\n",
+             b"Set-Cookie: x\r\nSet-Cookie: x\r\n",
+             b"Cache-Control: no-cache\r\nCache-Control: no-cache\r\n",
+             b"Connection: keep-alive\r\nConnection: keep-alive\r\n",
+             b"X-Unknown: x\r\nX-Unknown: x\r\n",
+             b"Malformed header\r\n",b"Content-Encoding: gzip\r\n")
+        for extra in bad:
+            raw=sse().replace(b"Content-Type: text/event-stream\r\n",pair+extra,1)
+            with self.subTest(extra=extra),self.assertRaises(ValueError):
+                self.run_wire(raw,compatibility=dict(mcp.SSE_SOURCE_BASIS))
+            self.assertFalse(any(s.sent for s in self.sockets[1:]))
+        raw=sse().replace(b"Content-Type: text/event-stream\r\n",pair,1)
+        with self.assertRaises(ValueError):
+            self.run_wire(raw.replace(b"\r\n\r\n7\r\n",b"\r\n\r\ninvalid\r\n",1),compatibility=dict(mcp.SSE_SOURCE_BASIS))
+        for bound,value in (("MAX_EVENT",60),("MAX_LINE",20),("MAX_TOTAL",50),("MAX_HEADERS",40)):
+            with self.subTest(bound=bound),patch.object(mcp,bound,value),self.assertRaises(ValueError):
+                self.run_wire(raw,compatibility=dict(mcp.SSE_SOURCE_BASIS))
+
+    def test_sse_compatibility_never_reaches_post_header_parser(self):
+        raw=sse().replace(b"Content-Type: text/event-stream\r\n",b"Content-Type: text/event-stream\r\n"*2,1)
+        ack=b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Type: text/event-stream\r\nContent-Length: 0\r\n\r\n"
+        with self.assertRaises(mcp._DiscoveryFailure) as caught:
+            self.run_wire(raw,ack=ack,compatibility=dict(mcp.SSE_SOURCE_BASIS))
+        self.assertEqual(caught.exception.stage,"initialize_post")
+        self.assertEqual(caught.exception.reason,"header_duplicate")
+        self.assertEqual(sum(len(s.sent) for s in self.sockets),2)
+        self.assertFalse(any(s.sent for s in self.sockets[2:]))
+
+    def test_invalid_sse_contract_refuses_before_socket_creation(self):
+        invalid=(True,{}, {**mcp.SSE_SOURCE_BASIS,"dll_sha256":"0"*64},
+                 {**mcp.SSE_SOURCE_BASIS,"contract":"unreviewed"},
+                 {**mcp.SSE_SOURCE_BASIS,"extra":SECRET})
+        for value in invalid:
+            with self.subTest(value=value),patch.object(mcp.socket,"socket",side_effect=AssertionError("No socket")),self.assertRaises(ValueError):
+                mcp._discover(12,time.monotonic()+60,lambda:None,tcp,sse_content_type_compatibility=value)
 
     def test_close_delimited_and_fixed_length_sse_are_bounded_and_supported(self):
         self.assertEqual(self.run_wire(sse(chunked=False))["tool_count"], 1)
@@ -317,6 +394,8 @@ class ContextTests(unittest.TestCase):
             mock=patch.object(mcp.tier,name,return_value=value);mock.start();self.addCleanup(mock.stop)
         self.kw = dict(process_probe=lambda:copy.deepcopy(self.processes), module_probe=lambda pid:copy.deepcopy(self.modules), connection_probe=tcp)
         base,_,_ = mcp.smoke._context(RUN,**self.kw)
+        patcher=patch.dict(mcp.SSE_SOURCE_BASIS,{"dll_sha256":base["modules"]["skyrimnet.dll"]["sha256"]})
+        patcher.start();self.addCleanup(patcher.stop)
         observations = []
         for name, checks in mcp.smoke.CHECKS.items():
             observations.append({"name": name, "all_match": True, "response_bytes": 100,
@@ -351,6 +430,7 @@ class ContextTests(unittest.TestCase):
     def test_successful_capture_is_sanitized_and_claims_only_discovery(self):
         result=self.collect()
         self.assertEqual(result["status"],"tools_discovered")
+        self.assertEqual(result["diagnostics"],diagnostic())
         for key in ("game_inspection_tools_called","runtime_verified","egress_verified","credentials_verified","client_tools_call_enabled","tools_call_requests_performed"):
             self.assertIs(result[key],False)
         paths=list((self.runtime/"mcp-discovery").glob("*.json"));self.assertEqual(len(paths),1)
@@ -367,6 +447,28 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(result["observation"]["requests_sent"],4)
         self.assertNotIn(SECRET,json.dumps(result));self.assertNotIn(SESSION,json.dumps(result))
         self.assertTrue(all(s.closed for s in sockets))
+
+    def test_real_collector_passes_only_validated_observed_build_compatibility(self):
+        token=self.plan()["review_token"]
+        raw=sse().replace(b"Content-Type: text/event-stream\r\n",b"Content-Type: text/event-stream\r\n"*2,1)
+        sockets=gated_sockets(raw)
+        with patch.object(mcp.socket,"socket",side_effect=sockets):
+            result=mcp.collect_discovery(RUN,self.path,token,**self.kw)
+        self.assertEqual(result["status"],"tools_discovered")
+        self.assertTrue(result["observation"]["sse_content_type_pair_normalized"])
+        self.assertEqual(result["binding"]["sse_header_compatibility"],mcp.SSE_SOURCE_BASIS)
+        self.assertEqual(result["binding"]["smoke_binding"]["modules"]["skyrimnet.dll"]["sha256"],mcp.SSE_SOURCE_BASIS["dll_sha256"])
+
+    def test_wrong_observed_dll_refuses_plan_and_collection_before_network(self):
+        token=self.plan()["review_token"]
+        before={str(p):p.read_bytes() for p in self.root.rglob("*") if p.is_file()}
+        with patch.dict(mcp.SSE_SOURCE_BASIS,{"dll_sha256":"0"*64}),patch.object(mcp.socket,"socket",side_effect=AssertionError("No socket")):
+            with self.assertRaises(ValueError):self.plan()
+            with self.assertRaises(ValueError):self.collect(token)
+        self.assertFalse(self.calls)
+        # Collection can create only the writer lock files before admission.
+        after={str(p):p.read_bytes() for p in self.root.rglob("*") if p.is_file() and p.name not in (".se-lab-writer.lock","writer.lock")}
+        self.assertEqual(before,after)
 
     def test_smoke_missing_failed_wrong_run_or_tampered_readback_refuses(self):
         original=copy.deepcopy(self.capture)
@@ -409,11 +511,220 @@ class ContextTests(unittest.TestCase):
             result=self.transport(*args);self.processes.pop();return result
         result=self.collect(transport=vanish)
         self.assertEqual(result["status"],"incomplete");self.assertFalse(result["identity_stable"])
+        self.assertEqual(result["diagnostics"]["failure_stage"],"post_discovery_identity")
+        self.assertEqual(result["diagnostics"]["final_context"],"failed")
+
+    def test_fixed_wire_failure_stages_preserve_request_limits_and_old_capture(self):
+        old=self.runtime/"mcp-discovery"/("b"*32+".json")
+        old.parent.mkdir();old.write_bytes(b'{"immutable_prior_capture":true}\n')
+        old_bytes=old.read_bytes();old_mtime=old.stat().st_mtime_ns
+        bad_init=init_result();bad_init["protocolVersion"]=SECRET
+        bad_inventory=tools_result();bad_inventory["tools"][0]["name"]=SECRET+"/invalid"
+        bad_ack=b"HTTP/1.1 500 Private\r\nContent-Length: 0\r\n\r\n"
+        cases=(
+            ("sse_content_type",sse().replace(b"text/event-stream",b"application/json"),None,1),
+            ("sse_endpoint",sse(endpoint="/"+SECRET+"?session_id="+SESSION),None,1),
+            ("initialize_post",sse(),1,2),
+            ("initialize_result",sse(initialized=bad_init),None,2),
+            ("initialized_notification",sse(),2,3),
+            ("tools_list_post",sse(),3,4),
+            ("tools_list_result",sse(chunked=False).replace(b'"id": 2',b'"id": 3'),None,4),
+            ("inventory_validation",sse(inventory=bad_inventory),None,4),
+            ("final_stream_validation",sse(chunked=False)+reply(2,tools_result()),None,4),
+        )
+        for stage,raw,ack_index,sent_count in cases:
+            sockets=gated_sockets(raw,fragment=4096)
+            if ack_index is not None:sockets[ack_index].raw=bad_ack
+            with self.subTest(stage=stage),patch.object(mcp.socket,"socket",side_effect=sockets):
+                result=mcp.collect_discovery(RUN,self.path,self.plan()["review_token"],**self.kw)
+                self.assertEqual(result["status"],"incomplete")
+                self.assertIsNone(result["observation"])
+                self.assertEqual(result["observation_failure"],"bounded_discovery_failed")
+                reason,status="validation_or_probe_failure",None
+                if stage=="sse_content_type":reason,status="sse_content_type",200
+                if ack_index is not None:reason,status="header_status",500
+                self.assertEqual(result["diagnostics"],diagnostic(stage,reason,status))
+                self.assertTrue(result["identity_stable"])
+                self.assertEqual(sum(len(s.sent) for s in sockets),sent_count)
+                self.assertTrue(all(s.closed for s in sockets if s.connected))
+                self.assertNotIn(SECRET,json.dumps(result));self.assertNotIn(SESSION,json.dumps(result))
+                self.assertNotIn(b'"tools/call"',b"".join(part for s in sockets for part in s.sent))
+                self.assertEqual(old.read_bytes(),old_bytes)
+                self.assertEqual(old.stat().st_mtime_ns,old_mtime)
+                retained=self.runtime/"mcp-discovery"/(result["capture_id"]+".json")
+                self.assertEqual(json.loads(retained.read_text()),result)
+
+    def test_final_context_failure_or_mismatch_has_fixed_stage(self):
+        token=self.plan()["review_token"];original=mcp._context
+        for mode in ("changed","failed"):
+            calls=[]
+            def final_check(*args,**kwargs):
+                value=original(*args,**kwargs);calls.append(True)
+                if len(calls)==2:
+                    if mode=="failed":raise ValueError(SECRET)
+                    value[0]["private_changed_marker"]=SECRET
+                return value
+            with self.subTest(mode=mode),patch.object(mcp,"_context",side_effect=final_check):
+                result=self.collect(token)
+                self.assertEqual(result["status"],"incomplete")
+                self.assertEqual(result["diagnostics"],diagnostic("final_context","context_"+mode,context=mode))
+                self.assertNotIn(SECRET,json.dumps(result))
+
+    def test_header_diagnostics_are_fixed_redacted_and_do_not_send_posts(self):
+        cases=(
+            (b"HTTP/1.0 200 "+SECRET.encode()+b"\r\n\r\n","sse_headers","header_version",None),
+            (b"HTTP/1.1 401 "+SECRET.encode()+b"\r\nLocation: http://"+SECRET.encode()+b"\r\n\r\n","sse_headers","header_status",401),
+            (b"HTTP/1.1 404 "+SECRET.encode()+b"\r\n\r\n","sse_headers","header_status",404),
+            (b"HTTP/1.1 999 "+SECRET.encode()+b"\r\n\r\n","sse_headers","header_status",None),
+            (b"HTTP/1.1 000 "+SECRET.encode()+b"\r\n\r\n","sse_headers","header_status",None),
+            (b"HTTP/1.1 "+SECRET.encode()+b"\r\n\r\n","sse_headers","header_status_line",None),
+            (SECRET.encode()+b"\r\n\r\n","sse_headers","header_status_line",None),
+            (b"HTTP/1.1 200 OK\r\nX: \xff"+SECRET.encode()+b"\r\n\r\n","sse_headers","header_ascii",None),
+            (b"HTTP/1.1 200 OK\r\n"+SECRET.encode()+b"\r\n\r\n","sse_headers","header_field",200),
+            (b"HTTP/1.1 200 OK\r\nInvalid key: "+SECRET.encode()+b"\r\n\r\n","sse_headers","header_field",200),
+            (b"HTTP/1.1 200 OK\r\nX: \x01"+SECRET.encode()+b"\r\n\r\n","sse_headers","header_field",200),
+            (b"HTTP/1.1 200 OK\r\nX: "+SECRET.encode()+b"\r\nx: "+SESSION.encode()+b"\r\n\r\n","sse_headers","header_duplicate",200),
+            (b"HTTP/1.1 200 OK\r\nContent-Encoding: "+SECRET.encode()+b"\r\n\r\n","sse_headers","header_encoding",200),
+            (b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nTransfer-Encoding: chunked\r\n\r\n","sse_headers","header_encoding",200),
+            (b"","sse_headers","unexpected_eof",None),
+            (b"HTTP/1.1 200 OK\r\nX: "+SECRET.encode(),"sse_headers","unexpected_eof",None),
+            (b"HTTP/1.1 200 OK\r\nX: "+b"a"*(mcp.MAX_HEADERS+1)+SECRET.encode(),"sse_headers","framing_limit",None),
+            (b"HTTP/1.1 200 OK\r\nX: "+b"a"*(mcp.MAX_HEADERS+1)+b"\r\n\r\n","sse_headers","framing_limit",None),
+            (b"HTTP/1.1 200 OK\r\n\r\n","sse_content_type","sse_content_type",200),
+            (b"HTTP/1.1 200 OK\r\nContent-Type: "+SECRET.encode()+b"\r\n\r\n","sse_content_type","sse_content_type",200),
+            (b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nTransfer-Encoding: "+SECRET.encode()+b"\r\n\r\n","sse_endpoint","body_encoding",None),
+            (b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: "+SECRET.encode()+b"\r\n\r\n","sse_endpoint","body_length",None),
+        )
+        old=self.runtime/"mcp-discovery"/("c"*32+".json")
+        old.parent.mkdir();old.write_bytes(b'{"prior_handshake_failure":true}\n')
+        old_bytes=old.read_bytes();old_mtime=old.stat().st_mtime_ns
+        for raw,stage,reason,status in cases:
+            sockets=gated_sockets(raw)
+            with self.subTest(stage=stage,reason=reason,status=status),patch.object(mcp.socket,"socket",side_effect=sockets):
+                result=mcp.collect_discovery(RUN,self.path,self.plan()["review_token"],**self.kw)
+                duplicate={"header_class":"other","values_equal":False,"occurrences_seen":2,"fields_seen":2} if reason=="header_duplicate" else None
+                self.assertEqual(result["diagnostics"],diagnostic(stage,reason,status,duplicate=duplicate))
+                self.assertEqual(result["status"],"incomplete")
+                self.assertIsNone(result["observation"])
+                self.assertEqual(len(sockets[0].sent),1)
+                self.assertFalse(any(s.sent for s in sockets[1:]))
+                self.assertTrue(sockets[0].closed)
+                self.assertNotIn(SECRET,json.dumps(result));self.assertNotIn(SESSION,json.dumps(result))
+                self.assertEqual(old.read_bytes(),old_bytes);self.assertEqual(old.stat().st_mtime_ns,old_mtime)
+
+    def test_socket_failures_are_attributed_to_exact_handshake_boundary(self):
+        for method,stage,sent_count in (("connect","sse_connect",0),
+                                       ("getsockname","sse_accepted_peer",0),
+                                       ("sendall","sse_get_send",0),
+                                       ("recv","sse_headers",1)):
+            for exception,reason in ((TimeoutError,"socket_timeout"),(OSError,"socket_error")):
+                sockets=gated_sockets(sse())
+                with self.subTest(method=method,reason=reason),patch.object(sockets[0],method,side_effect=exception(SECRET)),patch.object(mcp.socket,"socket",side_effect=sockets):
+                    result=mcp.collect_discovery(RUN,self.path,self.plan()["review_token"],**self.kw)
+                    self.assertEqual(result["diagnostics"],diagnostic(stage,reason))
+                    self.assertEqual(result["status"],"incomplete")
+                    self.assertEqual(len(sockets[0].sent),sent_count)
+                    self.assertFalse(any(s.sent for s in sockets[1:]))
+                    self.assertTrue(sockets[0].closed)
+                    self.assertNotIn(SECRET,json.dumps(result))
+        with patch.object(mcp.socket,"socket",side_effect=OSError(SECRET)):
+            result=mcp.collect_discovery(RUN,self.path,self.plan()["review_token"],**self.kw)
+        self.assertEqual(result["diagnostics"],diagnostic("sse_connect","socket_error"))
+        self.assertNotIn(SECRET,json.dumps(result))
+
+    def test_duplicate_header_projection_is_allowlisted_and_still_refuses_before_post(self):
+        names=("Content-Type","Content-Length","Transfer-Encoding","Cache-Control",
+               "Connection","Authorization","Set-Cookie",SECRET)
+        old=self.runtime/"mcp-discovery"/("d"*32+".json")
+        old.parent.mkdir();old.write_bytes(b'{"prior_duplicate_failure":true}\n')
+        before=(old.read_bytes(),old.stat().st_mtime_ns)
+        for name in names:
+            for equal in (True,False):
+                value="text/event-stream" if name=="Content-Type" else SECRET
+                second=value if equal else SESSION
+                raw=("HTTP/1.1 200 OK\r\nX-First: ignored\r\n"+name+": "+value+
+                     "\r\n"+name.swapcase()+":\t"+second+" \t\r\n\r\n").encode()
+                sockets=gated_sockets(raw)
+                expected={"header_class":name.lower() if name.lower() in mcp.DUPLICATE_HEADER_CLASSES else "other",
+                          "values_equal":equal,"occurrences_seen":2,"fields_seen":3}
+                with self.subTest(name=name,equal=equal),patch.object(mcp.socket,"socket",side_effect=sockets):
+                    result=mcp.collect_discovery(RUN,self.path,self.plan()["review_token"],transport=lambda *args:mcp._discover(*args),**self.kw)
+                    self.assertEqual(result["diagnostics"],diagnostic("sse_headers","header_duplicate",200,duplicate=expected))
+                    self.assertEqual(result["status"],"incomplete")
+                    self.assertFalse(any(s.sent for s in sockets[1:]))
+                    self.assertTrue(sockets[0].closed)
+                    self.assertNotIn(SECRET,json.dumps(result));self.assertNotIn(SESSION,json.dumps(result))
+                    self.assertEqual((old.read_bytes(),old.stat().st_mtime_ns),before)
+
+    def test_duplicate_diagnostic_refuses_arbitrary_fields_and_invalid_types(self):
+        good={"header_class":"content-type","values_equal":True,"occurrences_seen":2,"fields_seen":3}
+        third={**good,"occurrences_seen":3}
+        self.assertEqual(mcp._WireFailure("header_duplicate",200,third).duplicate_header,third)
+        bad=[{**good,"header_class":SECRET},{**good,"header_class":[]},{**good,"values_equal":1},
+             {**good,"occurrences_seen":True},{**good,"occurrences_seen":4},
+             {**third,"fields_seen":2},
+             {**good,"fields_seen":True},{**good,"fields_seen":mcp.MAX_HEADERS+1},
+             {**good,"raw_value":SECRET}]
+        bad.extend({**third,"header_class":name} for name in mcp.DUPLICATE_HEADER_CLASSES
+                   if name != "content-type")
+        for value in bad:
+            with self.subTest(value=value),self.assertRaises(ValueError) as caught:
+                mcp._WireFailure("header_duplicate",200,value)
+            self.assertNotIn(SECRET,str(caught.exception))
+
+    def test_accepted_peer_rejection_is_distinct_from_connection_and_header_failure(self):
+        sockets=gated_sockets(sse())
+        def replaced_peer():
+            rows=tcp()
+            if sockets[0].connected and not sockets[0].closed:rows[2]["pid"]=99
+            return rows
+        kw={**self.kw,"connection_probe":replaced_peer}
+        token=mcp.discovery_plan(RUN,self.path,**kw)["review_token"]
+        with patch.object(mcp.socket,"socket",side_effect=sockets):
+            result=mcp.collect_discovery(RUN,self.path,token,**kw)
+        self.assertEqual(result["diagnostics"],diagnostic("sse_accepted_peer","peer_ownership"))
+        self.assertFalse(any(s.sent for s in sockets));self.assertTrue(sockets[0].closed)
+
+    def test_diagnostic_constructors_never_accept_arbitrary_reason_or_status(self):
+        for call in (lambda:mcp._WireFailure(SECRET),lambda:mcp._DiscoveryFailure(SECRET),
+                     lambda:mcp._DiscoveryFailure("sse_headers",SECRET)):
+            with self.assertRaises(ValueError) as caught:call()
+            self.assertNotIn(SECRET,str(caught.exception))
+        for status in (True,SECRET,999,0,200.0):
+            self.assertIsNone(mcp._WireFailure("header_status",status).http_status)
+            self.assertIsNone(mcp._DiscoveryFailure("sse_headers","header_status",status).http_status)
+
+    def test_final_context_recheck_cannot_overrun_total_deadline(self):
+        token=self.plan()["review_token"]
+        original_context=mcp._context
+        for elapsed in (mcp.TOTAL_SECONDS - 0.001, mcp.TOTAL_SECONDS, mcp.TOTAL_SECONDS + 10):
+            clock=[100.0];checks=[];self.calls.clear()
+            def final_slow_context(*args, **kwargs):
+                result=original_context(*args, **kwargs)
+                checks.append(True)
+                if len(checks)==2:
+                    clock[0]+=elapsed
+                return result
+            with self.subTest(elapsed=elapsed), patch.object(mcp,"_context",side_effect=final_slow_context), patch.object(mcp.time,"monotonic",side_effect=lambda:clock[0]):
+                result=self.collect(token)
+                within_bound=elapsed < mcp.TOTAL_SECONDS
+                self.assertEqual(len(checks),2)
+                self.assertEqual(self.calls,[12])
+                self.assertTrue(result["identity_stable"])
+                self.assertEqual(result["observation"]["requests_sent"],4)
+                self.assertEqual(result["status"],"tools_discovered" if within_bound else "incomplete")
+                self.assertIs(result["discovery_complete"],within_bound)
+                self.assertEqual(result["observation_failure"],None if within_bound else "bounded_discovery_failed")
+                self.assertEqual(result["diagnostics"],diagnostic() if within_bound else diagnostic("total_deadline","deadline_exceeded",exceeded=True))
+                self.assertFalse(result["tools_call_requests_performed"])
+                retained=self.runtime/"mcp-discovery"/(result["capture_id"]+".json")
+                self.assertEqual(json.loads(retained.read_text()),result)
 
     def test_private_errors_never_escape_capture(self):
         def failure(*args):raise ValueError(SECRET)
         result=self.collect(transport=failure)
         self.assertEqual(result["observation_failure"],"bounded_discovery_failed")
+        self.assertEqual(result["diagnostics"]["failure_stage"],"discovery_transport")
         self.assertNotIn(SECRET,json.dumps(result))
 
     def test_pagination_retained_as_incomplete_without_retry(self):

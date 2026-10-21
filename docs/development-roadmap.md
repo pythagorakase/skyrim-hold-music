@@ -40,8 +40,8 @@ payload, stages a new instance, and publishes without replacing an existing
 target. Interrupted attempts have retained evidence and reviewed recovery. A
 separately reviewed, one-shot launcher requires three accepted baseline captures
 and records exact process ancestry. Its local collector records bounded metadata;
-it makes no HTTP/MCP/provider calls. Actual native loading and effective
-configuration remain a later runtime checkpoint.
+it makes no HTTP/MCP/provider calls. Installation alone does not establish
+native loading or effective settings; actual startup evidence follows below.
 
 The first actual installation completed, but its first boot stopped in MO2
 before Skyrim was observed. MO2's Qt parser exposed a generated-path escaping
@@ -75,24 +75,42 @@ The next checkpoint retains process handles throughout launch, records bounded
 runtime cache metadata under an explicit fresh-run contract, and supplies the
 native-required dialogue distance with telemetry explicitly disabled. Original
 asset checks remain strict; old failed observations remain failed. The next
-runtime task is successful config registration and typed disabled-control
-readback before MCP discovery or provider-routing inspection.
+runtime task was successful config registration and typed disabled-control
+readback before MCP discovery or provider-routing inspection. The fifth run
+now passes that readback: 29 typed checks across 13 categories, seven pinned
+native DLLs, and exact game-owned loopback listeners. The game reached its
+main menu. Its routing audit still finds native defaults and unresolved routes.
+MCP discovery now passes with 56 tools after a pinned SSE-header compatibility
+fix; one guarded `get_plugins` call confirms all five expected profile plugins.
+Keep generation disabled while routing is diagnosed. These observations do not
+establish a world-loaded or playback result with SkyrimNet.
+
+The [pinned native routing findings](se-lab-native-routing-findings.md) explain
+why a custom-only provider catalog expands and an omitted decisions variant
+returns. They preserve the explicit loopback seed proposal and unresolved
+serializer/null behavior for the next isolated checkpoint. No candidate has
+been applied, and no provider request is authorized by that proposal.
+The [startup model investigation](se-lab-native-model-initialization.md) records
+unconditional embedding/VAD verification and an exact-hash local reuse path.
+It cannot turn disabled AI settings into a general no-egress guarantee.
 
 A separate [read-only native/config smoke collector](se-lab-skyrimnet-smoke.md)
-has passed 24 synthetic tests and independent review. It requires the exact
+has passed 29 synthetic tests and independent review. It requires the exact
 attributed live game, pinned native module paths/hashes and owned loopback
 listeners before fixed config GETs. It records only typed comparisons for the
-disabled controls. No live endpoint has been contacted yet; these tests do not
-establish effective native settings or zero network egress.
+disabled controls. Its first live capture passes all requested comparisons;
+this establishes those effective settings, not zero network egress.
 
 A [bounded MCP discovery client](se-lab-mcp-discovery.md) adds protocol
 initialization and tool inventory after a successful exact-run smoke capture.
-Its 29 synthetic tests and independent review pass; it cannot invoke tools.
+Its synthetic tests and independent review pass; it cannot invoke tools.
+A separate [fixed plugin query](se-lab-mcp-plugins.md) has passed its first live
+inspection. The combined discovery/query suite passes 68 tests independently.
 The separate [provider-routing collector](se-lab-skyrimnet-routing.md) reads only
 four fixed configuration/schema routes after that successful smoke capture.
 Its 27 synthetic tests cover explicit credential observation, all configured
 provider/variant/slot branches, skipped coverage and deadline limits. The three
-observation suites pass together (80 tests), with independent review. Sparse or
+observation suites have passed with independent review. Sparse or
 ambiguous configuration remains incomplete; no fake-provider diagnostic or
 native fallback/zero-egress conclusion follows merely from these readbacks.
 

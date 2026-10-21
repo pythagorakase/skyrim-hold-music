@@ -196,7 +196,8 @@ assertions as a passing scenario. See the
 
 A [separate SkyrimNet lab preparation tool](se-lab-skyrimnet.md) now describes
 the pinned dependency payload and verifies an isolated instance's disabled,
-credential-free first-boot state. A separate reviewed install command can now
+credential-free seed files. Native acceptance is checked separately. A reviewed
+install command can now
 publish that exact payload into a new independent MO2 directory, with retained
 interruption evidence and explicit recovery. A separately reviewed one-shot
 launcher requires three accepted baseline captures and records exact process
@@ -221,26 +222,39 @@ The next seed also supplies the profile's required empty `SkyrimCustom.ini`
 and the pinned shipped Skyrim INI defaults; these avoid a source-confirmed MO2
 repair dialog and preserve the known baseline's vendor startup settings.
 The fourth isolated launch reached Skyrim, with all seven expected native plugins
-reported loaded in the fresh SKSE log. Effective SkyrimNet configuration remains
-unverified: its loader rejected the omitted mandatory dialogue-distance field,
+reported loaded in the fresh SKSE log. That run's effective SkyrimNet configuration
+was unverified: its loader rejected the omitted mandatory dialogue-distance field,
 preventing later config registration. Native automatic model downloads and
 telemetry were observed, despite no requests from our inspection tooling. The
-next seed supplies the required field and disables both telemetry switches;
-fresh native readback is required. Launch observation and exact PrismaUI cache
-accounting are also being corrected. Failed evidence remains retained, and no
+corrected seed supplies the required field and disables both telemetry switches.
+The fifth run is positively attributed and passes all 29 typed readback checks
+across 13 categories, with seven pinned native module paths/hashes and owned
+loopback listeners. Original assets remain unchanged; the explicitly permitted
+PrismaUI cache is observed separately. Failed evidence remains retained, and no
 musical recipes or listening decisions change.
 
 The separate [native/config smoke collector](se-lab-skyrimnet-smoke.md) adds
 bounded, read-only GET checks after exact process, module and listener
-attribution. Its 24 synthetic tests pass; a real settings readback remains
-pending. It does not enable AI, generate content or export raw settings.
-The [MCP discovery client](se-lab-mcp-discovery.md) separately passes 29 synthetic
+attribution. Its 29 synthetic tests and first real settings readback pass.
+It does not enable AI, generate content or export raw settings.
+The [MCP discovery client](se-lab-mcp-discovery.md) separately passes synthetic
 tests and independent review. It requires that successful same-run smoke result
 and permits only initialization and tool inventory, with no tool execution.
 The [routing inspector](se-lab-skyrimnet-routing.md) adds four fixed read-only
-configuration/schema GETs and 27 synthetic tests. All 80 observation tests pass
-independent review. Explicit missing credentials, ambiguous inheritance and
+configuration/schema GETs and 27 synthetic tests. Its first live audit remains
+incomplete because native defaults add provider/variant/slot routes. MCP discovery
+now passes with 56 tools after a pinned transport fix, and one [guarded plugin
+query](se-lab-mcp-plugins.md) confirms all five expected profile plugins. This
+remains main-menu evidence. Generation stays disabled while routing is diagnosed.
+Explicit missing credentials, ambiguous inheritance and
 skipped provider/slot branches remain incomplete, without enabling diagnostics.
+The [native routing investigation](se-lab-native-routing-findings.md) records
+the source-pinned reinsertion rules and an unapplied loopback-only candidate.
+MCP transport diagnostics identify duplicate identical Content-Type headers
+from this build's SSE handler; the narrowly scoped compatibility change passes
+live discovery and the combined 68-case fake suite. The [startup model audit](se-lab-native-model-initialization.md)
+separately explains why disabled AI does not suppress every model check.
+These findings do not change musical recipes or require listening validation.
 
 Runtime receipts can inherit Papyrus string casing (`Sven` versus authored
 `sven`). The history adapter resolves only unambiguous source spellings within
