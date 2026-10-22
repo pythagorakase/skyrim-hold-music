@@ -5,6 +5,15 @@ gate engineering progress. Current recipes are provisional, versioned inputs.
 Listening confidence, technical readiness and runtime evidence are separate
 records; none is inferred from another.
 
+**22 October update: SkyrimNet beta 28 is installed in the VR experimental
+profile.** RC5's delay no longer gates the SkyrimNet upgrade. The clean package,
+preserved custom layers and effective disabled bard switch passed the MO2 VFS
+check; first game load, database migration and add-on runtime compatibility remain
+pending. See the [upgrade and rollback record](skyrimnet-beta28-upgrade-2026-10-22.md).
+The isolated SE lab's beta26-rc4 pins and evidence remain version-specific. New
+package ownership APIs are a candidate for later controller coordination, with
+the native bard master switch retained until audio/scheduler exclusion is proved.
+
 **20 October update: isolated SE engine testing is authorized.** Build and use
 the [Skyrim SE lab](se-testing-lab.md) as the next runtime milestone. Its own
 physical copy of the installed 1.6.1170 game, portable MO2 instance, local saves,

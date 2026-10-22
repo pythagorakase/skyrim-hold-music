@@ -1,5 +1,12 @@
 # Hold Music migration to MGO RC5 and SkyrimNet beta 27
 
+**22 October 2026 update:** RC5 is delayed and the user authorized upgrading
+SkyrimNet independently to beta 28. It is now installed in the existing RC4.1
+experimental profile and verified through MO2's VFS, with first game load still
+pending. See the [beta 28 upgrade record](skyrimnet-beta28-upgrade-2026-10-22.md).
+This supersedes the coordinated upgrade timing below; preserve the ownership,
+backup, rollback and runtime acceptance requirements as the future RC5 plan.
+
 **Planning baseline: 15 October 2026.** Upgrade SkyrimNet together with MGO
 4.0 RC5 when RC5 is available, as requested. RC5's imminent arrival is the
 user's expectation; its final contents, destination and save compatibility

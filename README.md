@@ -6,7 +6,7 @@ The active workshop contains **eleven provisional regional styles**: the nine Sk
 
 The [knowledge bridge](docs/knowledge-bridge.md) supports private actor-scoped snapshots and [bounded lyrical library preparation](docs/executor.md).
 
-The [development roadmap](docs/development-roadmap.md) separates continuing engineering from optional listening work. The owned controller's [15 October crash workaround](docs/sven-crash-2026-10-15.md) is installed on HALCYON; successful playback and interruption after that fix still need a short in-game check. The [RC5 / SkyrimNet migration plan](docs/stack-migration-rc5-beta27.md) describes the next stack target and does not block portable development.
+The [development roadmap](docs/development-roadmap.md) separates continuing engineering from optional listening work. The owned controller's [15 October crash workaround](docs/sven-crash-2026-10-15.md) is installed on HALCYON; successful VR playback and interruption after that fix still need a short in-game check. [SkyrimNet beta 28](docs/skyrimnet-beta28-upgrade-2026-10-22.md) is installed and VFS-verified in the existing RC4.1 experimental profile, with first game load pending. RC5 remains a future migration; its delay does not gate this upgrade or portable development.
 
 See [runtime evidence](docs/evidence.md) for MO2 receipts and trace storage and the redacted evidence collector.
 
