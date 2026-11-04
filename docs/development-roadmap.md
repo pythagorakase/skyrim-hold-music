@@ -13,6 +13,13 @@ produced. Next capture the runtime registry property, row and owner classificati
 before changing ownership or repeating the headset pilot. The user's successful
 audio/animation interruption is recorded without attributing it to our controller.
 
+**Closed-session checkpoint:** Save311 structurally preserves the expected
+library paths and controller binding. The [four-file ownership diagnostic](ownership-diagnostic-2026-11-03.md)
+is now compiled, tested, installed and VFS-verified against the frozen legacy VR
+baseline, with saves/audio/registry and native-bard exclusion preserved. One
+fresh candidate check is the next bounded runtime task. The broader current
+SE controller remains separate; the diagnostic does not establish a causal fix.
+
 **22 October update: SkyrimNet beta 28 is installed in the VR experimental
 profile.** RC5's delay no longer gates the SkyrimNet upgrade. The clean package,
 preserved custom layers and effective disabled bard switch passed the MO2 VFS

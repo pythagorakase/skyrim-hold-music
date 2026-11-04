@@ -176,7 +176,10 @@ class ControllerTests(unittest.TestCase):
         for entry in entries:
             self.assertIn(entry['event'], TRACE_EVENTS)
             self.assertEqual(set(entry), {'seq', 'real_seconds', 'game_hours', 'event', 'detail'})
-        return [e['detail'] for e in entries if event is None or e['event'] == event]
+        # Existing admission/lifecycle assertions retain their core detail
+        # contract. Dedicated diagnostic tests inspect the untrimmed suffix.
+        return [e['detail'].split(' diag_v=1 ', 1)[0]
+                for e in entries if event is None or e['event'] == event]
 
     def test_owner_gate_and_continue_to_owned_candidate(self):
         v=VM(); v.files['../HoldMusic/registry.json']['performers'][0]['owner']='skyrimnet'

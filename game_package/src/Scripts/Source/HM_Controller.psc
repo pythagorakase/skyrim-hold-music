@@ -436,6 +436,7 @@ Function UpdateOwned(Int expectedEpoch)
                 matched += 1
                 String owner = Library.Owner(id)
                 Bool ours = owner == "hold_music"
+                String ownerDiagnostic = Library.OwnershipDiagnostic(id, owner)
                 If !ours
                     owner = "skyrimnet"
                 EndIf
@@ -449,7 +450,7 @@ Function UpdateOwned(Int expectedEpoch)
                 If traceRegion == ""
                     traceRegion = "none"
                 EndIf
-                Library.Trace("candidate", "id=" + id + " owner=" + owner + " eligible=" + BoolText(allowed) + " region=" + traceRegion + " cooled=" + BoolText(cooled))
+                Library.Trace("candidate", "id=" + id + " owner=" + owner + " eligible=" + BoolText(allowed) + " region=" + traceRegion + " cooled=" + BoolText(cooled) + " " + ownerDiagnostic)
                 If !WorkAllowed(expectedEpoch)
                     Return
                 EndIf

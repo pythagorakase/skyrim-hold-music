@@ -71,3 +71,33 @@ trace/receipt copies and `session-summary.json` with the user's observations.
 It is a live read-only capture, not an atomic snapshot of a closed save. The
 source log is the selected profile's `experimental-documents/SKSE/SkyrimNet.log`.
 No running-game configuration or installed scripts were changed during review.
+
+## Closed-session follow-up
+
+After normal game exit, a second bundle at
+`local/evidence/20261103-sven-closed-001/` retained the final eight-entry trace,
+empty receipt history, filtered logs and a private hash-verified snapshot of
+the three latest manual ESS/SKSE pairs and relevant logs (13 files,
+63,814,335 bytes). The added trace entry is inn exit; no owned performance
+start or stop appeared. Raw dialogue and prompt captures remain local.
+
+The bundled ReSaver 6.0.467 parser structurally inspected a copy of Save311.
+Its one `HM_Library` instance has the expected saved `RegistryFile`,
+`LibraryFile`, `ReceiptsFile` and `TraceFile` values, and the saved
+`HM_Controller.Library` reference points to that instance. Both serialized
+instances match their script variable descriptors. Original save/cosave hashes
+were verified unchanged. This rules against stale saved paths or a wrong saved
+library reference in Save311, without proving the earlier native JSON cache or
+physical file opened during the failed candidate call.
+
+The saved-property report is
+`local/checks/sven-saved-properties-20261103/inspection-report.json`, SHA256
+`3afd240adfb1e1a462d149b82d0d1ca943f51d3bd7251d9f96a22285770272d6`.
+The next diagnostic retains the ownership gate and captures the already-read
+owner's classification, registry-property classification/length, matched row
+and JSON owner-member type. Arbitrary paths/owner values are not logged.
+
+The [diagnostic deployment](ownership-diagnostic-2026-11-03.md) is now installed
+and VFS-verified for a future run. It changes only four files from this run's
+legacy baseline; the ownership gate is unchanged and runtime evidence remains
+pending. Do not mistake the diagnostic for an ownership or playback fix.

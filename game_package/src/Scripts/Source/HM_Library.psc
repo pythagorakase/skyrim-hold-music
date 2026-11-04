@@ -60,6 +60,62 @@ String Function Owner(String performerId)
     Return ""
 EndFunction
 
+; Read-only evidence for an ownership gate. Do not reload the JSON, repair the
+; property, log arbitrary paths/values, or turn an unknown owner into permission.
+; rawOwner is the exact value already read for the admission comparison.
+String Function OwnershipDiagnostic(String performerId, String rawOwner)
+    String registryState = "other"
+    If RegistryFile == "../HoldMusic/registry.json"
+        registryState = "expected"
+    ElseIf RegistryFile == ""
+        registryState = "empty"
+    EndIf
+    String ownerClass = "unknown"
+    If rawOwner == "hold_music"
+        ownerClass = "hold_music"
+    ElseIf rawOwner == "skyrimnet"
+        ownerClass = "skyrimnet"
+    ElseIf rawOwner == ""
+        ownerClass = "empty"
+    EndIf
+    Int rows = JsonUtil.PathCount(RegistryFile, ".performers")
+    Int limit = rows
+    If limit > 512
+        limit = 512
+    EndIf
+    Int row = -1
+    Int i = 0
+    While i < limit && row < 0
+        If JsonUtil.GetPathStringValue(RegistryFile, ".performers[" + i + "].id", "") == performerId
+            row = i
+        EndIf
+        i += 1
+    EndWhile
+    String ownerType = "no_row"
+    If row >= 0
+        String path = ".performers[" + row + "]"
+        ownerType = "missing"
+        If JsonUtil.PathMembers(RegistryFile, path).Find("owner") >= 0
+            path += ".owner"
+            ; A present key with no resolved native type can also be a
+            ; case/path lookup failure; do not claim it is definitely JSON null.
+            ownerType = "null_or_unresolved"
+            If JsonUtil.IsPathString(RegistryFile, path)
+                ownerType = "string"
+            ElseIf JsonUtil.IsPathBool(RegistryFile, path)
+                ownerType = "bool"
+            ElseIf JsonUtil.IsPathNumber(RegistryFile, path)
+                ownerType = "number"
+            ElseIf JsonUtil.IsPathArray(RegistryFile, path)
+                ownerType = "array"
+            ElseIf JsonUtil.IsPathObject(RegistryFile, path)
+                ownerType = "object"
+            EndIf
+        EndIf
+    EndIf
+    Return "diag_v=1 diag_registry=" + registryState + " diag_registry_bytes=" + StringUtil.GetLength(RegistryFile) + " diag_row=" + row + " diag_rows=" + rows + " diag_owner_type=" + ownerType + " diag_owner_class=" + ownerClass
+EndFunction
+
 String Function Region(String performerId)
     Int i = 0
     While i < JsonUtil.PathCount(RegistryFile, ".performers")

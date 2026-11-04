@@ -37,6 +37,36 @@ The event names are:
 `id=sven owner=hold_music eligible=true` or `outcome=completed slot=3`.
 Never put dialogue or free text from the game in this field.
 
+### Versioned ownership diagnostic
+
+The prepared November diagnostic appends `diag_v=1` fields to an existing
+`candidate` detail; the event name and five top-level trace keys are unchanged.
+The ownership gate and existing core detail retain their previous behavior.
+In the legacy controller, `owner=skyrimnet` is a fallback label for every failed
+ownership comparison, including a missing or unknown owner. Use the diagnostic
+fields to distinguish those cases rather than attributing that label literally.
+
+- `diag_registry`: `expected`, `empty` or `other`, comparing the saved
+  `RegistryFile` property with `../HoldMusic/registry.json` using Papyrus string
+  semantics. `diag_registry_bytes` records native `StringUtil.GetLength`.
+  Arbitrary property paths are not logged.
+- `diag_row`: first matching performer-ID row, or `-1`; `diag_rows` records the
+  native array count. The diagnostic searches at most 512 rows, so `-1` is
+  inconclusive when the roster exceeds that limit.
+- `diag_owner_type`: `no_row`, `missing`, `string`, `bool`, `number`, `array`,
+  `object` or `null_or_unresolved`. The last value means a member was observed
+  but native path-type checks did not resolve it; it does not prove JSON null.
+- `diag_owner_class`: `hold_music`, `skyrimnet`, `empty` or `unknown`, classifying
+  the exact value already used by the admission check before trace normalization.
+  Unknown owner contents are not logged.
+
+The helper does not reload, repair, save or change the registry. It is diagnostic
+evidence about one native read, not proof of the physical VFS destination, exact
+case-sensitive JSON key bytes, or permission to perform. Case-insensitive native
+string interning remains relevant to interpretation. The VR candidate is a
+surgical patch of the retained installed baseline; the broader current-source
+build remains a separate offline artifact until deliberately promoted.
+
 ## MO2 storage
 
 PapyrusUtil's JsonUtil writes both files under the virtual game directory
