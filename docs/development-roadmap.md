@@ -5,6 +5,14 @@ gate engineering progress. Current recipes are provisional, versioned inputs.
 Listening confidence, technical readiness and runtime evidence are separate
 records; none is inferred from another.
 
+**3 November VR evidence:** the [Sven session](sven-session-2026-11-03.md) on
+SkyrimNet beta29.1-rc2 confirms startup, migrations and progress beyond the old
+candidate-scan crash. Hold Music skipped Sven at its ownership gate despite the
+installed registry assigning him to Hold Music. No owned start/stop receipt was
+produced. Next capture the runtime registry property, row and owner classification
+before changing ownership or repeating the headset pilot. The user's successful
+audio/animation interruption is recorded without attributing it to our controller.
+
 **22 October update: SkyrimNet beta 28 is installed in the VR experimental
 profile.** RC5's delay no longer gates the SkyrimNet upgrade. The clean package,
 preserved custom layers and effective disabled bard switch passed the MO2 VFS

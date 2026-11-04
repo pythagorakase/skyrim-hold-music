@@ -1,5 +1,11 @@
 # In-game test plan: Hold Music at the Bannered Mare
 
+**3 November 2026 result:** the [latest Sven session](sven-session-2026-11-03.md)
+progressed beyond the previous scan crash but failed the ownership gate. The
+heard performance stopped on dialogue, including its animation, but no Hold
+Music start or receipt exists. Prepare the ownership-read diagnostic before
+repeating the owned pilot. The actual runtime was SkyrimNet beta29.1-rc2.
+
 **Migration update (15 October 2026):** the procedures below describe RC4.1
 tests and recorded outcomes. For MGO RC5 with SkyrimNet beta 27, use the
 [migration validation sequence](stack-migration-rc5-beta27.md#validation-on-the-new-stack).
