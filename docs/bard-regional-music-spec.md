@@ -151,6 +151,30 @@ The bard enable switch is not a lyrics-only mode: installed disabled-feature mes
 
 ## Repertoire Logic and Offline Preparation
 
+### Existing vanilla songs: proposed policy, 4 November 2026
+
+Named songs such as *Ragnar the Red* do not yet have an agreed or implemented
+catalog policy. The proposed direction is to retain them as familiar traditional
+standards alongside topical originals, keeping their authored words and original
+performances available. Existing vanilla suppression is an overlap safeguard
+during Hold Music playback, not a decision to remove that repertoire.
+
+Original renditions need an explicit playback handoff that respects their
+dialogue, faction and quest conditions. An authored vanilla song scene must not
+be treated as an interchangeable single WAV slot. Preserve protected vanilla/mod
+quest performances and separately coordinate Skyrim's Got Talent duets.
+
+Later regional arrangements could retain the same recognizable song identity
+and words while changing delivery/instrumentation. These would be deliberate,
+reusable prepared recordings, with no new lyric call on each request. Cross-region
+renditions need a parent song identity or an explicit contract migration: the
+current library rejects one composition ID with conflicting regions. This is
+future design work, not an implemented exception to recording eligibility.
+BA Bard Songs' inspected instrumental replacements do not establish replacement
+of named vanilla vocal performances.
+
+### Current planner
+
 The decision engine in `hold_music/repertoire.py` plans from an explicit snapshot of a bard's knowledge, known compositions and compatible recordings. The authored performer registry, durable recording library, read-only offline knowledge bridge and bounded generation executor are also implemented. The executor supports instrumental, Winterhold wordless and actor-scoped lyrical preparation; its current recipes are the Nord regional pilot, not the full cultural workshop palette. Live scheduling and independent game playback remain integration work. See [repertoire logic and runnable examples](repertoire-logic.md), [library format](library-format.md), [knowledge bridge](knowledge-bridge.md) and [executor](executor.md).
 
 **Offline engineering checkpoint, 2026-10-20:** the executor now retains dispatch state, paid responses and accounting in a private journal, with explicit provider-free recovery of saved audio. Reviewed continuation can authorize the first music request from retained lyrics using the frozen recipe, original knowledge scope and a token tied to the reviewed state and budget. Separate operator reconciliation can close one uncertain call without resending it or erasing its evidence. Malformed returned results remain retained and blocking. These operations require explicit action; offline tests use fake providers.
