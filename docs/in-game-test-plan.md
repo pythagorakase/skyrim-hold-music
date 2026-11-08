@@ -1,5 +1,11 @@
 # In-game test plan: Hold Music at the Bannered Mare
 
+**8 November baseline:** the [experimental profile now uses SkyrimNet 1.0](skyrimnet-1.0-upgrade-2026-11-08.md).
+For the next VR run, verify startup with one normal NPC exchange, then collect
+one Sven candidate check using the installed ownership diagnostic. Keep native
+Bard Singing disabled. The original-song check in the
+[vanilla standards note](vanilla-standards-integration.md) is a separate test.
+
 **3 November 2026 result:** the [latest Sven session](sven-session-2026-11-03.md)
 progressed beyond the previous scan crash but failed the ownership gate. The
 heard performance stopped on dialogue, including its animation, but no Hold

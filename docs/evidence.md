@@ -119,8 +119,10 @@ It also includes:
 
 SkyrimNet's only allowed matching patterns are `BardSinging`, `Hold Music`,
 `HoldMusic`, `Generation check`, `Playing '`, `Playback started`, and
-`Starting song generation`. Lines marked as dialogue or memory are excluded
-even if they match. No dialogue or memory text belongs in the report.
+`Starting song generation`, plus the 1.0 action IDs `PLAYBARDSONG`,
+`COMPOSEBARDSONG` and `STOPBARDSONG` and the legacy `REQUESTBARDSONG` ID.
+Lines marked as dialogue or memory are excluded even if they match. An action
+mention alone does not establish execution or playback.
 
 ## Read-only performance preflight
 

@@ -5,6 +5,14 @@ gate engineering progress. Current recipes are provisional, versioned inputs.
 Listening confidence, technical readiness and runtime evidence are separate
 records; none is inferred from another.
 
+**8 November development target:** [SkyrimNet 1.0](skyrimnet-1.0-upgrade-2026-11-08.md)
+(`v1.0.0-rc1`) is installed and VFS-verified in the existing experimental VR
+profile. The first game load and Sven ownership diagnostic remain pending. The
+user accepted keeping vanilla standards alongside new repertoire; the first
+[original-song integration case](vanilla-standards-integration.md) is *Ragnar the Red*.
+Use 1.0's separate bard action IDs in future evidence, with native bards still
+disabled for the owned pilot. Historical SE lab results remain version-specific.
+
 **3 November VR evidence:** the [Sven session](sven-session-2026-11-03.md) on
 SkyrimNet beta29.1-rc2 confirms startup, migrations and progress beyond the old
 candidate-scan crash. Hold Music skipped Sven at its ownership gate despite the
@@ -20,8 +28,8 @@ baseline, with saves/audio/registry and native-bard exclusion preserved. One
 fresh candidate check is the next bounded runtime task. The broader current
 SE controller remains separate; the diagnostic does not establish a causal fix.
 
-**22 October update: SkyrimNet beta 28 is installed in the VR experimental
-profile.** RC5's delay no longer gates the SkyrimNet upgrade. The clean package,
+**22 October checkpoint: SkyrimNet beta 28 was installed in the VR experimental
+profile.** RC5's delay no longer gated the SkyrimNet upgrade. The clean package,
 preserved custom layers and effective disabled bard switch passed the MO2 VFS
 check; first game load, database migration and add-on runtime compatibility remain
 pending. See the [upgrade and rollback record](skyrimnet-beta28-upgrade-2026-10-22.md).

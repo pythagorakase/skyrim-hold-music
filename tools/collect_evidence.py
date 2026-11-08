@@ -17,7 +17,10 @@ if str(ROOT) not in sys.path:
 from hold_music.runtime_paths import DEFAULT_MOD_NAME, locate, storage_dirs
 
 REDACT = re.compile(r'key|token|secret|bearer|password', re.I)
-SKYRIMNET = re.compile(r"BardSinging|Hold Music|HoldMusic|Generation check|Playing '|Playback started|Starting song generation")
+SKYRIMNET = re.compile(
+    r"BardSinging|Hold Music|HoldMusic|Generation check|Playing '|Playback started|Starting song generation"
+    r"|(?i:\b(?:REQUEST|PLAY|COMPOSE|STOP)BARDSONG\b)"
+)
 PRIVATE = re.compile(r'dialogue|memor(?:y|ies)', re.I)
 TIMESTAMP = re.compile(
     r'\b(?:\d{4}-\d{2}-\d{2}[T ]|\d{2}/\d{2}/\d{4} - )?'

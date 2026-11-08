@@ -1,5 +1,10 @@
 # Hold Music migration to MGO RC5 and SkyrimNet beta 27
 
+**8 November 2026 update:** the user chose [SkyrimNet 1.0](skyrimnet-1.0-upgrade-2026-11-08.md)
+as the development baseline. It is installed and VFS-verified on RC4.1, with
+runtime validation pending. The eventual MGO migration still needs its own
+save, dependency and ownership verification against the released stack.
+
 **22 October 2026 update:** RC5 is delayed and the user authorized upgrading
 SkyrimNet independently to beta 28. It is now installed in the existing RC4.1
 experimental profile and verified through MO2's VFS, with first game load still

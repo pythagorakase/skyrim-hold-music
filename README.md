@@ -10,6 +10,11 @@ The [development roadmap](docs/development-roadmap.md) separates continuing engi
 
 See [runtime evidence](docs/evidence.md) for MO2 receipts and trace storage and the redacted evidence collector.
 
+The [SkyrimNet 1.0 baseline](docs/skyrimnet-1.0-upgrade-2026-11-08.md) is installed
+and VFS-verified on the experimental VR profile, with first game load pending.
+The accepted [vanilla standards policy](docs/vanilla-standards-integration.md)
+starts with preserving the original *Ragnar the Red* request and performance.
+
 ## Run the Music Workshop
 
 The workshop opens on **Blind Auditions**, an open-ended listen-and-judge loop. Choose **Clip** or **Full**, then press **Play**. Listen until playback ends, choose the intended style or **I'm Not Sure**, and press **Play** again when ready for another recording. After playback ends, choose from **three styles: the intended style and two distractors**, or **I'm Not Sure**. The three choices are shuffled and saved for that question, so reloading cannot change them. Each choice has a concise musical description available by pointer hover or keyboard focus. The intended style, exact prompt, instrument and listening cue stay hidden until your answer is saved. There is no fixed session length.

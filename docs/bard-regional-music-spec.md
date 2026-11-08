@@ -124,6 +124,7 @@ The rímur-only Eastmarch and iorram-inspired Pale candidates were adopted into 
 - On 22 October the user authorized SkyrimNet beta 28 independently of delayed MGO RC5. It was installed and VFS-verified in the existing RC4.1 experimental profile; see the historical [upgrade and rollback record](skyrimnet-beta28-upgrade-2026-10-22.md). The later November session below supersedes that installed-version baseline. Native bards remain disabled for Hold Music ownership. The [future RC5 migration plan](stack-migration-rc5-beta27.md) retains its ownership and runtime acceptance requirements. Neither migration nor palette listening blocks portable engineering.
 - The [3 November VR session](sven-session-2026-11-03.md) used the independently installed SkyrimNet beta29.1-rc2 and confirmed startup/migrations with native bards disabled. Hold Music's Sven scan progressed beyond the old crash but failed its ownership gate; no owned start or receipt exists. The player confirmed audio and animation stopped on dialogue for the heard performance, whose source remains unconfirmed. Capture the runtime ownership read before repeating the pilot; preserve the fail-closed gate.
 - The [3 November ownership diagnostic](ownership-diagnostic-2026-11-03.md) is installed and VFS-verified for the next pilot. A structural inspection of Save311 confirmed correct saved library paths and controller binding. The diagnostic adds bounded trace classifications without changing ownership permission, persistent properties or the existing legacy lifecycle. It has compiled test evidence but awaits a headset observation.
+- The current VR development target is [SkyrimNet 1.0](skyrimnet-1.0-upgrade-2026-11-08.md), exact tag `v1.0.0-rc1`, installed and VFS-verified on 8 November with the ownership diagnostic retained. Native Bard Singing remains disabled for the owned pilot. First game load and the fresh ownership trace are pending; historical SE lab pins remain version-specific.
 
 ## Target Architecture: Hold Music Owns Performances
 
@@ -151,18 +152,20 @@ The bard enable switch is not a lyrics-only mode: installed disabled-feature mes
 
 ## Repertoire Logic and Offline Preparation
 
-### Existing vanilla songs: proposed policy, 4 November 2026
+### Existing vanilla songs: agreed policy, 8 November 2026
 
-Named songs such as *Ragnar the Red* do not yet have an agreed or implemented
-catalog policy. The proposed direction is to retain them as familiar traditional
-standards alongside topical originals, keeping their authored words and original
-performances available. Existing vanilla suppression is an overlap safeguard
-during Hold Music playback, not a decision to remove that repertoire.
+The user accepted the 4 November proposal: retain named songs such as *Ragnar
+the Red* as familiar traditional standards alongside topical originals, keeping
+their authored words and original performances available. Existing vanilla
+suppression is an overlap safeguard during Hold Music playback. The catalog
+and handoff still need implementation.
 
 Original renditions need an explicit playback handoff that respects their
 dialogue, faction and quest conditions. An authored vanilla song scene must not
 be treated as an interchangeable single WAV slot. Preserve protected vanilla/mod
 quest performances and separately coordinate Skyrim's Got Talent duets.
+The [first standards integration case](vanilla-standards-integration.md) maps
+Ragnar's original request and scene conditions on the installed stack.
 
 Later regional arrangements could retain the same recognizable song identity
 and words while changing delivery/instrumentation. These would be deliberate,
